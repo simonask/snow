@@ -25,6 +25,8 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	scanner.h \
 	snow.c \
 	snow.h \
+	string.c \
+	string.h \
 	symbol.c \
 	symbol.h \
 	value.h
