@@ -10,11 +10,7 @@ SnLinkBuffer* snow_create_linkbuffer(uintx page_size) {
 }
 
 void snow_free_linkbuffer(SnLinkBuffer* buf) {
-	SnLinkBufferPage* page = buf->head;
-	while (page) {
-		free(page);
-		page = page->next;
-	}
+	snow_linkbuffer_clear(buf);
 	free(buf);
 }
 
@@ -47,5 +43,21 @@ uintx snow_linkbuffer_push(SnLinkBuffer* buf, byte b) {
 	return 1;
 }
 
+uintx snow_linkbuffer_push_string(SnLinkBuffer* buf, const char* c) {
+	uintx n = 0;
+	while (*c) {
+		n += snow_linkbuffer_push(buf, *c++);
+	}
+	return n;
+}
+
 uintx snow_linkbuffer_copy_data(SnLinkBuffer*, void* dst, uintx n);
 uintx snow_linkbuffer_modify(SnLinkBuffer*, uintx offset, uintx len, byte* new_data);
+
+void snow_linkbuffer_clear(SnLinkBuffer* buf) {
+	SnLinkBufferPage* page = buf->head;
+	while (page) {
+		free(page);
+		page = page->next;
+	}
+}
