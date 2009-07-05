@@ -1,0 +1,2 @@
+SUBDIRS = snow
+AUTOMAKE_OPTIONS = foreign
