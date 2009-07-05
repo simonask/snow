@@ -36,12 +36,16 @@ enum SnValueType {
 	kTypeMask = 0xf
 };
 
+#define SN_NIL ((VALUE)kNil)
+#define SN_TRUE ((VALUE)kTrue)
+#define SN_FALSE ((VALUE)kFalse)
+
 #ifdef ARCH_IS_64_BIT
 // Inline immediate floats -- only in 64-bit land.
 // See Float.cpp for 32-bit implementations.
 static inline bool is_float(VALUE val) { return ((intx)val & kTypeMask) == kFloatType; }
-static inline VALUE value(float f) { return (VALUE)(((uintx)*((uint32_t*)&f) << 16) | kFloatType); }
-static inline float floatnum(VALUE val) { uint32_t d = (uint32_t)((uintx)val >> 16); return *(float*)(&d); }
+static inline VALUE float_to_value(float f) { return (VALUE)(((uintx)*((uint32_t*)&f) << 16) | kFloatType); }
+static inline float value_to_float(VALUE val) { uint32_t d = (uint32_t)((uintx)val >> 16); return *(float*)(&d); }
 #endif
 
 static inline bool is_integer(VALUE val) { return (intx)val & 0x1; }
