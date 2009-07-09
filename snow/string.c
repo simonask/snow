@@ -1,4 +1,5 @@
 #include "snow/string.h"
+#include "snow/gc.h"
 #include <string.h>
 
 SnString* snow_create_string(const char* cstr)
