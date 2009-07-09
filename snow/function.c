@@ -1,30 +1,18 @@
 #include "snow/function.h"
 #include "snow/intern.h"
 
-SnFunction* snow_create_native_function(SnNativeFunction func)
+SnFunction* snow_create_function(SnContinuationFunc func)
 {
-	SnFunction* f = (SnFunction*)snow_alloc_any_object(SN_NATIVE_FUNCTION_TYPE, sizeof(SnFunction));
-	f->native = func;
+	SnFunction* f = (SnFunction*)snow_alloc_any_object(SN_FUNCTION_TYPE, sizeof(SnFunction));
+	f->func = func;
 	return f;
-}
-
-SnFunction* snow_create_snow_function(SnSnowFunction func)
-{
-	
 }
 
 VALUE snow_function_call(SnFunction* func, VALUE self, uintx num_args, VALUE* args)
 {
-	switch (func->base.type)
-	{
-		case SN_NATIVE_FUNCTION_TYPE:
-			return func->native(self, num_args, args);
-		case SN_SNOW_FUNCTION_TYPE:
-			ASSERT(false);
-			break;
-		default:
-			ASSERT(false && "Wrong type for function.");
-			break;
-	}
-	return kNil;
+	SnContinuation* cont = snow_create_continuation(func->func);
+	snow_continuation_set_self(cont, self);
+	snow_continuation_set_arguments(cont, num_args, args);
+	SnContinuation* cc = snow_get_current_continuation();
+	return snow_continuation_call(cont, cc);
 }

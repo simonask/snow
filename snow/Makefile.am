@@ -1,7 +1,7 @@
 lib_LTLIBRARIES = libsnow.la
 
 if ARCH_x86_64
-SOURCES_x86_64 = codegen-x86_64.c asm-x86_64.h
+SOURCES_x86_64 = codegen-x86_64.c asm-x86_64.h continuation-intern-x86_64.c
 endif
 
 libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
@@ -11,6 +11,9 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	ast.h \
 	basic.h \
 	codegen.h \
+	continuation.h \
+	continuation-intern.h \
+	continuation.c \
 	function.c \
 	function.h \
 	gc.c \

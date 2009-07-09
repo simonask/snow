@@ -8,11 +8,11 @@
 typedef enum SnObjectType
 {
 	SN_OBJECT_TYPE,
+	SN_CONTINUATION_TYPE,
+	SN_FUNCTION_TYPE,
 	SN_STRING_TYPE,
 	SN_ARRAY_TYPE,
 	SN_MAP_TYPE,
-	SN_SNOW_FUNCTION_TYPE,
-	SN_NATIVE_FUNCTION_TYPE,
 	SN_PROPERTY_MAP,
 	SN_WRAPPER_TYPE,
 	SN_CODEGEN_TYPE,
@@ -26,10 +26,7 @@ typedef struct SnObjectBase
 
 typedef struct SnObject
 {
-	union {
-		SnObjectBase base;
-		SnObjectType type;
-	};
+	SnObjectBase base;
 	
 	struct SnObject* prototype;
 	void* members;

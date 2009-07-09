@@ -11,6 +11,8 @@
 #define CAPI 
 #endif
 
+#define NOINLINE __attribute__((noinline))
+
 
 #ifdef ARCH_x86_64
 #define ARCH_IS_64_BIT 1
