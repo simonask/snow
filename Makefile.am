@@ -1,2 +1,2 @@
-SUBDIRS = snow
+SUBDIRS = snow test
 AUTOMAKE_OPTIONS = foreign
