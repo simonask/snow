@@ -5,6 +5,8 @@
 #include "snow/intern.h"
 #include "snow/function.h"
 
+#include <stdarg.h>
+
 static SnObject* find_object_prototype(VALUE);
 static SnObject* find_immediate_prototype(VALUE);
 
@@ -13,6 +15,16 @@ void snow_init()
 	void* stack_top;
 	GET_BASE_PTR(stack_top);
 	snow_gc_stack_top(stack_top);
+	snow_init_current_continuation();
+}
+
+VALUE snow_call(VALUE self, VALUE closure, uintx num_args, ...)
+{
+	va_list ap;
+	va_start(ap, num_args);
+	VALUE ret = snow_call_va(self, closure, num_args, &ap);
+	va_end(ap);
+	return ret;
 }
 
 VALUE snow_call_va(VALUE self, VALUE closure, uintx num_args, va_list* ap)
@@ -30,6 +42,7 @@ VALUE snow_call_with_args(VALUE self, VALUE closure, uintx num_args, VALUE* args
 {
 	ASSERT(is_object(closure)); // temp
 	SnFunction* func = (SnFunction*)closure;
+	ASSERT(func->base.base.type == SN_FUNCTION_TYPE);
 	return snow_function_call(func, self, num_args, args);
 }
 
