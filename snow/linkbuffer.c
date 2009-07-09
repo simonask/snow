@@ -51,7 +51,20 @@ uintx snow_linkbuffer_push_string(SnLinkBuffer* buf, const char* c) {
 	return n;
 }
 
-uintx snow_linkbuffer_copy_data(SnLinkBuffer*, void* dst, uintx n);
+uintx snow_linkbuffer_copy_data(SnLinkBuffer* buf, void* _dst, uintx n) {
+	SnLinkBufferPage* current = buf->head;
+	uintx copied = 0;
+	byte* dst = (byte*)_dst;
+	while (current && copied < n) {
+		uintx remaining = n - copied; // remaining space in dst
+		uintx to_copy = remaining < current->offset ? remaining : current->offset;
+		memcpy(&dst[copied], current->data, to_copy);
+		copied += to_copy;
+		current = current->next;
+	}
+	return copied;
+}
+
 uintx snow_linkbuffer_modify(SnLinkBuffer*, uintx offset, uintx len, byte* new_data);
 
 void snow_linkbuffer_clear(SnLinkBuffer* buf) {
