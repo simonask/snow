@@ -7,6 +7,8 @@ endif
 libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	array.c \
 	array.h \
+	ast.c \
+	ast.h \
 	basic.h \
 	codegen.h \
 	function.c \
