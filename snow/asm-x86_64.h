@@ -52,10 +52,7 @@ static const byte BASE_REX = 0x40 | REX_WIDE_OPERAND;
 // sizeof(Op) must be <= 8
 // This struct does not support instructions that take both an immediate and a displacement. Snow doesn't need them.
 typedef struct SnOp {
-	union {
-		signed imm : 32;
-		signed disp : 32;
-	};
+	signed disp : 32;
 	
 	unsigned imm_size : 27;
 	
@@ -64,6 +61,7 @@ typedef struct SnOp {
 	unsigned reg : 3;
 } SnOp;
 
+typedef int64_t SnImm;
 
 static inline SnOp make_op(unsigned reg, bool ext, bool address, signed imm)
 {
@@ -71,8 +69,7 @@ static inline SnOp make_op(unsigned reg, bool ext, bool address, signed imm)
 	op.reg = reg;
 	op.ext = ext;
 	op.address = address;
-	op.imm_size = 0;
-	op.imm = imm;
+	op.disp = 0;
 	return op;
 }
 
@@ -84,15 +81,9 @@ static inline SnOp make_address(SnOp reg, signed disp)
 	return reg;
 }
 
-static inline SnOp make_immediate(signed imm, unsigned bytes)
+static inline SnImm make_immediate(int64_t imm)
 {
-	SnOp op;
-	op.reg = 0;
-	op.ext = 0;
-	op.address = false;
-	op.imm_size = bytes;
-	op.imm = imm;
-	return op;
+	return imm;
 }
 
 static inline SnOp make_opcode_ext(byte ext) {
@@ -101,7 +92,7 @@ static inline SnOp make_opcode_ext(byte ext) {
 
 #define REGISTER(index, ext) (make_op(index, ext, false, 0))
 #define ADDRESS(reg, disp) (make_address(reg, disp))
-#define IMMEDIATE(imm, size) (make_immediate(imm, size))
+#define IMMEDIATE(imm) (make_immediate(imm))
 
 #define RAX REGISTER(0, false)
 #define RCX REGISTER(1, false)
@@ -167,10 +158,9 @@ static inline void emit_rex(SnLinkBuffer* lb, byte rex) {
 		emit(lb, BASE_REX | rex);
 }
 
-static inline void emit_imm(SnLinkBuffer* lb, SnOp op) {
+static inline void emit_imm(SnLinkBuffer* lb, SnImm imm, size_t bytes) {
 	unsigned i;
-	signed imm = op.imm;
-	for (i = 0; i < op.imm_size; ++i) {
+	for (i = 0; i < bytes; ++i) {
 		emit(lb, ((byte*)&imm)[i]);
 	}
 }
@@ -178,7 +168,17 @@ static inline void emit_imm(SnLinkBuffer* lb, SnOp op) {
 static inline void emit_disp(SnLinkBuffer* lb, SnOp rm) {
 	RM_MODE mod = mod_for_operand(rm);
 	if (mod != RM_REGISTER) {
-		emit_imm(lb, rm);
+		size_t bytes = 0;
+		switch (mod) {
+		case RM_ADDRESS_DISP8:
+			bytes = 1;
+			break;
+		case RM_ADDRESS_DISP32:
+			bytes = 4;
+			break;
+		default: break;
+		}
+		emit_imm(lb, rm.disp, bytes);
 	}
 }
 
@@ -209,11 +209,11 @@ static inline void emit_instr(SnLinkBuffer* lb, byte opcode, SnOp reg, SnOp rm) 
 		X = Opcode extension
 */
 
-#define INSTR_ID(name, opcode) static inline void asm_##name##_id(SnLinkBuffer* lb, SnOp imm, SnOp reg) { emit_instr(lb, opcode, reg, 0); emit_imm(lb, imm); }
+#define INSTR_ID(name, opcode) static inline void asm_##name##_id(SnLinkBuffer* lb, SnImm imm, SnOp reg) { emit_instr(lb, opcode, reg, 0); emit_imm(lb, imm, 4); }
 #define INSTR_SD(name, opcode) static inline void asm_##name(SnLinkBuffer* lb, SnOp reg, SnOp rm) { emit_instr(lb, opcode, reg, rm); }
 #define INSTR_DS(name, opcode) static inline void asm_##name##_r(SnLinkBuffer* lb, SnOp reg, SnOp rm) { emit_instr(lb, opcode, reg, rm); }
 #define INSTR_X(name, opcode, ext) static inline void asm_##name(SnLinkBuffer* lb, SnOp rm) { emit_instr(lb, opcode, make_opcode_ext(ext), rm); }
-#define INSTR_XI(name, opcode, ext) static inline void asm_##name##_id(SnLinkBuffer* lb, SnOp imm, SnOp rm) { emit_instr(lb, opcode, make_opcode_ext(ext), rm); emit_imm(lb, imm); }
+#define INSTR_XI(name, opcode, ext) static inline void asm_##name##_id(SnLinkBuffer* lb, SnImm imm, SnOp rm) { emit_instr(lb, opcode, make_opcode_ext(ext), rm); emit_imm(lb, imm, 4); }
 
 INSTR_XI(add, 0x81, 0)
 INSTR_SD(add, 0x01)
@@ -235,27 +235,27 @@ INSTR_DS(sub, 0x2b)
 
 // Special instructions
 
-static inline void asm_mov_id(SnLinkBuffer* lb, SnOp imm, SnOp rm) {
-	emit_rex(lb, rex_for_rm(rm));
+static inline void asm_mov_id(SnLinkBuffer* lb, SnImm imm, SnOp rm) {
+	emit_rex(lb, rex_for_rm(rm) | REX_WIDE_OPERAND);
 	emit(lb, 0xb8 + rm.reg);
-	emit_imm(lb, make_immediate(imm.imm, 8));
+	emit_imm(lb, imm, 8);
 }
 
 static inline void asm_j(SnLinkBuffer* lb, COND cc, signed offset) {
 	emit(lb, 0x0f);
 	emit(lb, 0x80 + cc);
-	emit_imm(lb, make_immediate(offset, 4));
+	emit_imm(lb, make_immediate(offset), 4);
 }
 
 static inline void asm_jmp(SnLinkBuffer* lb, signed offset) {
 	emit(lb, 0xe9);
-	emit_imm(lb, make_immediate(offset, 4));
+	emit_imm(lb, make_immediate(offset), 4);
 }
 
 static inline void asm_enter(SnLinkBuffer* lb, unsigned stack_size, unsigned level) {
 	emit(lb, 0xc8);
-	emit_imm(lb, make_immediate(stack_size, 2));
-	emit_imm(lb, make_immediate(level, 1));
+	emit_imm(lb, make_immediate(stack_size), 2);
+	emit_imm(lb, make_immediate(level), 1);
 }
 
 static inline void asm_leave(SnLinkBuffer* lb) {
