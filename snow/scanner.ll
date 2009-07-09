@@ -35,7 +35,7 @@ SnLinkBuffer* string_buffer = NULL;
 %}
 
 \"                                     { BEGIN(STRING_DOUBLE); STR_CLEAR(); } /* " */
-<STRING_DOUBLE>\"                      { BEGIN(INITIAL); yylval.value = snow_create_string(""); return TOK_STRING; } /* " */
+<STRING_DOUBLE>\"                      { BEGIN(INITIAL); yylval.value = snow_create_string_from_linkbuffer(string_buffer); STR_CLEAR(); return TOK_STRING; } /* " */
 <STRING_DOUBLE>\\n                     { STR_CHAR('\n'); }
 <STRING_DOUBLE>\\t                     { STR_CHAR('\t'); }
 <STRING_DOUBLE>\\r                     { STR_CHAR('\r'); }
@@ -51,7 +51,7 @@ SnLinkBuffer* string_buffer = NULL;
                                        /* TODO: String interpolation */
 
 \'                                     { BEGIN(STRING_SINGLE); STR_CLEAR(); } /* ' */
-<STRING_SINGLE>\'                      { BEGIN(INITIAL); yylval.value = snow_create_string(yytext); return TOK_STRING; } /* ' */
+<STRING_SINGLE>\'                      { BEGIN(INITIAL); yylval.value = snow_create_string_from_linkbuffer(string_buffer); STR_CLEAR(); return TOK_STRING; } /* ' */
 <STRING_SINGLE>\\n                     { STR_CHAR('\n'); }
 <STRING_SINGLE>\\t                     { STR_CHAR('\t'); }
 <STRING_SINGLE>\\r                     { STR_CHAR('\r'); }
