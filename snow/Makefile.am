@@ -5,6 +5,8 @@ SOURCES_x86_64 = codegen-x86_64.c asm-x86_64.h
 endif
 
 libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
+	array.c \
+	array.h \
 	basic.h \
 	codegen.h \
 	function.c \
