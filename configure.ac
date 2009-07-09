@@ -32,7 +32,7 @@ AM_CONDITIONAL(ARCH_x86_32, test "x$ARCH" = xx86_32)
 
 __DEBUG_CFLAGS="-fopenmp -O0 -pg -g -DDEBUG -Wall"
 __RELEASE_CFLAGS="-fopenmp -Os -pipe -fomit-frame-pointer"
-CFLAGS="$__DEBUG_CFLAGS $ARCH_CFLAGS"
+CFLAGS="$__DEBUG_CFLAGS $ARCH_CFLAGS -std=c99"
 CCASFLAGS="$CFLAGS"
 LDFLAGS="-ldl"
 
@@ -47,4 +47,4 @@ LIBS=$sLIBS
 AC_SUBST(READLINE_LIBS)
 
 
-AC_OUTPUT(Makefile snow/Makefile)
+AC_OUTPUT(Makefile snow/Makefile test/Makefile)
