@@ -26,6 +26,8 @@ static bool gc_contains(void*);
 
 static void* gc_alloc(uintx size, GCHeader** header)
 {
+	ASSERT(sizeof(GCHeader) <= ALIGNMENT);
+	
 	if (!gc_nursery)
 	{
 		gc_nursery_size = 1 << 23;
@@ -51,6 +53,8 @@ static void* gc_alloc(uintx size, GCHeader** header)
 	(*header)->flags = 0;
 	(*header)->free_func = NULL;
 	
+	ASSERT(((intx)data & 0xf) == 0);
+	
 	return data;
 }
 
@@ -72,7 +76,7 @@ void* snow_gc_alloc(uintx size)
 void snow_gc_set_free_func(void* data, SnGCFreeFunc func)
 {
 	ASSERT(gc_contains(data));
-	ASSERT((uintx)data & 0xff == 0);
+	ASSERT(((uintx)data & 0xf) == 0);
 	GCHeader* header = data - sizeof(GCHeader);
 	header->free_func = func;
 }
