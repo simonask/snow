@@ -29,7 +29,6 @@ NOINLINE bool _continuation_save(SnContinuation* cc) {
 	"movq %%rbp, %%r8\n"
 	"movq 8(%%r8), %%rax\n"
 	"movq %%rax, %2\n"
-//	"int3\n"
 	// TODO: save other registers?
 	: "=m"(cc->reg.rsp), "=m"(cc->reg.rbp), "=m"(cc->reg.rip)
 	:
