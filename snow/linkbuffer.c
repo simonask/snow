@@ -1,5 +1,7 @@
 #include "snow/linkbuffer.h"
+#include "snow/intern.h"
 #include <stdlib.h>
+#include <string.h>
 
 SnLinkBuffer* snow_create_linkbuffer(uintx page_size) {
 	SnLinkBuffer* buf = (SnLinkBuffer*)malloc(sizeof(SnLinkBuffer));
@@ -51,6 +53,14 @@ uintx snow_linkbuffer_push_string(SnLinkBuffer* buf, const char* c) {
 	return n;
 }
 
+uintx snow_linkbuffer_push_data(SnLinkBuffer* buf, const byte* data, uintx len) {
+	uintx n = 0;
+	for (uintx i = 0; i < len; ++i) {
+		n += snow_linkbuffer_push(buf, data[i]);
+	}
+	return n;
+}
+
 uintx snow_linkbuffer_copy_data(SnLinkBuffer* buf, void* _dst, uintx n) {
 	SnLinkBufferPage* current = buf->head;
 	uintx copied = 0;
@@ -65,7 +75,26 @@ uintx snow_linkbuffer_copy_data(SnLinkBuffer* buf, void* _dst, uintx n) {
 	return copied;
 }
 
-uintx snow_linkbuffer_modify(SnLinkBuffer*, uintx offset, uintx len, byte* new_data);
+uintx snow_linkbuffer_modify(SnLinkBuffer* buf, uintx offset, uintx len, byte* new_data) {
+	uintx buffer_offset = 0;
+	uintx copied = 0;
+	SnLinkBufferPage* current = buf->head;
+	while (current && copied < len) {
+		uintx next_offset = offset + copied;
+		if (next_offset >= buffer_offset && next_offset < buffer_offset + current->offset)
+		{
+			uintx page_offset = next_offset - buffer_offset;
+			uintx remaining = current->offset - page_offset; // remaining space in current page
+			uintx to_copy = remaining < len ? remaining : len;
+			memcpy(&current->data[page_offset], &new_data[copied], to_copy);
+			copied += to_copy;
+		}
+		
+		buffer_offset += current->offset;
+		current = current->next;
+	}
+	return copied;
+}
 
 void snow_linkbuffer_clear(SnLinkBuffer* buf) {
 	SnLinkBufferPage* page = buf->head;

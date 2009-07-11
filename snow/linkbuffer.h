@@ -20,6 +20,7 @@ CAPI void snow_free_linkbuffer(SnLinkBuffer*);
 CAPI uintx snow_linkbuffer_size(SnLinkBuffer*);
 CAPI uintx snow_linkbuffer_push(SnLinkBuffer*, byte);
 CAPI uintx snow_linkbuffer_push_string(SnLinkBuffer*, const char*);
+CAPI uintx snow_linkbuffer_push_data(SnLinkBuffer*, const byte*, uintx len);
 CAPI uintx snow_linkbuffer_copy_data(SnLinkBuffer*, void* dst, uintx n);
 CAPI uintx snow_linkbuffer_modify(SnLinkBuffer*, uintx offset, uintx len, byte* new_data);
 CAPI void snow_linkbuffer_clear(SnLinkBuffer*);
