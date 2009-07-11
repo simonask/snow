@@ -40,10 +40,10 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 
 CLEANFILES = parser.c parser.h scanner.c
 
-parser.c parser.h: parser.yy
+parser.c parser.tab.h: parser.yy
 	$(YACC) --defines=parser.tab.h -o parser.c parser.yy
 
-scanner.c: scanner.ll parser.h
+scanner.c: scanner.ll parser.tab.h
 	$(LEX) -d -o scanner.c scanner.ll
 
 libsnow_la_LDFLAGS = -lreadline
