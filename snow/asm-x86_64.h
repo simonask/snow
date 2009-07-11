@@ -5,7 +5,7 @@
 	XXX: DO NOT include this file in exposed headers, as it pollutes the symbol space.
 */
 
-#include "snow/basic.h"
+#include "snow/asm.h"
 #include "snow/intern.h"
 #include "snow/linkbuffer.h"
 
@@ -81,18 +81,13 @@ static inline SnOp make_address(SnOp reg, signed disp)
 	return reg;
 }
 
-static inline SnImm make_immediate(int64_t imm)
-{
-	return imm;
-}
-
 static inline SnOp make_opcode_ext(byte ext) {
 	return make_op(ext, false, false, 0);
 }
 
 #define REGISTER(index, ext) (make_op(index, ext, false, 0))
 #define ADDRESS(reg, disp) (make_address(reg, disp))
-#define IMMEDIATE(imm) (make_immediate(imm))
+#define IMMEDIATE(imm) ((SnImm)imm)
 
 #define RAX REGISTER(0, false)
 #define RCX REGISTER(1, false)
@@ -202,38 +197,53 @@ static inline void emit_instr(SnLinkBuffer* lb, byte opcode, SnOp reg, SnOp rm) 
 }
 
 /*
+	General instructions
+	
 	Glossary:
 		I = Immediate
 		D = Destination
 		S = Source
-		X = Opcode extension
+		X = Opcode extension in reg field
 */
 
-#define INSTR_ID(name, opcode) static inline void asm_##name##_id(SnLinkBuffer* lb, SnImm imm, SnOp reg) { emit_instr(lb, opcode, reg, 0); emit_imm(lb, imm, 4); }
-#define INSTR_SD(name, opcode) static inline void asm_##name(SnLinkBuffer* lb, SnOp reg, SnOp rm) { emit_instr(lb, opcode, reg, rm); }
-#define INSTR_DS(name, opcode) static inline void asm_##name##_r(SnLinkBuffer* lb, SnOp reg, SnOp rm) { emit_instr(lb, opcode, reg, rm); }
-#define INSTR_X(name, opcode, ext) static inline void asm_##name(SnLinkBuffer* lb, SnOp rm) { emit_instr(lb, opcode, make_opcode_ext(ext), rm); }
-#define INSTR_XI(name, opcode, ext) static inline void asm_##name##_id(SnLinkBuffer* lb, SnImm imm, SnOp rm) { emit_instr(lb, opcode, make_opcode_ext(ext), rm); emit_imm(lb, imm, 4); }
+#define DEFINE_INSTR_ID(name, opcode) static inline void asm_##name##_id(SnLinkBuffer* lb, SnImm imm, SnOp reg) { emit_instr(lb, opcode, reg, 0); emit_imm(lb, imm, 4); }
+#define DEFINE_INSTR_SD(name, opcode) static inline void asm_##name(SnLinkBuffer* lb, SnOp reg, SnOp rm) { emit_instr(lb, opcode, reg, rm); }
+#define DEFINE_INSTR_DS(name, opcode) static inline void asm_##name##_r(SnLinkBuffer* lb, SnOp reg, SnOp rm) { emit_instr(lb, opcode, reg, rm); }
+#define DEFINE_INSTR_X(name, opcode, ext) static inline void asm_##name(SnLinkBuffer* lb, SnOp rm) { emit_instr(lb, opcode, make_opcode_ext(ext), rm); }
+#define DEFINE_INSTR_XI(name, opcode, ext) static inline void asm_##name##_id(SnLinkBuffer* lb, SnImm imm, SnOp rm) { emit_instr(lb, opcode, make_opcode_ext(ext), rm); emit_imm(lb, imm, 4); }
 
-INSTR_XI(add, 0x81, 0)
-INSTR_SD(add, 0x01)
-INSTR_DS(add, 0x03)
-
-INSTR_X(call, 0xff, 2)
-
-INSTR_XI(cmp, 0x81, 7)
-INSTR_SD(cmp, 0x39)
-INSTR_DS(cmp, 0x3b)
-
-INSTR_SD(mov, 0x89)
-INSTR_DS(mov, 0x8b)
-
-INSTR_XI(sub, 0x81, 5)
-INSTR_SD(sub, 0x29)
-INSTR_DS(sub, 0x2b)
+DEFINE_INSTR_XI(add, 0x81, 0);
+DEFINE_INSTR_SD(add, 0x01);
+DEFINE_INSTR_DS(add, 0x03);
+DEFINE_INSTR_X(call, 0xff, 2);
+DEFINE_INSTR_XI(cmp, 0x81, 7);
+DEFINE_INSTR_SD(cmp, 0x39);
+DEFINE_INSTR_DS(cmp, 0x3b);
+DEFINE_INSTR_SD(mov, 0x89);
+DEFINE_INSTR_DS(mov, 0x8b);
+DEFINE_INSTR_XI(sub, 0x81, 5);
+DEFINE_INSTR_SD(sub, 0x29);
+DEFINE_INSTR_DS(sub, 0x2b);
 
 
 // Special instructions
+
+static inline Label asm_label(SnLinkBuffer* lb) {
+	Label label;
+	label.offset = -1;
+	return label;
+}
+
+static inline void asm_bind(SnLinkBuffer* lb, Label* label) {
+	ASSERT(label->offset < 0 && "Label was already bound.");
+	label->offset = snow_linkbuffer_size(lb);
+}
+
+static inline void asm_link(SnLinkBuffer* lb, LabelRef* ref) {
+	ASSERT(ref->label->offset >= 0 && "Label was not bound yet.");
+	int32_t diff = ref->label->offset - ref->offset + 4;
+	snow_linkbuffer_modify(lb, ref->offset, 4, (byte*)&diff);
+}
 
 static inline void asm_mov_id(SnLinkBuffer* lb, SnImm imm, SnOp rm) {
 	emit_rex(lb, rex_for_rm(rm) | REX_WIDE_OPERAND);
@@ -241,21 +251,31 @@ static inline void asm_mov_id(SnLinkBuffer* lb, SnImm imm, SnOp rm) {
 	emit_imm(lb, imm, 8);
 }
 
-static inline void asm_j(SnLinkBuffer* lb, COND cc, signed offset) {
+static inline LabelRef asm_j(SnLinkBuffer* lb, COND cc, Label* label) {
 	emit(lb, 0x0f);
 	emit(lb, 0x80 + cc);
-	emit_imm(lb, make_immediate(offset), 4);
+	LabelRef ref;
+	ref.offset = snow_linkbuffer_size(lb);
+	ref.label = label;
+	// emit zeroes and wait for binding
+	emit_imm(lb, 0, 4);
+	return ref;
 }
 
-static inline void asm_jmp(SnLinkBuffer* lb, signed offset) {
+static inline LabelRef asm_jmp(SnLinkBuffer* lb, Label* label) {
 	emit(lb, 0xe9);
-	emit_imm(lb, make_immediate(offset), 4);
+	LabelRef ref;
+	ref.offset = snow_linkbuffer_size(lb);
+	ref.label = label;
+	// emit zeroes and wait for binding
+	emit_imm(lb, 0, 4);
+	return ref;
 }
 
 static inline void asm_enter(SnLinkBuffer* lb, unsigned stack_size, unsigned level) {
 	emit(lb, 0xc8);
-	emit_imm(lb, make_immediate(stack_size), 2);
-	emit_imm(lb, make_immediate(level), 1);
+	emit_imm(lb, IMMEDIATE(stack_size), 2);
+	emit_imm(lb, IMMEDIATE(level), 1);
 }
 
 static inline void asm_leave(SnLinkBuffer* lb) {
