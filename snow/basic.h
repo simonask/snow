@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
 #ifdef __cplusplus__
 #define CAPI extern "C"
@@ -12,6 +13,7 @@
 #endif
 
 #define NOINLINE __attribute__((noinline))
+#define ATTR_HOT __attribute__((hot))
 
 
 #ifdef ARCH_x86_64

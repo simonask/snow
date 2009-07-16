@@ -9,6 +9,8 @@ typedef enum SnObjectType
 {
 	SN_OBJECT_TYPE,
 	SN_CONTINUATION_TYPE,
+	SN_CONTEXT_TYPE,
+	SN_ARGUMENTS_TYPE,
 	SN_FUNCTION_TYPE,
 	SN_STRING_TYPE,
 	SN_ARRAY_TYPE,
@@ -17,6 +19,8 @@ typedef enum SnObjectType
 	SN_WRAPPER_TYPE,
 	SN_CODEGEN_TYPE,
 	SN_AST_TYPE,
+	
+	SN_NUMBER_OF_BASIC_TYPES
 } SnObjectType;
 
 typedef struct SnObjectBase

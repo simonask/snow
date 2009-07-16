@@ -1,4 +1,4 @@
-#include "snow/string.h"
+#include "snow/str.h"
 #include "snow/gc.h"
 #include <string.h>
 

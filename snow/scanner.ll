@@ -3,6 +3,7 @@
 #include "snow/parser.tab.h"
 #include "snow/ast.h"
 #include "snow/linkbuffer.h"
+#include "snow/str.h"
 
 #define yyterminate() return TOK_EOF
 #define YY_NO_UNISTD_H

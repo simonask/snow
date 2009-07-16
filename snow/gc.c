@@ -23,6 +23,7 @@ typedef struct GCHeader {
 static const int ALIGNMENT = 0x10;
 
 static bool gc_contains(void*);
+static void* gc_alloc(uintx size, GCHeader**) __attribute__((alloc_size(1)));
 
 static void* gc_alloc(uintx size, GCHeader** header)
 {
@@ -88,7 +89,7 @@ bool gc_contains(void* ptr)
 
 void snow_gc()
 {
-	printf("nursery is at 0x%llx\n", gc_nursery);
+	debug("nursery is at 0x%llx\n", gc_nursery);
 	void** i;
 	GET_BASE_PTR(i);
 	void** end = (void**)gc_stack_top;
@@ -96,7 +97,7 @@ void snow_gc()
 	{
 		if (gc_contains(*i))
 		{
-			printf("root: 0x%llx\n", *i);
+			debug("root: 0x%llx\n", *i);
 		}
 	}
 }

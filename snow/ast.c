@@ -1,7 +1,7 @@
 #include "snow/ast.h"
 #include "snow/array.h"
 #include "snow/intern.h"
-#include "snow/string.h"
+#include "snow/str.h"
 #include <stdarg.h>
 
 // Order is crucial!
@@ -79,7 +79,7 @@ SnAstNode* snow_ast_break() { return create_ast_node(SN_AST_BREAK); }
 SnAstNode* snow_ast_continue() { return create_ast_node(SN_AST_CONTINUE); }
 SnAstNode* snow_ast_self() { return create_ast_node(SN_AST_SELF); }
 SnAstNode* snow_ast_local(SnSymbol sym) { return create_ast_node(SN_AST_LOCAL, symbol_to_value(sym)); }
-SnAstNode* snow_ast_member(SnAstNode* self, SnSymbol member) { return create_ast_node(SN_AST_MEMBER, self, member); }
+SnAstNode* snow_ast_member(SnAstNode* self, SnSymbol member) { return create_ast_node(SN_AST_MEMBER, self, symbol_to_value(member)); }
 SnAstNode* snow_ast_local_assign(SnSymbol sym, SnAstNode* node) { return create_ast_node(SN_AST_LOCAL_ASSIGNMENT, symbol_to_value(sym), node); }
 SnAstNode* snow_ast_member_assign(SnAstNode* member, SnAstNode* node) {
 	ASSERT(member->type == SN_AST_MEMBER);

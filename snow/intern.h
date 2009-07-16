@@ -4,6 +4,7 @@
 #include "snow/basic.h"
 #include "snow/value.h"
 #include "snow/symbol.h"
+#include "snow/arch.h"
 
 #include <omp.h>
 
@@ -17,7 +18,7 @@ CAPI inline void debug(const char*, ...) {}
 
 #include <assert.h>
 
-#define ASSERT assert
+#define ASSERT(x) if (!(x)) TRAP();
 #define ASSERT_TYPE(val, type) ASSERT(is_object(val) && ((SnObjectBase*)val).type == type)
 
 enum SnValueType {

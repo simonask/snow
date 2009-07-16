@@ -42,6 +42,9 @@
 
 #include "scanner.h"
 
+int yyerror(const char* streamname, const char* yymsg);
+char yylex();
+
 %}
 
 %%

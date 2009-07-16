@@ -1,5 +1,6 @@
 #include "snow/intern.h"
-#include "snow/string.h"
+#include "snow/str.h"
+#include "snow/snow.h"
 #include <stdio.h>
 #include <stdarg.h>
 

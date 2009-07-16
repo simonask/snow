@@ -19,20 +19,34 @@ SnArray* snow_create_array_with_size(uintx size) {
 	return array;
 }
 
-VALUE snow_array_get(SnArray* array, intx index) {
-	if (index >= array->size || index < 0) {
-		// XXX: TODO
-		return SN_NIL;
-	}
-	return array->data[index];
+SnArray* snow_ref_array(VALUE* data, uintx size) {
+	SnArray* ar = snow_create_array();
+	ar->alloc_size = 0;
+	ar->size = size;
+	ar->data = data;
+	return ar;
 }
 
-VALUE snow_array_set(SnArray* array, intx index, VALUE value) {
-	if (index >= array->size || index < 0) {
+VALUE snow_array_get(SnArray* array, intx idx) {
+	if (idx >= array->size || idx < 0) {
 		// XXX: TODO
 		return SN_NIL;
 	}
-	array->data[index] = value;
+	return array->data[idx];
+}
+
+VALUE snow_array_set(SnArray* array, intx idx, VALUE value) {
+	if (idx >= array->size || idx < 0) {
+		uintx new_size = idx+1;
+		VALUE* new_data = (VALUE*)snow_gc_alloc(new_size * sizeof(VALUE));
+		for (uintx i = array->size; i < new_size; ++i) {
+			new_data[i] = SN_NIL;
+		}
+		memcpy(new_data, array->data, array->size * sizeof(VALUE));
+		array->size = new_size;
+		array->data = new_data;
+	}
+	array->data[idx] = value;
 	return value;
 }
 
@@ -49,4 +63,19 @@ VALUE snow_array_push(SnArray* array, VALUE value) {
 	
 	array->data[array->size++] = value;
 	return value;
+}
+
+VALUE snow_array_pop(SnArray* array) {
+	if (array->size > 0)
+		return array->data[--array->size];
+	else
+		return SN_NIL;
+}
+
+intx snow_array_find(SnArray* array, VALUE val) {
+	for (intx i = 0; i < array->size; ++i) {
+		if (array->data[i] == val)
+			return i;
+	}
+	return -1;
 }

@@ -12,7 +12,7 @@ NOINLINE void _continuation_resume(SnContinuation* cc) {
 		"movq %3, %%r8\n"
 		"jmpq *%%r8\n"
 	:
-	: "r"(cc), "m"(cc->reg.rsp), "m"(cc->reg.rbp), "m"(cc->reg.rip)
+	: "m"(cc->context), "m"(cc->reg.rsp), "m"(cc->reg.rbp), "m"(cc->reg.rip)
 	: "%rax", "%rdi", "%rsi", "%rsp", "%r8"
 	);
 }

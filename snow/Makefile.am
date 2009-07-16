@@ -5,12 +5,16 @@ SOURCES_x86_64 = codegen-x86_64.c asm-x86_64.h continuation-intern-x86_64.c
 endif
 
 libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
+	arguments.c \
+	arguments.h \
 	array.c \
 	array.h \
 	ast.c \
 	ast.h \
 	basic.h \
 	codegen.h \
+	context.c \
+	context.h \
 	continuation.h \
 	continuation-intern.h \
 	continuation.c \
@@ -32,8 +36,8 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	scanner.h \
 	snow.c \
 	snow.h \
-	string.c \
-	string.h \
+	str.c \
+	str.h \
 	symbol.c \
 	symbol.h \
 	value.h

@@ -47,14 +47,13 @@ typedef enum COND {
 	CC_GREATER = 0xF
 } COND;
 
-static const byte BASE_REX = 0x40 | REX_WIDE_OPERAND;
+static const byte BASE_REX = 0x40;
 
 // sizeof(Op) must be <= 8
 // This struct does not support instructions that take both an immediate and a displacement. Snow doesn't need them.
 typedef struct SnOp {
 	signed disp : 32;
-	
-	unsigned imm_size : 27;
+	unsigned disp_size : 3;
 	
 	bool address : 1;
 	bool ext : 1;
@@ -69,6 +68,7 @@ static inline SnOp make_op(unsigned reg, bool ext, bool address, signed imm)
 	op.reg = reg;
 	op.ext = ext;
 	op.address = address;
+	op.disp_size = 0;
 	op.disp = 0;
 	return op;
 }
@@ -77,7 +77,10 @@ static inline SnOp make_address(SnOp reg, signed disp)
 {
 	reg.address = true;
 	reg.disp = disp;
-	reg.imm_size = disp > 127 || disp <= -128 ? 4 : 1;
+	if (disp == 0)
+		reg.disp_size = 0;
+	else
+		reg.disp_size = (disp > 127 || disp <= -128) ? 4 : 1;
 	return reg;
 }
 
@@ -128,7 +131,7 @@ static inline RM_MODE mod_for_operand(SnOp addr) {
 		return RM_REGISTER;
 		
 	RM_MODE mod;
-	switch (addr.imm_size) {
+	switch (addr.disp_size) {
 		case 0:
 			mod = RM_ADDRESS;
 			break;
@@ -142,7 +145,7 @@ static inline RM_MODE mod_for_operand(SnOp addr) {
 			ASSERT(false && "Wrong displacement size!");
 	}
 	
-	if (mod == RM_ADDRESS && addr.reg == RBP.reg && !addr.ext) {
+	if (mod != RM_REGISTER && addr.reg == RBP.reg && !addr.ext) {
 		return RM_ADDRESS_DISP32;
 	}
 	return mod;
@@ -191,7 +194,7 @@ static inline void emit_operands(SnLinkBuffer* lb, SnOp reg, SnOp rm) {
 }
 
 static inline void emit_instr(SnLinkBuffer* lb, byte opcode, SnOp reg, SnOp rm) {
-	emit_rex(lb, rex_for_operands(reg, rm));
+	emit_rex(lb, rex_for_operands(reg, rm) | REX_WIDE_OPERAND);
 	emit(lb, opcode);
 	emit_operands(lb, reg, rm);
 }
@@ -206,27 +209,27 @@ static inline void emit_instr(SnLinkBuffer* lb, byte opcode, SnOp reg, SnOp rm) 
 		X = Opcode extension in reg field
 */
 
-#define DEFINE_INSTR_ID(name, opcode) static inline void asm_##name##_id(SnLinkBuffer* lb, SnImm imm, SnOp reg) { emit_instr(lb, opcode, reg, 0); emit_imm(lb, imm, 4); }
+#define DEFINE_INSTR_ID(name, opcode) static inline int32_t asm_##name##_id(SnLinkBuffer* lb, SnImm imm, SnOp reg) { emit_instr(lb, opcode, reg, 0); int32_t offset = snow_linkbuffer_size(lb); emit_imm(lb, imm, 4); return offset; }
 #define DEFINE_INSTR_SD(name, opcode) static inline void asm_##name(SnLinkBuffer* lb, SnOp reg, SnOp rm) { emit_instr(lb, opcode, reg, rm); }
-#define DEFINE_INSTR_DS(name, opcode) static inline void asm_##name##_r(SnLinkBuffer* lb, SnOp reg, SnOp rm) { emit_instr(lb, opcode, reg, rm); }
+#define DEFINE_INSTR_DS(name, opcode) static inline void asm_##name##_rev(SnLinkBuffer* lb, SnOp reg, SnOp rm) { emit_instr(lb, opcode, reg, rm); }
 #define DEFINE_INSTR_X(name, opcode, ext) static inline void asm_##name(SnLinkBuffer* lb, SnOp rm) { emit_instr(lb, opcode, make_opcode_ext(ext), rm); }
-#define DEFINE_INSTR_XI(name, opcode, ext) static inline void asm_##name##_id(SnLinkBuffer* lb, SnImm imm, SnOp rm) { emit_instr(lb, opcode, make_opcode_ext(ext), rm); emit_imm(lb, imm, 4); }
+#define DEFINE_INSTR_XI(name, opcode, ext) static inline int32_t asm_##name##_id(SnLinkBuffer* lb, SnImm imm, SnOp rm) { emit_instr(lb, opcode, make_opcode_ext(ext), rm); int32_t offset = snow_linkbuffer_size(lb); emit_imm(lb, imm, 4); return offset; }
 
-DEFINE_INSTR_XI(add, 0x81, 0);
-DEFINE_INSTR_SD(add, 0x01);
-DEFINE_INSTR_DS(add, 0x03);
-DEFINE_INSTR_X(call, 0xff, 2);
-DEFINE_INSTR_XI(cmp, 0x81, 7);
-DEFINE_INSTR_SD(cmp, 0x39);
-DEFINE_INSTR_DS(cmp, 0x3b);
-DEFINE_INSTR_SD(mov, 0x89);
-DEFINE_INSTR_DS(mov, 0x8b);
-DEFINE_INSTR_XI(sub, 0x81, 5);
-DEFINE_INSTR_SD(sub, 0x29);
-DEFINE_INSTR_DS(sub, 0x2b);
+DEFINE_INSTR_XI(add, 0x81, 0)
+DEFINE_INSTR_SD(add, 0x01)
+DEFINE_INSTR_DS(add, 0x03)
+DEFINE_INSTR_XI(cmp, 0x81, 7)
+DEFINE_INSTR_SD(cmp, 0x39)
+DEFINE_INSTR_DS(cmp, 0x3b)
+DEFINE_INSTR_SD(mov, 0x89)
+DEFINE_INSTR_DS(mov, 0x8b)
+DEFINE_INSTR_XI(sub, 0x81, 5)
+DEFINE_INSTR_SD(sub, 0x29)
+DEFINE_INSTR_DS(sub, 0x2b)
+DEFINE_INSTR_SD(xor, 0x31)
 
 
-// Special instructions
+// Meta instructions
 
 static inline Label asm_label(SnLinkBuffer* lb) {
 	Label label;
@@ -245,10 +248,34 @@ static inline void asm_link(SnLinkBuffer* lb, LabelRef* ref) {
 	snow_linkbuffer_modify(lb, ref->offset, 4, (byte*)&diff);
 }
 
-static inline void asm_mov_id(SnLinkBuffer* lb, SnImm imm, SnOp rm) {
-	emit_rex(lb, rex_for_rm(rm) | REX_WIDE_OPERAND);
-	emit(lb, 0xb8 + rm.reg);
-	emit_imm(lb, imm, 8);
+// Special instructions
+
+static inline void asm_call(SnLinkBuffer* lb, SnOp rm) {
+	ASSERT(!rm.address);
+	emit_rex(lb, rex_for_rm(rm));
+	emit(lb, 0xff);
+	emit_operands(lb, make_opcode_ext(2), rm);
+}
+
+static inline int32_t asm_mov_id(SnLinkBuffer* lb, SnImm imm, SnOp rm) {
+	// returns the offset for the immediate
+
+	int32_t offset;
+	if (rm.address)
+	{
+		emit_rex(lb, rex_for_rm(rm));
+		emit_instr(lb, 0xc7, make_opcode_ext(0), rm);
+		offset = snow_linkbuffer_size(lb);
+		emit_imm(lb, imm, 4);
+	}
+	else
+	{
+		emit_rex(lb, rex_for_rm(rm) | REX_WIDE_OPERAND);
+		emit(lb, 0xb8 + rm.reg);
+		offset = snow_linkbuffer_size(lb);
+		emit_imm(lb, imm, 8);
+	}
+	return offset;
 }
 
 static inline LabelRef asm_j(SnLinkBuffer* lb, COND cc, Label* label) {
@@ -292,6 +319,26 @@ static inline void asm_int3(SnLinkBuffer* lb) {
 
 static inline void asm_nop(SnLinkBuffer* lb) {
 	emit(lb, 0x90);
+}
+
+static inline void asm_push(SnLinkBuffer* lb, SnOp reg) {
+	ASSERT(!reg.address);
+	emit_rex(lb, rex_for_rm(reg));
+	emit(lb, 0x50 + reg.reg);
+}
+
+static inline void asm_pop(SnLinkBuffer* lb, SnOp reg) {
+	ASSERT(!reg.address);
+	emit_rex(lb, rex_for_rm(reg));
+	emit(lb, 0x58 + reg.reg);
+}
+
+static inline int32_t asm_push_i(SnLinkBuffer* lb, SnImm imm) {
+	// returns the offset for the immediate
+	emit(lb, 0x68);
+	int32_t offset = snow_linkbuffer_size(lb);
+	emit_imm(lb, imm, 4);
+	return offset;
 }
 
 #endif /* end of include guard: ASM_X86_64_H_NNNVOAL1 */

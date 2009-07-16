@@ -6,9 +6,10 @@
 #include "snow/codegen.h"
 #include <stdio.h>
 
-VALUE print_object(SnContinuation* me)
+VALUE print_object(SnContext* me)
 {
 	printf("printing... 0x%llx\n", me->self);
+	return SN_NIL;
 }
 
 static void interactive_prompt()
@@ -33,8 +34,8 @@ static void interactive_prompt()
 	SnCodegen* cg = snow_create_codegen(root);
 
 	SnFunction* func = snow_codegen_compile(cg);
-//	VALUE val = snow_call(SN_NIL, func, 0);
-//	debug("result: %s\n", value_to_string(val));
+	VALUE val = snow_call(SN_NIL, func, 2, int_to_value(123), int_to_value(456));
+	debug("result: %s\n", value_to_string(val));
 }
 
 int main(int argc, char const *argv[])

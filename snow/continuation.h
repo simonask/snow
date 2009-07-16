@@ -3,14 +3,12 @@
 
 #include "snow/object.h"
 #include "snow/arch.h"
-
-struct SnContinuation;
-typedef VALUE(*SnContinuationFunc)(struct SnContinuation*);
+#include "snow/context.h"
 
 typedef struct SnContinuation {
 	SnObjectBase base;
 	
-	SnContinuationFunc function;
+	SnFunctionPtr function;
 	
 	#ifdef ARCH_x86_64
 	struct {
@@ -30,18 +28,14 @@ typedef struct SnContinuation {
 	bool running;
 	struct SnContinuation* return_to;
 
-	VALUE self;
-	VALUE* args;
-	uintx num_args;
+	SnContext* context;
 	VALUE return_val;
 } SnContinuation;
 
 CAPI void snow_init_current_continuation();
 CAPI SnContinuation* snow_get_current_continuation();
 
-CAPI SnContinuation* snow_create_continuation(SnContinuationFunc);
-CAPI void snow_continuation_set_self(SnContinuation*, VALUE self);
-CAPI void snow_continuation_set_arguments(SnContinuation*, uintx num, VALUE* args);
+CAPI SnContinuation* snow_create_continuation(SnFunctionPtr, SnContext* context);
 CAPI VALUE snow_continuation_call(SnContinuation*, SnContinuation* return_to);
 CAPI void snow_continuation_yield(SnContinuation* cc, VALUE val);
 CAPI void snow_continuation_return(SnContinuation* cc, VALUE val);

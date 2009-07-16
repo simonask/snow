@@ -5,6 +5,11 @@
 #include "snow/object.h"
 
 typedef enum SnAstNodeType {
+	/*
+		IMPORTANT!
+		When adding entries in this enum, remember to also add an entry in ast.c for the
+		desired size of the ast node.
+	*/
 	SN_AST_LITERAL,
 	SN_AST_SEQUENCE,
 	SN_AST_FUNCTION,
