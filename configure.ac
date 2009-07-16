@@ -30,9 +30,11 @@ esac
 AM_CONDITIONAL(ARCH_x86_64, test "x$ARCH" = xx86_64)
 AM_CONDITIONAL(ARCH_x86_32, test "x$ARCH" = xx86_32)
 
-__DEBUG_CFLAGS="-fopenmp -O0 -pg -g -DDEBUG -Wall"
-__RELEASE_CFLAGS="-fopenmp -Os -pipe -fomit-frame-pointer"
-CFLAGS="$__DEBUG_CFLAGS $ARCH_CFLAGS -std=c99"
+_DEBUG_CFLAGS="-fopenmp -O0 -pg -g -DDEBUG -Wfatal-errors"
+_RELEASE_CFLAGS="-fopenmp -Os -pipe -fomit-frame-pointer -Wdisabled-optimization"
+_WARNING_CFLAGS="-Wall -Wno-unused -Werror=shadow -Werror=clobbered -pedantic -Werror=implicit-function-declaration -Werror=uninitialized"
+
+CFLAGS="-std=c99 $_DEBUG_CFLAGS $ARCH_CFLAGS $_WARNING_CFLAGS"
 CCASFLAGS="$CFLAGS"
 LDFLAGS="-ldl"
 
