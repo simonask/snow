@@ -17,7 +17,8 @@ NOINLINE void _continuation_resume(SnContinuation* cc) {
 	);
 }
 
-NOINLINE bool _continuation_save(SnContinuation* cc) {
+NOINLINE bool _continuation_save(SnContinuation* cc)
+{
 	__asm__ __volatile__(
 	// rsp is rbp+0x10, since the stack size of this function is 0
 	"movq %%rsp, %0\n"
@@ -37,7 +38,9 @@ NOINLINE bool _continuation_save(SnContinuation* cc) {
 	return false;	
 }
 
-NOINLINE static void _continuation_return_handler() {
+NOINLINE __attribute__((flatten,no_instrument_function)) void _continuation_return_handler();
+
+void _continuation_return_handler() {
 	// this function is meant to be jumped to by a `ret`-instruction.
 	// Continuations don't like the C way of call/return, so this
 	// cheats C to return the continuation way anyway.

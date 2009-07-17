@@ -35,6 +35,7 @@ SnContinuation* snow_create_continuation(SnFunctionPtr func, SnContext* context)
 	cc->return_to = NULL;
 	cc->context = context;
 	cc->return_val = NULL;
+	return cc;
 }
 
 VALUE snow_continuation_call(SnContinuation* cc, SnContinuation* return_to)
@@ -50,6 +51,7 @@ VALUE snow_continuation_call(SnContinuation* cc, SnContinuation* return_to)
 		return cc->return_val;
 	}
 	
+	ASSERT(false);
 	return NULL; // suppress warning
 }
 
@@ -80,4 +82,10 @@ void snow_continuation_resume(SnContinuation* cc)
 		_continuation_reset(cc);
 	cc->running = true;
 	_continuation_resume(cc);
+}
+
+SnObject* create_continuation_prototype()
+{
+	SnObject* proto = snow_create_object(NULL);
+	return proto;
 }
