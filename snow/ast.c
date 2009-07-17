@@ -95,3 +95,10 @@ SnAstNode* snow_ast_and(SnAstNode* left, SnAstNode* right) { return create_ast_n
 SnAstNode* snow_ast_or(SnAstNode* left, SnAstNode* right)  { return create_ast_node(SN_AST_OR, left, right); }
 SnAstNode* snow_ast_xor(SnAstNode* left, SnAstNode* right) { return create_ast_node(SN_AST_XOR, left, right); }
 SnAstNode* snow_ast_not(SnAstNode* expr) { return create_ast_node(SN_AST_NOT, expr); }
+
+
+SnObject* create_ast_prototype()
+{
+	SnObject* proto = snow_create_object(NULL);
+	return proto;
+}

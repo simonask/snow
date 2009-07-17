@@ -79,3 +79,9 @@ intx snow_array_find(SnArray* array, VALUE val) {
 	}
 	return -1;
 }
+
+SnObject* create_array_prototype()
+{
+	SnObject* proto = snow_create_object(NULL);
+	return proto;
+}

@@ -20,3 +20,9 @@ VALUE snow_function_call(SnFunction* func, SnContext* context)
 	
 	return snow_continuation_call(continuation, here);
 }
+
+SnObject* create_function_prototype()
+{
+	SnObject* proto = snow_create_object(NULL);
+	return proto;
+}

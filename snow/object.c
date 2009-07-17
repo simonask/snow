@@ -22,10 +22,18 @@ SnObject* snow_create_object(SnObject* prototype)
 
 VALUE snow_object_get_member(SnObject* obj, SnSymbol member)
 {
-	return snow_map_get(obj->members, symbol_to_value(member));
+	VALUE val = snow_map_get(obj->members, symbol_to_value(member));
+	ASSERT(val);
+	return val;
 }
 
 VALUE snow_object_set_member(SnObject* obj, SnSymbol member, VALUE val)
 {
 	return snow_map_set(obj->members, symbol_to_value(member), val);
+}
+
+SnObject* create_object_prototype()
+{
+	SnObject* proto = snow_create_object(NULL);
+	return proto;
 }

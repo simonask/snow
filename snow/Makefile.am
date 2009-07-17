@@ -12,6 +12,10 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	ast.c \
 	ast.h \
 	basic.h \
+	boolean.c \
+	class.c \
+	class.h \
+	codegen.c \
 	codegen.h \
 	context.c \
 	context.h \
@@ -28,6 +32,9 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	linkbuffer.h \
 	map.c \
 	map.h \
+	nil.c \
+	numeric.c \
+	numeric.h \
 	object.c \
 	object.h \
 	parser.c \
@@ -40,7 +47,9 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	str.h \
 	symbol.c \
 	symbol.h \
-	value.h
+	value.h \
+	wrapper.c \
+	wrapper.h
 
 CLEANFILES = parser.c parser.h scanner.c
 

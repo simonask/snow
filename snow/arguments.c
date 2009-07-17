@@ -17,3 +17,9 @@ VALUE snow_arguments_push(SnArguments* args, VALUE val)
 	args->data[args->size++] = val;
 	return val;
 }
+
+SnObject* create_arguments_prototype()
+{
+	SnObject* proto = snow_create_object(NULL);
+	return proto;
+}

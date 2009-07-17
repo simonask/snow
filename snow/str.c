@@ -10,3 +10,9 @@ SnString* snow_create_string(const char* cstr)
 	memcpy(str->str, cstr, len+1);
 	return str;
 }
+
+SnObject* create_string_prototype()
+{
+	SnObject* proto = snow_create_object(NULL);
+	return proto;
+}

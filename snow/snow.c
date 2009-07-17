@@ -6,17 +6,39 @@
 #include "snow/function.h"
 #include "snow/gc.h"
 #include "snow/continuation.h"
+#include "snow/prototypes.h"
 
 #include <stdarg.h>
 
-static SnObject* find_object_prototype(VALUE);
-static SnObject* find_immediate_prototype(VALUE);
+static SnObject* find_object_prototype(VALUE)        ATTR_HOT;
+static SnObject* find_immediate_prototype(VALUE)     ATTR_HOT;
+
+static SnObject* basic_prototypes[SN_NUMBER_OF_BASIC_TYPES];
 
 void snow_init()
 {
 	void* stack_top;
 	GET_BASE_PTR(stack_top);
 	snow_gc_stack_top(stack_top);
+	
+	basic_prototypes[SN_OBJECT_TYPE] = create_object_prototype();
+	basic_prototypes[SN_CLASS_TYPE] = create_class_prototype();
+	basic_prototypes[SN_CONTINUATION_TYPE] = create_continuation_prototype();
+	basic_prototypes[SN_CONTEXT_TYPE] = create_context_prototype();
+	basic_prototypes[SN_ARGUMENTS_TYPE] = create_arguments_prototype();
+	basic_prototypes[SN_FUNCTION_TYPE] = create_function_prototype();
+	basic_prototypes[SN_STRING_TYPE] = create_string_prototype();
+	basic_prototypes[SN_ARRAY_TYPE] = create_array_prototype();
+	basic_prototypes[SN_MAP_TYPE] = create_map_prototype();
+	basic_prototypes[SN_WRAPPER_TYPE] = create_wrapper_prototype();
+	basic_prototypes[SN_CODEGEN_TYPE] = create_codegen_prototype();
+	basic_prototypes[SN_AST_TYPE] = create_ast_prototype();
+	basic_prototypes[SN_INTEGER_TYPE] = create_integer_prototype();
+	basic_prototypes[SN_NIL_TYPE] = create_nil_prototype();
+	basic_prototypes[SN_BOOLEAN_TYPE] = create_boolean_prototype();
+	basic_prototypes[SN_SYMBOL_TYPE] = create_symbol_prototype();
+	basic_prototypes[SN_FLOAT_TYPE] = create_float_prototype();
+	
 	snow_init_current_continuation();
 }
 
@@ -83,20 +105,52 @@ VALUE snow_get_member_by_value(VALUE self, VALUE sym)
 	return snow_get_member(self, value_to_symbol(sym));
 }
 
+VALUE snow_set_member(VALUE self, SnSymbol sym, VALUE val)
+{
+	// TODO: Properties
+	ASSERT(is_object(self));
+	SnObject* object = (SnObject*)self;
+	ASSERT(object->base.type == SN_OBJECT_TYPE);
+	return snow_object_set_member(object, sym, val);
+}
+
+VALUE snow_set_member_by_value(VALUE self, VALUE vsym, VALUE val)
+{
+	ASSERT(is_symbol(vsym));
+	return snow_set_member(self, value_to_symbol(vsym), val);
+}
+
 SnObject* find_object_prototype(VALUE self)
 {
 	ASSERT(is_object(self));
 	SnObjectBase* base = (SnObjectBase*)self;
-	switch (base->type) {
-		default:
-		return self;
-	}
-	ASSERT(false);
+	ASSERT(base->type < SN_NUMBER_OF_BASIC_TYPES);
+	
+	if (base->type == SN_OBJECT_TYPE)
+		return (SnObject*)self;
+	
+	return basic_prototypes[base->type];
 }
 
 SnObject* find_immediate_prototype(VALUE self)
 {
-	ASSERT(false);
+	ASSERT(!is_object(self));
+	if (is_integer(self))
+		return basic_prototypes[SN_INTEGER_TYPE];
+	else if (is_float(self))
+		return basic_prototypes[SN_FLOAT_TYPE];
+	else if (is_nil(self))
+		return basic_prototypes[SN_NIL_TYPE];
+	else if (is_boolean(self))
+		return basic_prototypes[SN_BOOLEAN_TYPE];
+	else if (is_symbol(self))
+		return basic_prototypes[SN_SYMBOL_TYPE];
+	else
+		TRAP();
+}
+
+SnObject** snow_get_basic_types() {
+	return basic_prototypes;
 }
 
 const char* snow_value_to_string(VALUE val)

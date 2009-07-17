@@ -67,3 +67,9 @@ int snow_map_compare_default(VALUE a, VALUE b)
 	return (intx)b - (intx)a;
 }
 
+SnObject* create_map_prototype()
+{
+	SnObject* proto = snow_create_object(NULL);
+	return proto;
+}
+

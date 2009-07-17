@@ -30,3 +30,9 @@ static const char* symbol_to_string(SnSymbol sym)
 	ASSERT(sym < symbol_table_size);
 	return symbol_table[sym].str;
 }
+
+SnObject* create_symbol_prototype()
+{
+	SnObject* proto = snow_create_object(NULL);
+	return proto;
+}

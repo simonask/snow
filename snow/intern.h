@@ -5,6 +5,7 @@
 #include "snow/value.h"
 #include "snow/symbol.h"
 #include "snow/arch.h"
+#include "snow/prototypes.h"
 
 #include <omp.h>
 
@@ -22,7 +23,6 @@ CAPI inline void debug(const char*, ...) {}
 #define ASSERT_TYPE(val, type) ASSERT(is_object(val) && ((SnObjectBase*)val).type == type)
 
 enum SnValueType {
-	kObjectType = 0x0,
 	kIntegerType = 0x1,
 	kNil = 0x2,
 	kFalse = 0x4,
@@ -50,7 +50,7 @@ static inline float value_to_float(VALUE val) { uint32_t d = (uint32_t)((uintx)v
 #endif
 
 static inline bool is_integer(VALUE val) { return (intx)val & 0x1; }
-static inline bool is_object(VALUE val) { return val && ((intx)val & kTypeMask) == kObjectType; }
+static inline bool is_object(VALUE val) { return val && ((intx)val & kTypeMask) == 0; }
 static inline bool is_true(VALUE val) { return (intx)val == kTrue; }
 static inline bool is_false(VALUE val) { return (intx)val == kFalse; }
 static inline bool is_boolean(VALUE val) { return is_true(val) || is_false(val); }
@@ -71,5 +71,13 @@ static inline VALUE symbol_to_value(SnSymbol sym) { return (VALUE)((sym << 0x10)
 static inline SnSymbol value_to_symbol(VALUE val) { return (SnSymbol)val >> 0x10; }
 
 const char* value_to_string(VALUE val);
+
+
+// API convenience
+
+#define SNOW_FUNC(NAME) static VALUE NAME(SnContext* _context)
+#define SELF (_context->self)
+#define ARGS (_context->args->data)
+#define REQUIRE_ARGS(n) ASSERT(_context->args->size >= n)
 
 #endif /* end of include guard: INTERN_H_WXDJG2OI */

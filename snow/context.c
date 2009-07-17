@@ -58,5 +58,10 @@ VALUE snow_context_get_local_by_value(SnContext* ctx, VALUE sym)
 			return NULL; // suppress warning
 		}
 	}
-	
+}
+
+SnObject* create_context_prototype()
+{
+	SnObject* proto = snow_create_object(NULL);
+	return proto;
 }
