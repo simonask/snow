@@ -62,7 +62,6 @@ SnFunction* snow_codegen_compile(SnCodegen* cg)
 	debug("COMPILED CODE AT 0x%llx\n", compiled_code);
 	
 	cgx->result->func = (SnFunctionPtr)compiled_code;
-	TRAP();
 	
 	return cgx->result;
 }
@@ -97,7 +96,7 @@ void codegen_compile_root(SnCodegenX* cgx)
 	ASM(mov, RSP, RBP);
 	int32_t stack_size_offset = ASM(sub_id, 0, RSP);
 	ASM(push, R15);
-	ASM(push, RAX); // stack padding
+	ASM(push, R15); // stack padding
 	ASM(mov, RDI, R15);  // function context is always in r15, since r15 is preserved across calls
 	
 	ASSERT(cgx->base.root->type == SN_AST_FUNCTION);
@@ -122,8 +121,8 @@ void codegen_compile_root(SnCodegenX* cgx)
 	// return
 	Label return_label = ASM(label);
 	ASM(bind, &return_label);
-	ASM(pop, RAX);
 	ASM(pop, R15);
+	ASM(pop, R15); // stack padding
 	ASM(leave);
 	ASM(ret);
 	
@@ -302,7 +301,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				SnAstNode* arg = (SnAstNode*)args->data[i];
 				codegen_compile_node(cgx, arg);
 				ASM(mov, RAX, RSI);
-				ASM(mov_rev, TEMPORARY(tmp_args), RDI);
+				ASM(mov_rev, RDI, TEMPORARY(tmp_args));
 				CALL(snow_arguments_push);
 			}
 			

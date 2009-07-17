@@ -189,6 +189,7 @@ static inline void emit_modrm(SnLinkBuffer* lb, byte mod, byte reg, byte rm) {
 }
 
 static inline void emit_operands(SnLinkBuffer* lb, SnOp reg, SnOp rm) {
+	ASSERT(!reg.address);
 	emit_modrm(lb, mod_for_operand(rm), reg.reg, rm.reg);
 	emit_disp(lb, rm);
 }
