@@ -67,3 +67,5 @@ bin_PROGRAMS = snow
 snow_SOURCES = main.c
 snow_LDADD = libsnow.la
 snow_LDFLAGS = -static
+
+test: libsnow.la

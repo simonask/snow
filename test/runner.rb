@@ -24,20 +24,18 @@ names.each do |name|
   next if name == "test"
   next unless File.exist?(name)
   
-  print name.ljust(60)
+  puts "=> #{name.upcase}"
   command = "./#{name}"
-  `#{command}`
+  system(command)
   exitcode = $?
   if exitcode == 0
     passed += 1
-    puts green("OK")
   elsif exitcode == 2
     pending += 1
-    puts yellow("PENDING")
   else
     failed += 1
-    puts "#{red('FAILED')} (code: #{exitcode})"
   end
+  puts
 end
-
-puts("#{passed} passed, #{failed} failed, #{pending} pending.")
+puts
+puts("#{passed} #{passed == 1 ? 'suite' : 'suites'} passed, #{failed} failed, #{pending} pending.")

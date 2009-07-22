@@ -1,13 +1,11 @@
-test_names = $(shell ls *.c | sed -e s/\.c//)
+SUBDIRS = ../snow
+bin_PROGRAMS = codegen symbol
+codegen_SOURCES = codegen.c test.c
+codegen_LDADD = ../snow/libsnow.la
+symbol_SOURCES = symbol.c test.c
+symbol_LDADD = ../snow/libsnow.la
 
-compile:
-	CC="$(CC)" CFLAGS="$(CFLAGS) ../snow/.libs/libsnow.a -I.." ./compile.rb $(test_names)
+all: codegen symbol
 
-all: compile
-
-test: compile
-	./runner.rb $(test_names)
-	
-clean:
-	rm -f $(test_names)
-	rm -rf *.dSYM
+test: all
+	exec ./runner.rb codegen symbol
