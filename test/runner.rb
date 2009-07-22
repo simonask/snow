@@ -14,6 +14,10 @@ def green(str)
   "\x1b[1;32m#{str}#{RESET_COLOR}"
 end
 
+def blue(str)
+  "\x1b[1;36m#{str}#{RESET_COLOR}"
+end
+
 names = ARGV.sort
 
 passed = 0
@@ -24,7 +28,7 @@ names.each do |name|
   next if name == "test"
   next unless File.exist?(name)
   
-  puts "=> #{name.upcase}"
+  puts blue("#{name.upcase}")
   command = "./#{name}"
   system(command)
   exitcode = $?
@@ -34,8 +38,13 @@ names.each do |name|
     pending += 1
   else
     failed += 1
+    likely = nil
+    if exitcode == 5
+      likely = "looks like a failed assert or a debug trap"
+    end
+    likely = " (#{likely})" if likely
+    puts "#{red('FAILED')} with exitcode #{exitcode}#{likely}."
   end
   puts
 end
-puts
-puts("#{passed} #{passed == 1 ? 'suite' : 'suites'} passed, #{failed} failed, #{pending} pending.")
+puts("#{passed} #{passed == 1 ? 'suite' : 'suites'} passed, #{failed} failed, #{pending} pending")
