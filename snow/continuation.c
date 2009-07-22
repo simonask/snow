@@ -5,7 +5,7 @@
 
 #include <string.h>
 
-const size_t CONTINUATION_STACK_SIZE = 8192;
+const size_t CONTINUATION_STACK_SIZE = 1 << 13; // 8K
 
 static SnContinuation* _current_continuation = NULL;
 
@@ -17,7 +17,6 @@ void snow_init_current_continuation() {
 	SnContinuation* cc = snow_create_continuation(NULL, NULL);
 	cc->running = true;
 	set_current_continuation(cc);
-	debug("current continuation is: 0x%llx\n", cc);
 }
 
 SnContinuation* snow_get_current_continuation() {
