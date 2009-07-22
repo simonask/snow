@@ -59,7 +59,7 @@ SnFunction* snow_codegen_compile(SnCodegen* cg)
 	byte* compiled_code = (byte*)valloc(len);
 	snow_linkbuffer_copy_data(cgx->buffer, compiled_code, len);
 	mprotect(compiled_code, len, PROT_EXEC);
-	debug("COMPILED CODE AT 0x%llx\n", compiled_code);
+//	debug("COMPILED CODE AT 0x%llx\n", compiled_code);
 	
 	cgx->result->func = (SnFunctionPtr)compiled_code;
 	
@@ -104,7 +104,7 @@ void codegen_compile_root(SnCodegenX* cgx)
 	// args
 	SnAstNode* args_seq = (SnAstNode*)cgx->base.root->children[2];
 	ASSERT(args_seq->type == SN_AST_SEQUENCE);
-	SnArray* args_array = (SnAstNode*)args_seq->children[0];
+	SnArray* args_array = (SnArray*)args_seq->children[0];
 	ASSERT(args_array->base.base.type == SN_ARRAY_TYPE);
 	cgx->result->argument_names = args_array;
 	#ifdef DEBUG
