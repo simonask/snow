@@ -24,7 +24,7 @@ typedef struct SnContext {
 	struct SnContext* static_parent;
 	struct SnFunction* function;
 	VALUE self;
-	VALUE* locals;
+	SnArray* locals;
 	SnArguments* args;
 } SnContext;
 
@@ -33,8 +33,10 @@ typedef VALUE(*SnFunctionPtr)(struct SnContext*);
 
 CAPI SnContext* snow_create_context(SnContext* static_parent);
 CAPI VALUE snow_context_get_named_argument(SnContext*, SnSymbol);
-CAPI VALUE snow_context_get_named_argument_by_value(SnContext*, VALUE sym);
+CAPI VALUE snow_context_get_named_argument_by_value(SnContext*, VALUE sym)   ATTR_HOT;
 CAPI VALUE snow_context_get_local(SnContext*, SnSymbol);
 CAPI VALUE snow_context_get_local_by_value(SnContext*, VALUE sym)            ATTR_HOT;
+CAPI VALUE snow_context_set_local(SnContext*, SnSymbol, VALUE val);
+CAPI VALUE snow_context_set_local_by_value(SnContext*, VALUE sym, VALUE val) ATTR_HOT;
 
 #endif /* end of include guard: CONTEXT_H_ZSI0OCOV */

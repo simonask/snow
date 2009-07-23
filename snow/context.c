@@ -4,7 +4,7 @@
 
 SnContext* snow_create_context(SnContext* static_parent)
 {
-	SnContext* ctx = snow_alloc_any_object(SN_CONTEXT_TYPE, sizeof(SnContext));
+	SnContext* ctx = (SnContext*)snow_alloc_any_object(SN_CONTEXT_TYPE, sizeof(SnContext));
 	ctx->static_parent = static_parent;
 	ctx->function = NULL;
 	ctx->self = NULL;
@@ -13,51 +13,79 @@ SnContext* snow_create_context(SnContext* static_parent)
 	return ctx;
 }
 
+VALUE snow_context_get_named_argument_by_value(SnContext* ctx, VALUE vsym)
+{
+	if (ctx->args && ctx->function && ctx->function->desc->argument_names) {
+		VALUE idx = snow_array_find(ctx->function->desc->argument_names, vsym);
+		return snow_arguments_get_by_index(ctx->args, value_to_int(idx));
+	}
+	return NULL;
+}
+
 VALUE snow_context_get_local(SnContext* ctx, SnSymbol sym)
 {
 	return snow_context_get_local_by_value(ctx, symbol_to_value(sym));
 }
 
-VALUE snow_context_get_local_by_value(SnContext* ctx, VALUE sym)
+VALUE snow_context_get_local_by_value(SnContext* ctx, VALUE vsym)
 {
-	ASSERT(is_symbol(sym));
+	ASSERT(is_symbol(vsym));
 	ASSERT(ctx->function);
 	
-	VALUE local_idx = NULL;
-	if (ctx->function->local_index_map)
-		local_idx = snow_map_get(ctx->function->local_index_map, sym);
-	intx arg_idx = -1;
-	if (ctx->function->argument_names)
-		arg_idx = snow_array_find(ctx->function->argument_names, sym);
+	if (ctx->function->desc->local_index_map)
+	{
+		VALUE vidx = snow_map_get(ctx->function->desc->local_index_map, vsym);
+		if (vidx)
+			return snow_array_get(ctx->locals, value_to_int(vidx));
+	}
 	
-	if (local_idx)
+	if (ctx->static_parent)
+		return snow_context_get_local_by_value(ctx->static_parent, vsym);
+	
+	TRAP(); // no such local
+	return NULL;
+}
+
+VALUE snow_context_set_local(SnContext* ctx, SnSymbol sym, VALUE val)
+{
+	return snow_context_set_local_by_value(ctx, symbol_to_value(sym), val);
+}
+
+static bool context_set_local_by_value_if_exists(SnContext* ctx, VALUE vsym, VALUE val)
+{
+	ASSERT(ctx->function);
+	if (ctx->function->desc->local_index_map)
 	{
-		ASSERT(is_integer(local_idx));
-		int nidx = value_to_int(local_idx);
-		ASSERT(nidx >= 0);
-		return ctx->locals[nidx];
-	}
-	else if (arg_idx >= 0)
-	{
-		if (arg_idx < ctx->args->size)
-			return ctx->args->data[arg_idx];
-		else
+		VALUE vidx = snow_map_get(ctx->function->desc->local_index_map, vsym);
+		if (vidx)
 		{
-			TRAP();// arg not provided by calling method... Maybe do something clever here.
-			return SN_NIL;
+			snow_array_set(ctx->locals, value_to_int(vidx), val);
+			return true;
 		}
 	}
-	else
+	
+	if (ctx->static_parent)
 	{
-		// TODO: Check arguments
-		if (ctx->static_parent)
-			return snow_context_get_local_by_value(ctx->static_parent, sym);
-		else
-		{
-			TRAP(); // no such local
-			return NULL; // suppress warning
-		}
+		return context_set_local_by_value_if_exists(ctx->static_parent, vsym, val);
 	}
+	
+	return false;
+}
+
+VALUE snow_context_set_local_by_value(SnContext* ctx, VALUE vsym, VALUE val)
+{
+	ASSERT(is_symbol(vsym));
+	
+	if (!context_set_local_by_value_if_exists(ctx, vsym, val))
+	{
+		// no existing local, add one here
+		intx idx = snow_function_description_add_local(ctx->function->desc, value_to_symbol(vsym));
+		if (!ctx->locals)
+			ctx->locals = snow_create_array();
+		snow_array_set(ctx->locals, idx, val);
+	}
+	
+	return val;
 }
 
 SnObject* create_context_prototype()
