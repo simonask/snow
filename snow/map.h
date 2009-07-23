@@ -21,4 +21,6 @@ CAPI VALUE snow_map_set(SnMap*, VALUE key, VALUE val);
 
 CAPI int snow_map_compare_default(VALUE, VALUE);
 
+static inline uintx snow_map_size(SnMap* map) { return map->size; }
+
 #endif /* end of include guard: MAP_H_VZXFJ4GY */
