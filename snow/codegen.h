@@ -13,6 +13,7 @@ typedef struct SnCodegen {
 } SnCodegen;
 
 CAPI SnCodegen* snow_create_codegen(SnAstNode* root);
+CAPI SnFunctionDescription* snow_codegen_compile_description(SnCodegen*);
 CAPI SnFunction* snow_codegen_compile(SnCodegen*);
 
 #endif /* end of include guard: CODEGEN_H_JLFE3D9Q */

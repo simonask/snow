@@ -33,29 +33,30 @@ TEST_CASE(simple_add) {
 	TEST(value_to_int(ret) == 579);
 }
 
-/*
 TEST_CASE(simple_closure) {
-	HandleScope _;
-
-	RefPtr<FunctionDefinition> def = _function(
-		_local_assign(_ident("a"), _lit_int(123)),
-		_local_assign(_ident("func"),
-			_function(
-				_local_assign(_ident("b"), _lit_int(456)),
-				_member_call(_ident("b"), _ident("+"), _seq(_ident("a")))
-			)
-		),
-		_local_call(_ident("func"))
+	SnAstNode* def = snow_ast_function("<no name>", "<no file>", snow_ast_sequence(0),
+		snow_ast_sequence(3,
+			snow_ast_local_assign(snow_symbol("a"), snow_ast_literal(int_to_value(123))),
+			snow_ast_local_assign(snow_symbol("func"),
+				snow_ast_function("<no name>", "<no file>", snow_ast_sequence(0),
+					snow_ast_sequence(2,
+						snow_ast_local_assign(snow_symbol("b"), snow_ast_literal(int_to_value(456))),
+						snow_ast_call(snow_ast_member(snow_ast_local(snow_symbol("b")), snow_symbol("+")), snow_ast_sequence(1, snow_ast_local(snow_symbol("a"))))
+					)
+				)
+			),
+			snow_ast_call(snow_ast_local(snow_symbol("func")), snow_ast_sequence(0))
+		)
 	);
 	
-	Handle<Function> f = compile(def);
-	//dump_disasm(std::cout, f);
-	ValueHandle ret = snow::call(NULL, f);
-	
-	TEST_EQ(integer(ret), 579);
+	SnCodegen* cg = snow_create_codegen(def);
+	SnFunction* f = snow_codegen_compile(cg);
+	VALUE ret = snow_call(NULL, f, 0);
+	TEST(is_integer(ret));
+	TEST(value_to_int(ret) == 579);
 }
 
-TEST_CASE(object_get) {
+/*TEST_CASE(object_get) {
 	HandleScope _;
 	RefPtr<FunctionDefinition> def = _function(
 		_member(_ident("obj"), _ident("member"))

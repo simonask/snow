@@ -14,7 +14,7 @@
 
 typedef struct SnCodegenX {
 	SnCodegen base;
-	SnFunction* result;
+	SnFunctionDescription* result;
 	SnLinkBuffer* buffer;
 	SnLinkBuffer* returns;
 	intx num_temporaries;
@@ -26,6 +26,7 @@ static void codegen_compile_root(SnCodegenX* cgx);
 static void codegen_compile_node(SnCodegenX* cgx, SnAstNode*);
 static intx codegen_reserve_tmp(SnCodegenX* cgx);
 static void codegen_free_tmp(SnCodegenX* cgx, intx tmp);
+static bool codegen_is_local_from_parent(SnCodegenX* cgx, VALUE vsym);
 
 SnCodegen* snow_create_codegen(SnAstNode* root)
 {
@@ -48,8 +49,13 @@ static void codegen_free(VALUE cg)
 
 SnFunction* snow_codegen_compile(SnCodegen* cg)
 {
+	return snow_create_function_from_description(snow_codegen_compile_description(cg));
+}
+
+SnFunctionDescription* snow_codegen_compile_description(SnCodegen* cg)
+{
 	SnCodegenX* cgx = (SnCodegenX*)cg;
-	cgx->result = snow_create_function(NULL);
+	cgx->result = snow_create_function_description(NULL);
 	
 	codegen_compile_root(cgx);
 	
@@ -59,7 +65,6 @@ SnFunction* snow_codegen_compile(SnCodegen* cg)
 	byte* compiled_code = (byte*)valloc(len);
 	snow_linkbuffer_copy_data(cgx->buffer, compiled_code, len);
 	mprotect(compiled_code, len, PROT_EXEC);
-//	debug("COMPILED CODE AT 0x%llx\n", compiled_code);
 	
 	cgx->result->func = (SnFunctionPtr)compiled_code;
 	
@@ -85,7 +90,7 @@ void codegen_free_tmp(SnCodegenX* cgx, intx tmp)
 #define RESERVE_TMP() codegen_reserve_tmp(cgx)
 #define FREE_TMP(tmp) codegen_free_tmp(cgx, tmp)
 #define TEMPORARY(tmp) ADDRESS(RBP, -(tmp+1) * sizeof(VALUE))
-#define CALL(func) ASM(mov_id, IMMEDIATE(func), RCX); ASM(call, RCX);
+#define CALL(func) ASM(mov_id, IMMEDIATE(func), RCX); ASM(call, RCX); // TODO: auto-inlining
 
 void codegen_compile_root(SnCodegenX* cgx)
 {
@@ -96,22 +101,34 @@ void codegen_compile_root(SnCodegenX* cgx)
 	ASM(mov, RSP, RBP);
 	int32_t stack_size_offset = ASM(sub_id, 0, RSP);
 	ASM(push, R15);
-	ASM(push, R15); // stack padding
-	ASM(mov, RDI, R15);  // function context is always in r15, since r15 is preserved across calls
+	ASM(push, R14);
+	ASM(mov, RDI, R15);                                           // function context in r15
+	ASM(mov_rev, R14, ADDRESS(R15, offsetof(SnContext, locals))); // locals array in r14
 	
 	ASSERT(cgx->base.root->type == SN_AST_FUNCTION);
 	
-	// args
+	// convert args to locals
 	SnAstNode* args_seq = (SnAstNode*)cgx->base.root->children[2];
 	ASSERT(args_seq->type == SN_AST_SEQUENCE);
 	SnArray* args_array = (SnArray*)args_seq->children[0];
 	ASSERT(args_array->base.base.type == SN_ARRAY_TYPE);
 	cgx->result->argument_names = args_array;
-	#ifdef DEBUG
 	for (uintx i = 0; i < args_array->size; ++i) {
 		ASSERT(is_symbol(args_array->data[i]));
+		
+		intx idx = snow_function_description_add_local(cgx->result, value_to_symbol(args_array->data[i]));
+		
+		ASM(mov, R15, RDI);
+		ASM(mov_id, IMMEDIATE(args_array->data[i]), RSI);
+		CALL(snow_context_get_named_argument_by_value);
+		ASM(mov, R14, RDI);
+		ASM(mov_id, IMMEDIATE(idx), RSI);
+		ASM(mov, RAX, RDX);
+		CALL(snow_array_set);
 	}
-	#endif
+	
+	// always clear rax before body, so empty functions will return nil.
+	ASM(xor, RAX, RAX);
 	
 	// body
 	SnAstNode* body_seq = (SnAstNode*)cgx->base.root->children[3];
@@ -121,8 +138,8 @@ void codegen_compile_root(SnCodegenX* cgx)
 	// return
 	Label return_label = ASM(label);
 	ASM(bind, &return_label);
+	ASM(pop, R14);
 	ASM(pop, R15);
-	ASM(pop, R15); // stack padding
 	ASM(leave);
 	ASM(ret);
 	
@@ -174,8 +191,17 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		}
 		
 		case SN_AST_FUNCTION:
-			ASM(mov_id, IMMEDIATE(node->children[0]), RAX);
+		{
+			SnCodegen* cg2 = snow_create_codegen(node);
+			SnFunctionDescription* desc = snow_codegen_compile_description(cg2);
+			VALUE key = snow_store_add(desc);
+			ASM(mov_id, IMMEDIATE(key), RDI);
+			CALL(snow_store_get);
+			ASM(mov, RAX, RDI);
+			CALL(snow_create_function_from_description);
+			ASM(mov, R15, ADDRESS(RAX, offsetof(SnFunction, declaration_context)));
 			break;
+		}
 			
 		case SN_AST_RETURN:
 		{
@@ -220,9 +246,26 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			VALUE vsym = node->children[0];
 			ASSERT(is_symbol(vsym));
 			
-			ASM(mov, R15, RDI);                     // context
-			ASM(mov_id, IMMEDIATE(vsym), RSI);      // name of local as symbol
-			CALL(snow_context_get_local_by_value);
+			VALUE vidx = NULL;
+			if (cgx->result->local_index_map)
+			{
+				vidx = snow_map_get(cgx->result->local_index_map, vsym);
+			}
+			
+			if (vidx)
+			{
+				// local to this scope
+				ASM(mov, R14, RDI);
+				ASM(mov_id, IMMEDIATE(value_to_int(vidx)), RSI);
+				CALL(snow_array_get);
+			}
+			else
+			{
+				// local to parent or injected scope
+				ASM(mov, R15, RDI);
+				ASM(mov_id, IMMEDIATE(vsym), RSI);
+				CALL(snow_context_get_local_by_value);
+			}
 			break;
 		}
 		
@@ -241,11 +284,54 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		
 		case SN_AST_LOCAL_ASSIGNMENT:
 		{
+			VALUE vsym = node->children[0];
+			ASSERT(is_symbol(vsym));
+			SnAstNode* val = (SnAstNode*)node->children[1];
+			
+			codegen_compile_node(cgx, val);
+			
+			VALUE vidx = NULL;
+			if (cgx->result->local_index_map)
+			{
+				vidx = snow_map_get(cgx->result->local_index_map, vsym);
+			}
+			
+			if (vidx)
+			{
+				// local to this scope
+				ASM(mov, R14, RDI);
+				ASM(mov_id, IMMEDIATE(value_to_int(vidx)), RSI);
+				ASM(mov, RAX, RDX);
+				CALL(snow_array_set);
+			}
+			else
+			{
+				// local to a parent or injected scope
+				ASM(mov, R15, RDI);
+				ASM(mov_id, IMMEDIATE(vsym), RSI);
+				ASM(mov, RAX, RDX);
+				CALL(snow_context_set_local_by_value);
+			}
 			break;
 		}
 		
 		case SN_AST_MEMBER_ASSIGNMENT:
 		{
+			SnAstNode* member = (SnAstNode*)node->children[0];
+			SnAstNode* self = (SnAstNode*)member->children[0];
+			VALUE vsym = member->children[1];
+			ASSERT(is_symbol(vsym));
+			
+			intx tmp_self = RESERVE_TMP();
+			codegen_compile_node(cgx, self);
+			ASM(mov, RAX, TEMPORARY(tmp_self));
+			
+			SnAstNode* val = (SnAstNode*)node->children[1];
+			codegen_compile_node(cgx, val);
+			ASM(mov, RAX, RDX);
+			ASM(mov_rev, RDI, TEMPORARY(tmp_self));
+			ASM(mov_id, IMMEDIATE(vsym), RSI);
+			CALL(snow_set_member_by_value);
 			break;
 		}
 		

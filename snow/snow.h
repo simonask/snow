@@ -22,4 +22,7 @@ CAPI VALUE snow_set_member_by_value(VALUE self, VALUE member, VALUE value)      
 CAPI SnObject** snow_get_basic_types();
 CAPI const char* snow_value_to_string(VALUE val);
 
+CAPI VALUE snow_store_add(VALUE val)                                                     ATTR_HOT;
+CAPI VALUE snow_store_get(VALUE key)                                                     ATTR_HOT;
+
 #endif /* end of include guard: SNOW_H_YMYJ9XZE */

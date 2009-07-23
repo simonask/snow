@@ -71,7 +71,10 @@ VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
 	// TODO: Proper context setup
 	SnContext* context = snow_create_context(func->declaration_context);
 	context->self = self;
+	context->function = func;
 	context->locals = NULL;
+	if (func->desc->local_index_map)
+		context->locals = snow_create_array_with_size(snow_map_size(func->desc->local_index_map));
 	context->args = args;
 	
 	return snow_function_call(func, context);
@@ -147,6 +150,7 @@ SnObject* find_immediate_prototype(VALUE self)
 		return basic_prototypes[SN_SYMBOL_TYPE];
 	else
 		TRAP();
+	return NULL;
 }
 
 SnObject** snow_get_basic_types() {
@@ -168,4 +172,25 @@ const char* snow_value_to_string(VALUE val)
 	SnString* str = (SnString*)str_val;
 	ASSERT(str->base.type == SN_STRING_TYPE);
 	return str->str;
+}
+
+static SnArray** store_ptr() {
+	static SnArray* array = NULL;
+	if (!array)
+		array = snow_create_array();
+	return &array;
+}
+
+VALUE snow_store_add(VALUE val) {
+	SnArray* store = *store_ptr();
+	intx key = snow_array_size(store);
+	snow_array_push(store, val);
+	return int_to_value(key);
+}
+
+VALUE snow_store_get(VALUE key) {
+	ASSERT(is_integer(key));
+	SnArray* store = *store_ptr();
+	intx nkey = value_to_int(key);
+	return snow_array_get(store, nkey);
 }
