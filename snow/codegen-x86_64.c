@@ -1,74 +1,46 @@
 #include "snow/codegen.h"
+#include "snow/codegen-intern.h"
 #include "snow/snow.h"
 #include "snow/intern.h"
-#include "snow/linkbuffer.h"
 #include "snow/asm-x86_64.h"
 #include "snow/array.h"
 #include "snow/gc.h"
 #include "snow/context.h"
 #include "snow/array.h"
 #include "snow/arguments.h"
+#include "snow/linkbuffer.h"
 
-#include <sys/mman.h>
 #include <stddef.h>
 
 typedef struct SnCodegenX {
 	SnCodegen base;
-	SnFunctionDescription* result;
-	SnLinkBuffer* buffer;
 	SnLinkBuffer* returns;
 	intx num_temporaries;
 	SnArray* tmp_freelist;
 } SnCodegenX;
 
-static void codegen_free(VALUE);
-static void codegen_compile_root(SnCodegenX* cgx);
 static void codegen_compile_node(SnCodegenX* cgx, SnAstNode*);
 static intx codegen_reserve_tmp(SnCodegenX* cgx);
 static void codegen_free_tmp(SnCodegenX* cgx, intx tmp);
 static bool codegen_is_local_from_parent(SnCodegenX* cgx, VALUE vsym);
 
-SnCodegen* snow_create_codegen(SnAstNode* root)
+SnCodegen* create_codegen(SnAstNode* root)
 {
 	ASSERT(root->type == SN_AST_FUNCTION && "Only function definitions can be used as root nodes in Snow ASTs.");
 	SnCodegenX* codegen = (SnCodegenX*)snow_alloc_any_object(SN_CODEGEN_TYPE, sizeof(SnCodegenX));
 	snow_gc_set_free_func(codegen, codegen_free);
 	codegen->base.root = root;
-	codegen->buffer = snow_create_linkbuffer(1024);
+	codegen->base.buffer = snow_create_linkbuffer(1024);
 	codegen->returns = NULL;
 	codegen->num_temporaries = 0;
 	codegen->tmp_freelist = NULL;
 	return (SnCodegen*)codegen;
 }
 
-static void codegen_free(VALUE cg)
+void codegen_free(VALUE cg)
 {
 	SnCodegenX* cgx = (SnCodegenX*)cg;
-	snow_free_linkbuffer(cgx->buffer);
-}
-
-SnFunction* snow_codegen_compile(SnCodegen* cg)
-{
-	return snow_create_function_from_description(snow_codegen_compile_description(cg));
-}
-
-SnFunctionDescription* snow_codegen_compile_description(SnCodegen* cg)
-{
-	SnCodegenX* cgx = (SnCodegenX*)cg;
-	cgx->result = snow_create_function_description(NULL);
-	
-	codegen_compile_root(cgx);
-	
-	uintx len = snow_linkbuffer_size(cgx->buffer);
-	
-	// FIXME: Use an executable allocator so we can have as many functions as possible in one page of memory.
-	byte* compiled_code = (byte*)valloc(len);
-	snow_linkbuffer_copy_data(cgx->buffer, compiled_code, len);
-	mprotect(compiled_code, len, PROT_EXEC);
-	
-	cgx->result->func = (SnFunctionPtr)compiled_code;
-	
-	return cgx->result;
+	snow_free_linkbuffer(cgx->base.buffer);
 }
 
 intx codegen_reserve_tmp(SnCodegenX* cgx)
@@ -86,14 +58,15 @@ void codegen_free_tmp(SnCodegenX* cgx, intx tmp)
 	snow_array_push(cgx->tmp_freelist, int_to_value(tmp));
 }
 
-#define ASM(instr, ...) asm_##instr(cgx->buffer, ##__VA_ARGS__)
+#define ASM(instr, ...) asm_##instr(cgx->base.buffer, ##__VA_ARGS__)
 #define RESERVE_TMP() codegen_reserve_tmp(cgx)
 #define FREE_TMP(tmp) codegen_free_tmp(cgx, tmp)
 #define TEMPORARY(tmp) ADDRESS(RBP, -(tmp+1) * sizeof(VALUE))
 #define CALL(func) ASM(mov_id, IMMEDIATE(func), RCX); ASM(call, RCX); // TODO: auto-inlining
 
-void codegen_compile_root(SnCodegenX* cgx)
+void codegen_compile_root(SnCodegen* cg)
 {
+	SnCodegenX* cgx = (SnCodegenX*)cg;
 	ASSERT(cgx->base.root->type == SN_AST_FUNCTION);
 	
 	// prelude
@@ -112,11 +85,11 @@ void codegen_compile_root(SnCodegenX* cgx)
 	ASSERT(args_seq->type == SN_AST_SEQUENCE);
 	SnArray* args_array = (SnArray*)args_seq->children[0];
 	ASSERT(args_array->base.base.type == SN_ARRAY_TYPE);
-	cgx->result->argument_names = args_array;
+	cgx->base.result->argument_names = args_array;
 	for (uintx i = 0; i < args_array->size; ++i) {
 		ASSERT(is_symbol(args_array->data[i]));
 		
-		intx idx = snow_function_description_add_local(cgx->result, value_to_symbol(args_array->data[i]));
+		intx idx = snow_function_description_add_local(cgx->base.result, value_to_symbol(args_array->data[i]));
 		
 		ASM(mov, R15, RDI);
 		ASM(mov_id, IMMEDIATE(args_array->data[i]), RSI);
@@ -160,7 +133,7 @@ void codegen_compile_root(SnCodegenX* cgx)
 	
 	// link stack size
 	uintx stack_size = cgx->num_temporaries * sizeof(VALUE);
-	snow_linkbuffer_modify(cgx->buffer, stack_size_offset, 4, (byte*)&stack_size);
+	snow_linkbuffer_modify(cgx->base.buffer, stack_size_offset, 4, (byte*)&stack_size);
 	
 	
 	if (cgx->tmp_freelist && snow_array_size(cgx->tmp_freelist) != cgx->num_temporaries)
@@ -247,9 +220,9 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			ASSERT(is_symbol(vsym));
 			
 			VALUE vidx = NULL;
-			if (cgx->result->local_index_map)
+			if (cgx->base.result->local_index_map)
 			{
-				vidx = snow_map_get(cgx->result->local_index_map, vsym);
+				vidx = snow_map_get(cgx->base.result->local_index_map, vsym);
 			}
 			
 			if (vidx)
@@ -291,9 +264,9 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			codegen_compile_node(cgx, val);
 			
 			VALUE vidx = NULL;
-			if (cgx->result->local_index_map)
+			if (cgx->base.result->local_index_map)
 			{
-				vidx = snow_map_get(cgx->result->local_index_map, vsym);
+				vidx = snow_map_get(cgx->base.result->local_index_map, vsym);
 			}
 			
 			if (vidx)

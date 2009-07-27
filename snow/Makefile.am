@@ -15,6 +15,7 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	boolean.c \
 	class.c \
 	class.h \
+	codegen-intern.h \
 	codegen.c \
 	codegen.h \
 	context.c \

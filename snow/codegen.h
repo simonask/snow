@@ -6,9 +6,13 @@
 #include "snow/ast.h"
 #include "snow/function.h"
 
+struct SnLinkBuffer;
+
 typedef struct SnCodegen {
 	SnObjectBase base;
+	SnFunctionDescription* result;
 	SnAstNode* root;
+	struct SnLinkBuffer* buffer;
 	// ...
 } SnCodegen;
 
