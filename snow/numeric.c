@@ -22,6 +22,20 @@ SNOW_FUNC(numeric_plus) {
 	}
 }
 
+SNOW_FUNC(numeric_multiply) {
+	ASSERT(is_numeric(SELF));
+	REQUIRE_ARGS(1);
+	ASSERT(is_numeric(ARGS[0]));
+	
+	if (is_integer(SELF) && is_integer(ARGS[0])) {
+		return int_to_value(value_to_int(SELF) * value_to_int(ARGS[0]));
+	} else {
+		float a = is_integer(SELF) ? (float)value_to_int(SELF) : value_to_float(SELF);
+		float b = is_integer(ARGS[0]) ? (float)value_to_int(ARGS[0]) : value_to_float(ARGS[0]);
+		return float_to_value(a * b);
+	}
+}
+
 SNOW_FUNC(numeric_to_string) {
 	ASSERT(is_numeric(SELF));
 	
@@ -44,6 +58,7 @@ SnObject* create_integer_prototype()
 {
 	SnObject* proto = snow_create_object(NULL);
 	snow_set_member(proto, snow_symbol("+"), snow_create_function(numeric_plus));
+	snow_set_member(proto, snow_symbol("*"), snow_create_function(numeric_multiply));
 	snow_set_member(proto, snow_symbol("to_string"), snow_create_function(numeric_to_string));
 	return proto;
 }
