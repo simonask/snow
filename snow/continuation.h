@@ -7,22 +7,8 @@
 
 typedef struct SnContinuation {
 	SnObjectBase base;
-	
 	SnFunctionPtr function;
-	
-	#ifdef ARCH_x86_64
-	struct {
-		void* rbx;
-		void* rbp;
-		void* rsp;
-		void* r12;
-		void* r13;
-		void* r14;
-		void* r15;
-		void* rip;
-	} reg;
-	#endif
-	
+	SnRegisters reg;	// saved registers
 	byte* stack_hi;
 	byte* stack_lo;
 	bool running;
