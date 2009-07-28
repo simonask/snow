@@ -7,6 +7,7 @@
 #include "snow/gc.h"
 #include "snow/continuation.h"
 #include "snow/prototypes.h"
+#include "snow/parser.h"
 
 #include <stdarg.h>
 
@@ -40,6 +41,22 @@ void snow_init()
 	basic_prototypes[SN_FLOAT_TYPE] = create_float_prototype();
 	
 	snow_init_current_continuation();
+}
+
+VALUE snow_eval(const char* str)
+{
+	SnAstNode* ast = snow_parse(str);
+	SnCodegen* cg = snow_create_codegen(ast);
+	SnFunction* func = snow_codegen_compile(cg);
+	
+	// TODO: Global scope
+	return snow_call(NULL, func, 0);
+}
+
+VALUE snow_require(const char* file)
+{
+	TRAP(); // TODO
+	return SN_NIL;
 }
 
 VALUE snow_call(VALUE self, VALUE closure, uintx num_args, ...)
