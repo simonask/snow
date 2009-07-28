@@ -12,6 +12,15 @@ SnString* snow_create_string(const char* cstr)
 	return str;
 }
 
+SnString* snow_create_string_from_Data(const char* cstr, uintx len)
+{
+	SnString* str = (SnString*)snow_alloc_any_object(SN_STRING_TYPE, sizeof(SnString));
+	str->str = snow_gc_alloc(len+1);
+	memcpy(str->str, cstr, len);
+	str->str[len] = '\0';
+	return str;
+}
+
 SnString* snow_create_string_from_linkbuffer(SnLinkBuffer* buffer)
 {
 	SnString* str = (SnString*)snow_alloc_any_object(SN_STRING_TYPE, sizeof(SnString));
@@ -20,6 +29,11 @@ SnString* snow_create_string_from_linkbuffer(SnLinkBuffer* buffer)
 	snow_linkbuffer_copy_data(buffer, str->str, len);
 	str->str[len] = '\0';
 	return str;
+}
+
+intx snow_string_compare(SnString* a, SnString* b)
+{
+	return strcmp(a->str, b->str);
 }
 
 SnObject* create_string_prototype()
