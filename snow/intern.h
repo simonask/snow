@@ -20,7 +20,7 @@ CAPI inline void debug(const char*, ...) {}
 #include <assert.h>
 
 #define ASSERT(x) if (!(x)) TRAP();
-#define ASSERT_TYPE(val, type) ASSERT(is_object(val) && ((SnObjectBase*)val).type == type)
+#define ASSERT_TYPE(OBJECT, TYPE) ASSERT(is_object(OBJECT) && ((SnObjectBase*)OBJECT)->type == TYPE)
 
 enum SnValueType {
 	kIntegerType = 0x1,
