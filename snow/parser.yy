@@ -123,7 +123,7 @@ parameters: identifier                                      { $$ = snow_ast_sequ
             | parameters ',' identifier                     { snow_ast_sequence_push($1, symbol_to_value($3)); $$ = $1; }
             ;
 
-closure:    '[' parameters ']' scope                        { $$ = $4; $$->children[0] = $2; }
+closure:    '[' parameters ']' scope                        { $$ = $4; $$->children[2] = $2; }
             | scope                                         { $$ = $1; }
             ;
 
