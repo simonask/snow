@@ -38,6 +38,11 @@ SnSymbol snow_symbol(const char* cstr)
 	return new_symbol;
 }
 
+VALUE snow_vsymbol(const char* cstr)
+{
+	return symbol_to_value(snow_symbol(cstr));
+}
+
 static const char* symbol_to_string(SnSymbol sym)
 {
 	SnArray* storage = symbol_storage();
