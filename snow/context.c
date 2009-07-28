@@ -1,6 +1,7 @@
 #include "snow/context.h"
 #include "snow/function.h"
 #include "snow/intern.h"
+#include "snow/snow.h"
 
 SnContext* snow_create_context(SnContext* static_parent)
 {
@@ -11,6 +12,15 @@ SnContext* snow_create_context(SnContext* static_parent)
 	ctx->locals = NULL;
 	ctx->args = NULL;
 	return ctx;
+}
+
+static VALUE global_context_key = NULL;
+
+SnContext* snow_global_context()
+{
+	if (!global_context_key)
+		global_context_key = snow_store_add(snow_create_context(NULL));
+	return snow_store_get(global_context_key);
 }
 
 VALUE snow_context_get_named_argument_by_value(SnContext* ctx, VALUE vsym)
@@ -39,8 +49,13 @@ VALUE snow_context_get_local_by_value(SnContext* ctx, VALUE vsym)
 			return snow_array_get(ctx->locals, value_to_int(vidx));
 	}
 	
-	if (ctx->static_parent)
-		return snow_context_get_local_by_value(ctx->static_parent, vsym);
+	SnContext* parent = ctx->static_parent;
+	SnContext* global = snow_global_context();
+	if (!parent && ctx != global)
+		parent = global;
+		
+	if (parent)
+		return snow_context_get_local_by_value(parent, vsym);
 	
 	TRAP(); // no such local
 	return NULL;
@@ -64,10 +79,13 @@ static bool context_set_local_by_value_if_exists(SnContext* ctx, VALUE vsym, VAL
 		}
 	}
 	
-	if (ctx->static_parent)
-	{
-		return context_set_local_by_value_if_exists(ctx->static_parent, vsym, val);
-	}
+	SnContext* parent = ctx->static_parent;
+	SnContext* global = snow_global_context();
+	if (!parent && ctx != global)
+		parent = global;
+		
+	if (parent)
+		return context_set_local_by_value_if_exists(parent, vsym, val);
 	
 	return false;
 }

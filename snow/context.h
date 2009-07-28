@@ -32,6 +32,7 @@ typedef struct SnContext {
 typedef VALUE(*SnFunctionPtr)(struct SnContext*);
 
 CAPI SnContext* snow_create_context(SnContext* static_parent);
+CAPI SnContext* snow_global_context();
 CAPI VALUE snow_context_get_named_argument(SnContext*, SnSymbol);
 CAPI VALUE snow_context_get_named_argument_by_value(SnContext*, VALUE sym)   ATTR_HOT;
 CAPI VALUE snow_context_get_local(SnContext*, SnSymbol);
