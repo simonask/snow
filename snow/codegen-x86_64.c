@@ -82,22 +82,27 @@ void codegen_compile_root(SnCodegen* cg)
 	
 	// convert args to locals
 	SnAstNode* args_seq = (SnAstNode*)cgx->base.root->children[2];
-	ASSERT(args_seq->type == SN_AST_SEQUENCE);
-	SnArray* args_array = (SnArray*)args_seq->children[0];
-	ASSERT(args_array->base.base.type == SN_ARRAY_TYPE);
-	cgx->base.result->argument_names = args_array;
-	for (uintx i = 0; i < args_array->size; ++i) {
-		ASSERT(is_symbol(args_array->data[i]));
-		
-		intx idx = snow_function_description_add_local(cgx->base.result, value_to_symbol(args_array->data[i]));
-		
-		ASM(mov, R15, RDI);
-		ASM(mov_id, IMMEDIATE(args_array->data[i]), RSI);
-		CALL(snow_context_get_named_argument_by_value);
-		ASM(mov, R14, RDI);
-		ASM(mov_id, IMMEDIATE(idx), RSI);
-		ASM(mov, RAX, RDX);
-		CALL(snow_array_set);
+	if (args_seq)
+	{
+		ASSERT(args_seq->type == SN_AST_SEQUENCE);
+		SnArray* args_array = (SnArray*)args_seq->children[0];
+		ASSERT(args_array->base.base.type == SN_ARRAY_TYPE);
+		cgx->base.result->argument_names = args_array;
+		for (uintx i = 0; i < args_array->size; ++i) {
+			ASSERT(is_symbol(args_array->data[i]));
+
+			intx idx = snow_function_description_add_local(cgx->base.result, value_to_symbol(args_array->data[i]));
+
+			ASM(mov, R15, RDI);
+			ASM(mov_id, IMMEDIATE(args_array->data[i]), RSI);
+			CALL(snow_context_get_named_argument_by_value);
+			ASM(mov, R14, RDI);
+			ASM(mov_id, IMMEDIATE(idx), RSI);
+			ASM(mov, RAX, RDX);
+			CALL(snow_array_set);
+		}
+	} else {
+		cgx->base.result->argument_names = snow_create_array();
 	}
 	
 	// always clear rax before body, so empty functions will return nil.

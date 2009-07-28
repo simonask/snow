@@ -66,7 +66,7 @@ void snow_ast_sequence_push(SnAstNode* seq, VALUE val) {
 }
 
 SnAstNode* snow_ast_function(const char* name, const char* file, SnAstNode* seq_args, SnAstNode* seq_def) {
-	ASSERT(seq_args->type == SN_AST_SEQUENCE);
+	ASSERT(!seq_args || (seq_args->type == SN_AST_SEQUENCE));
 	ASSERT(seq_def->type == SN_AST_SEQUENCE);
 	return create_ast_node(SN_AST_FUNCTION, snow_create_string(name), snow_create_string(file), seq_args, seq_def);
 }
