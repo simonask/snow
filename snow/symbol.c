@@ -20,8 +20,10 @@ SnSymbol snow_symbol(const char* str)
 	
 	// TODO: preallocate
 	symbol_table = (Symbol*)realloc(symbol_table, sizeof(Symbol)*(symbol_table_size+1));
-	i = symbol_table_size;
-	symbol_table[symbol_table_size++].str = str;
+	i = symbol_table_size++;
+	symbol_table[i].str = str;
+	
+	debug("Adding symbol: \"%s\" (%d)\n", str, i);
 	return i;
 }
 

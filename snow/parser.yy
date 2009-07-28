@@ -1,6 +1,7 @@
 %code requires {
 #include "snow/ast.h"
 #include "snow/intern.h"
+#include "snow/parser-intern.h"
 }
 
 %start program
@@ -9,14 +10,10 @@
 
 %locations
 
-%union {
-	// General purpose type
-	SnAstNode* node;
-	VALUE value;
-	SnSymbol symbol;
-}
-
-%parse-param { const char* streamname }
+%pure_parser
+%parse-param {YY_EXTRA_TYPE state}
+%parse-param {void* scanner}
+%lex-param {yyscan_t* scanner}
 
 %token TOK_EOF 0
 
@@ -32,24 +29,45 @@
              function_call assignment operation variable log_operation member
              sequence 
              program parameters arg_list closure scope
-             arguments local
+             arguments local literal
 %type <symbol> identifier
-%type <value> literal string_literal string_data symbol
+%type <value> literal_value string_literal string_data symbol
 
 %expect 115
 
 %{
 
-#include "scanner.h"
+#include "snow/intern.h"
+#include "snow/scanner.h"
+#include "snow/parser-intern.h"
+#include <stdio.h>
 
-int yyerror(const char* streamname, const char* yymsg);
-char yylex();
+SnAstNode* snow_parse(const char* buf)
+{
+	SnParserState state;
+	state.buf = buf;
+	state.pos = 0;
+	state.len = strlen(buf);
+	state.streamname = "<TODO>";
+	state.result = NULL;
+	
+	yylex_init(&state.yyscanner);
+	yyset_extra(&state, state.yyscanner);
+	yyparse(&state, state.yyscanner);
+	SnAstNode* root = state.result;
+	yylex_destroy(state.yyscanner);
+	
+	ASSERT(root->base.type == SN_AST_TYPE && root->type == SN_AST_FUNCTION);
+	return root;
+}
+
+void yyerror() { fprintf(stderr, "PARSER ERROR!!\n"); }
 
 %}
 
 %%
 
-program:    sequence                                        { $$ = snow_ast_function("<noname>", streamname, NULL, $1); }
+program:    sequence                                        { state->result = $$ = snow_ast_function("<noname>", state->streamname, NULL, $1); }
             ;
 
 statement:  function                                        { $$ = $1; }
@@ -109,14 +127,16 @@ closure:    '[' parameters ']' scope                        { $$ = $4; $$->child
             | scope                                         { $$ = $1; }
             ;
 
-scope:      '{' sequence '}'                                { $$ = snow_ast_function("<unnamed>", streamname, NULL, $2); }
+scope:      '{' sequence '}'                                { $$ = snow_ast_function("<unnamed>", state->streamname, NULL, $2); }
             ;
 
 symbol:     '#' identifier                                  { $$ = snow_ast_literal(symbol_to_value($2)); }
             | '#' TOK_STRING                                    { $$ = snow_ast_literal(symbol_to_value(snow_symbol($2))); }
             ;
 
-literal:    TOK_INTEGER | TOK_FLOAT | TOK_TRUE | TOK_FALSE | TOK_NIL | string_literal | symbol;
+literal_value:    TOK_INTEGER | TOK_FLOAT | TOK_TRUE | TOK_FALSE | TOK_NIL | string_literal | symbol;
+literal:          literal_value                             { $$ = snow_ast_literal($1); }
+                  ;
 
 string_data: TOK_STRING                                         { $$ = $1; }
             | TOK_INTERPOLATION                                 { $$ = $1; }
