@@ -10,6 +10,7 @@
 
 
 #define TEST(x) if (!(x)) { FAIL(#x); }
+#define TEST_EQ(a, b) TEST((a) == (b))
 
 #define FAIL(msg) _test_fail(msg, __FILE__, __LINE__)
 #define PENDING() _test_pending()
