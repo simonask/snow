@@ -15,7 +15,7 @@ static SnArray* symbol_storage() {
 
 SnSymbol snow_symbol(const char* cstr)
 {
-	// TODO: Mutex lock
+	// FIXME: Mutex lock
 	
 	SnArray* storage = symbol_storage();
 	ASSERT(storage);

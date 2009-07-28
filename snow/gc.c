@@ -42,7 +42,7 @@ static void* gc_alloc(uintx size, GCHeader** header)
 	if (new_offset > gc_nursery_size)
 	{
 		snow_gc();
-		// XXX: if size > gc_nursery_size, inf. recursion
+		// FIXME: if size > gc_nursery_size, inf. recursion
 		return gc_alloc(size, header);
 	}
 	

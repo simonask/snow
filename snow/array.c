@@ -29,7 +29,7 @@ SnArray* snow_ref_array(VALUE* data, uintx size) {
 
 VALUE snow_array_get(SnArray* array, intx idx) {
 	if (idx >= array->size || idx < 0) {
-		// XXX: TODO
+		// FIXME: wrap-around for negative indices
 		return SN_NIL;
 	}
 	return array->data[idx];
