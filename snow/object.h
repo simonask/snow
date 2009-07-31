@@ -47,6 +47,7 @@ typedef struct SnObject
 
 CAPI SnObjectBase* snow_alloc_any_object(SnObjectType type, uintx size);
 CAPI SnObject* snow_create_object(SnObject* prototype);
+CAPI void snow_object_init(SnObject* obj, SnObject* prototype);
 CAPI bool snow_object_has_member(SnObject* obj, SnSymbol symbol);
 CAPI VALUE snow_object_get_member(SnObject* obj, SnSymbol symbol);
 CAPI VALUE snow_object_set_member(SnObject* obj, SnSymbol symbol, VALUE value);
