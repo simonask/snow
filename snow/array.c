@@ -13,9 +13,10 @@ SnArray* snow_create_array() {
 
 SnArray* snow_create_array_with_size(uintx size) {
 	SnArray* array = snow_create_array();
+	if (!size) size = 8;
 	array->alloc_size = size;
+	array->size = 0;
 	array->data = snow_gc_alloc(size * sizeof(VALUE));
-	memset(array->data, '\0', size * sizeof(VALUE));
 	return array;
 }
 
@@ -51,9 +52,11 @@ VALUE snow_array_set(SnArray* array, intx idx, VALUE value) {
 }
 
 VALUE snow_array_push(SnArray* array, VALUE value) {
+	// TODO: mutex lock
 	if (array->alloc_size <= array->size) {
 		// realloc
 		uintx new_size = array->alloc_size * 2;
+		if (!new_size) new_size = 8;
 		VALUE* new_data = snow_gc_alloc(new_size * sizeof(VALUE));
 		memset(new_data, '\0', new_size * sizeof(VALUE));
 		memcpy(new_data, array->data, array->size * sizeof(VALUE));

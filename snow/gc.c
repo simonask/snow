@@ -27,6 +27,7 @@ static void* gc_alloc(uintx size, GCHeader**) __attribute__((alloc_size(1)));
 
 static void* gc_alloc(uintx size, GCHeader** header)
 {
+	ASSERT(size > 0);
 	ASSERT(sizeof(GCHeader) <= ALIGNMENT);
 	
 	if (!gc_nursery)
@@ -34,6 +35,7 @@ static void* gc_alloc(uintx size, GCHeader** header)
 		gc_nursery_size = 1 << 23;
 		gc_nursery = (byte*)malloc(gc_nursery_size);
 		gc_nursery_offset = 0;
+		memset(gc_nursery, 0xcd, gc_nursery_size);
 	}
 	
 	uintx padded_size = size + (ALIGNMENT - (size % ALIGNMENT));
@@ -56,6 +58,7 @@ static void* gc_alloc(uintx size, GCHeader** header)
 	
 	ASSERT(((intx)data & 0xf) == 0);
 	
+//	debug("allocated object of size %d, total size %d, header at 0x%llx, data at 0x%llx\n", size, padded_size+ALIGNMENT, *header, data);
 	return data;
 }
 
@@ -89,6 +92,7 @@ bool gc_contains(void* ptr)
 
 void snow_gc()
 {
+	TRAP(); // gc not implemented
 	debug("nursery is at 0x%llx\n", gc_nursery);
 	void** i;
 	GET_BASE_PTR(i);
