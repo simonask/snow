@@ -20,6 +20,7 @@ CAPI VALUE snow_get_member_by_value(VALUE self, VALUE member)                   
 CAPI VALUE snow_set_member(VALUE self, SnSymbol member, VALUE value)                     ATTR_HOT;
 CAPI VALUE snow_set_member_by_value(VALUE self, VALUE member, VALUE value)               ATTR_HOT;
 CAPI SnObject** snow_get_basic_types();
+CAPI SnObject* snow_get_basic_type(SnObjectType);
 CAPI const char* snow_value_to_string(VALUE val);
 
 CAPI VALUE snow_store_add(VALUE val)                                                     ATTR_HOT;

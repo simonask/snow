@@ -174,6 +174,10 @@ SnObject** snow_get_basic_types() {
 	return basic_prototypes;
 }
 
+SnObject* snow_get_basic_type(SnObjectType type) {
+	return snow_get_basic_types()[type];
+}
+
 const char* snow_value_to_string(VALUE val)
 {
 	static bool got_sym = false;
