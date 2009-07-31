@@ -67,8 +67,8 @@ static inline intx value_to_int(VALUE val) {
 	#endif
 }
 
-static inline VALUE symbol_to_value(SnSymbol sym) { return (VALUE)((sym << 0x10) | kSymbolType); }
-static inline SnSymbol value_to_symbol(VALUE val) { return (SnSymbol)val >> 0x10; }
+static inline VALUE symbol_to_value(SnSymbol sym) { return (VALUE)((sym << 4) | kSymbolType); }
+static inline SnSymbol value_to_symbol(VALUE val) { return (SnSymbol)val >> 4; }
 
 const char* value_to_string(VALUE val);
 
