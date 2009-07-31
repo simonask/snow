@@ -16,10 +16,19 @@ SnContext* snow_create_context(SnContext* static_parent)
 
 static VALUE global_context_key = NULL;
 
+static VALUE global_context_func_dummy(SnContext* ctx)
+{
+	TRAP(); // should never be called!
+}
+
 SnContext* snow_global_context()
 {
 	if (!global_context_key)
-		global_context_key = snow_store_add(snow_create_context(NULL));
+	{
+		SnContext* ctx = snow_create_context(NULL);
+		ctx->function = snow_create_function(global_context_func_dummy);
+		global_context_key = snow_store_add(ctx);
+	}
 	return snow_store_get(global_context_key);
 }
 
