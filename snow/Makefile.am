@@ -52,7 +52,7 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	wrapper.c \
 	wrapper.h
 
-CLEANFILES = parser.c parser.h scanner.c
+CLEANFILES = parser.c parser.tab.h scanner.c
 
 parser.c parser.tab.h: parser.yy
 	$(YACC) --defines=parser.tab.h -o parser.c parser.yy
