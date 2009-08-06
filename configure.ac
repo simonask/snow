@@ -36,7 +36,7 @@ _WARNING_CFLAGS="-Wall -Wno-unused -Werror=shadow -Werror=clobbered -pedantic -W
 
 CFLAGS="-std=c99 $_DEBUG_CFLAGS $ARCH_CFLAGS $_WARNING_CFLAGS"
 CCASFLAGS="$CFLAGS"
-LDFLAGS="-ldl"
+LDFLAGS="-Wl,-all_load -ldl"
 
 AC_PROG_LIBTOOL
 

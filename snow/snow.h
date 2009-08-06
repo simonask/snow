@@ -5,6 +5,7 @@
 #include "snow/value.h"
 #include "snow/symbol.h"
 #include "snow/arguments.h"
+#include "snow/class.h"
 #include <stdarg.h>
 
 CAPI void snow_init();
@@ -19,8 +20,9 @@ CAPI VALUE snow_get_member(VALUE self, SnSymbol member)                         
 CAPI VALUE snow_get_member_by_value(VALUE self, VALUE member)                            ATTR_HOT;
 CAPI VALUE snow_set_member(VALUE self, SnSymbol member, VALUE value)                     ATTR_HOT;
 CAPI VALUE snow_set_member_by_value(VALUE self, VALUE member, VALUE value)               ATTR_HOT;
-CAPI SnObject** snow_get_basic_types();
-CAPI SnObject* snow_get_basic_type(SnObjectType);
+CAPI SnClass* snow_get_class(SnObjectType);
+CAPI SnClass** snow_get_basic_types();
+CAPI SnObject* snow_get_prototype(SnObjectType);
 CAPI const char* snow_value_to_string(VALUE val);
 
 CAPI VALUE snow_store_add(VALUE val)                                                     ATTR_HOT;

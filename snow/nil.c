@@ -1,7 +1,6 @@
-#include "snow/object.h"
+#include "snow/intern.h"
 
-SnObject* create_nil_prototype()
+void init_nil_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

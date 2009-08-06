@@ -2,6 +2,7 @@
 #include "snow/gc.h"
 #include "snow/intern.h"
 #include "snow/map.h"
+#include "snow/snow.h"
 
 SnObjectBase* snow_alloc_any_object(SnObjectType type, uintx size)
 {
@@ -27,10 +28,22 @@ void snow_object_init(SnObject* obj, SnObject* prototype)
 
 VALUE snow_object_get_member(SnObject* obj, SnSymbol member)
 {
-	ASSERT(obj->members); // no members
-	VALUE val = snow_map_get(obj->members, symbol_to_value(member));
-	ASSERT(val); // no such member
-	return val;
+	ASSERT(obj);
+	VALUE val = NULL;
+	if (obj->members)
+	{
+		val = snow_map_get(obj->members, symbol_to_value(member));
+		if (val)
+			return val;
+	}
+	
+	SnObject* prototype = obj->prototype ? obj->prototype : snow_get_prototype(typeof(obj));
+	if (prototype != obj)
+	{
+		return snow_object_get_member(prototype, member);
+	}
+	
+	return NULL;
 }
 
 VALUE snow_object_set_member(SnObject* obj, SnSymbol member, VALUE val)
@@ -40,8 +53,7 @@ VALUE snow_object_set_member(SnObject* obj, SnSymbol member, VALUE val)
 	return snow_map_set(obj->members, symbol_to_value(member), val);
 }
 
-SnObject* create_object_prototype()
+void init_object_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

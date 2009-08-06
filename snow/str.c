@@ -1,6 +1,7 @@
 #include "snow/str.h"
 #include "snow/gc.h"
 #include "snow/linkbuffer.h"
+#include "snow/intern.h"
 #include <string.h>
 
 SnString* snow_create_string(const char* cstr)
@@ -36,8 +37,7 @@ intx snow_string_compare(SnString* a, SnString* b)
 	return strcmp(a->str, b->str);
 }
 
-SnObject* create_string_prototype()
+void init_string_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

@@ -15,6 +15,7 @@
 #define NOINLINE __attribute__((noinline))
 #define ATTR_HOT __attribute__((hot))
 #define HIDDEN __attribute__((visibility ("hidden")))
+#define USED __attribute__((used))
 
 
 #ifdef ARCH_x86_64

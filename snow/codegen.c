@@ -1,5 +1,7 @@
 #include "snow/codegen.h"
 #include "snow/codegen-intern.h"
+#include "snow/linkbuffer.h"
+#include "snow/intern.h"
 
 #include <sys/mman.h>
 
@@ -31,8 +33,7 @@ SnFunctionDescription* snow_codegen_compile_description(SnCodegen* cg)
 	return cg->result;
 }
 
-SnObject* create_codegen_prototype()
+void init_codegen_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

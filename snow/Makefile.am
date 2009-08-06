@@ -15,6 +15,7 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	boolean.c \
 	class.c \
 	class.h \
+	classes.h \
 	codegen-intern.h \
 	codegen.c \
 	codegen.h \
@@ -23,10 +24,14 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	continuation.h \
 	continuation-intern.h \
 	continuation.c \
+	debug.h \
+	debug.c \
 	function.c \
 	function.h \
 	gc.c \
 	gc.h \
+	globals.c \
+	globals.h \
 	intern.c \
 	intern.h \
 	linkbuffer.c \

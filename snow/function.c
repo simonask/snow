@@ -5,7 +5,9 @@
 SnFunctionDescription* snow_create_function_description(SnFunctionPtr func)
 {
 	SnFunctionDescription* desc = (SnFunctionDescription*)snow_alloc_any_object(SN_FUNCTION_DESCRIPTION_TYPE, sizeof(SnFunctionDescription));
+	snow_object_init((SnObject*)desc, snow_get_prototype(SN_FUNCTION_TYPE));
 	desc->func = func;
+	desc->name = snow_symbol("<unnamed>");
 	desc->argument_names = NULL;
 	desc->local_index_map = NULL;
 	return desc;
@@ -28,9 +30,15 @@ intx snow_function_description_add_local(SnFunctionDescription* desc, SnSymbol s
 
 SnFunction* snow_create_function(SnFunctionPtr func)
 {
-	SnFunction* f = snow_create_function_from_description(snow_create_function_description(func));
-	ASSERT(f->base.base.type == SN_FUNCTION_TYPE);
-	return f;
+	return snow_create_function_from_description(snow_create_function_description(func));
+}
+
+SnFunction* snow_create_function_with_name(SnFunctionPtr func, const char* name)
+{
+	SnSymbol sym = snow_symbol(name);
+	SnFunctionDescription* desc = snow_create_function_description(func);
+	desc->name = sym;
+	return snow_create_function_from_description(desc);
 }
 
 SnFunction* snow_create_function_from_description(SnFunctionDescription* desc)
@@ -53,8 +61,7 @@ VALUE snow_function_call(SnFunction* func, SnContext* context)
 	return snow_continuation_call(continuation, here);
 }
 
-SnObject* create_function_prototype()
+void init_function_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

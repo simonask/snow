@@ -6,15 +6,15 @@
 #include "snow/function.h"
 #include "snow/gc.h"
 #include "snow/continuation.h"
-#include "snow/prototypes.h"
+#include "snow/classes.h"
 #include "snow/parser.h"
+#include "snow/debug.h"
 
 #include <stdarg.h>
 
-static SnObject* find_object_prototype(VALUE)        ATTR_HOT;
-static SnObject* find_immediate_prototype(VALUE)     ATTR_HOT;
+static SnObject* find_prototype(VALUE)        ATTR_HOT;
 
-static SnObject* basic_prototypes[SN_NUMBER_OF_BASIC_TYPES];
+static SnClass* basic_classes[SN_NUMBER_OF_BASIC_TYPES];
 
 void snow_init()
 {
@@ -22,23 +22,42 @@ void snow_init()
 	GET_BASE_PTR(stack_top);
 	snow_gc_stack_top(stack_top);
 	
-	basic_prototypes[SN_OBJECT_TYPE] = create_object_prototype();
-	basic_prototypes[SN_CLASS_TYPE] = create_class_prototype();
-	basic_prototypes[SN_CONTINUATION_TYPE] = create_continuation_prototype();
-	basic_prototypes[SN_CONTEXT_TYPE] = create_context_prototype();
-	basic_prototypes[SN_ARGUMENTS_TYPE] = create_arguments_prototype();
-	basic_prototypes[SN_FUNCTION_TYPE] = create_function_prototype();
-	basic_prototypes[SN_STRING_TYPE] = create_string_prototype();
-	basic_prototypes[SN_ARRAY_TYPE] = create_array_prototype();
-	basic_prototypes[SN_MAP_TYPE] = create_map_prototype();
-	basic_prototypes[SN_WRAPPER_TYPE] = create_wrapper_prototype();
-	basic_prototypes[SN_CODEGEN_TYPE] = create_codegen_prototype();
-	basic_prototypes[SN_AST_TYPE] = create_ast_prototype();
-	basic_prototypes[SN_INTEGER_TYPE] = create_integer_prototype();
-	basic_prototypes[SN_NIL_TYPE] = create_nil_prototype();
-	basic_prototypes[SN_BOOLEAN_TYPE] = create_boolean_prototype();
-	basic_prototypes[SN_SYMBOL_TYPE] = create_symbol_prototype();
-	basic_prototypes[SN_FLOAT_TYPE] = create_float_prototype();
+	basic_classes[SN_OBJECT_TYPE] = snow_create_class("Object");
+	basic_classes[SN_CLASS_TYPE] = snow_create_class("Class");
+	basic_classes[SN_CONTINUATION_TYPE] = snow_create_class("Continuation");
+	basic_classes[SN_CONTEXT_TYPE] = snow_create_class("Context");
+	basic_classes[SN_ARGUMENTS_TYPE] = snow_create_class("Arguments");
+	basic_classes[SN_FUNCTION_TYPE] = snow_create_class("Function");
+	basic_classes[SN_STRING_TYPE] = snow_create_class("String");
+	basic_classes[SN_ARRAY_TYPE] = snow_create_class("Array");
+	basic_classes[SN_MAP_TYPE] = snow_create_class("Map");
+	basic_classes[SN_WRAPPER_TYPE] = snow_create_class("Wrapper");
+	basic_classes[SN_CODEGEN_TYPE] = snow_create_class("Codegen");
+	basic_classes[SN_AST_TYPE] = snow_create_class("AstNode");
+	basic_classes[SN_INTEGER_TYPE] = snow_create_class("Integer");
+	basic_classes[SN_NIL_TYPE] = snow_create_class("Nil");
+	basic_classes[SN_BOOLEAN_TYPE] = snow_create_class("Boolean");
+	basic_classes[SN_SYMBOL_TYPE] = snow_create_class("Symbol");
+	basic_classes[SN_FLOAT_TYPE] = snow_create_class("Float");
+	
+	
+	init_object_class(basic_classes[SN_OBJECT_TYPE]);
+	init_class_class(basic_classes[SN_CLASS_TYPE]);
+	init_continuation_class(basic_classes[SN_CONTINUATION_TYPE]);
+	init_context_class(basic_classes[SN_CONTEXT_TYPE]);
+	init_arguments_class(basic_classes[SN_ARGUMENTS_TYPE]);
+	init_function_class(basic_classes[SN_FUNCTION_TYPE]);
+	init_string_class(basic_classes[SN_STRING_TYPE]);
+	init_array_class(basic_classes[SN_ARRAY_TYPE]);
+	init_map_class(basic_classes[SN_MAP_TYPE]);
+	init_wrapper_class(basic_classes[SN_WRAPPER_TYPE]);
+	init_codegen_class(basic_classes[SN_CODEGEN_TYPE]);
+	init_ast_class(basic_classes[SN_AST_TYPE]);
+	init_integer_class(basic_classes[SN_INTEGER_TYPE]);
+	init_nil_class(basic_classes[SN_NIL_TYPE]);
+	init_boolean_class(basic_classes[SN_BOOLEAN_TYPE]);
+	init_symbol_class(basic_classes[SN_SYMBOL_TYPE]);
+	init_float_class(basic_classes[SN_FLOAT_TYPE]);
 	
 	snow_init_current_continuation();
 }
@@ -81,9 +100,14 @@ VALUE snow_call_va(VALUE self, VALUE closure, uintx num_args, va_list* ap)
 
 VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
 {
-	ASSERT(is_object(closure)); // temp
+	SnSymbol call_sym = snow_symbol("__call__");
+	while (typeof(closure) != SN_FUNCTION_TYPE)
+	{
+		closure = snow_get_member(closure, call_sym);
+	}
+	
 	SnFunction* func = (SnFunction*)closure;
-	ASSERT(func->base.base.type == SN_FUNCTION_TYPE);
+	ASSERT_TYPE(func, SN_FUNCTION_TYPE);
 	
 	// TODO: Proper context setup
 	SnContext* context = snow_create_context(func->declaration_context);
@@ -109,12 +133,7 @@ VALUE snow_call_method(VALUE self, SnSymbol member, uintx num_args, ...)
 
 VALUE snow_get_member(VALUE self, SnSymbol sym)
 {
-	SnObject* closest_object = NULL;
-	
-	if (is_object(self))
-		closest_object = find_object_prototype(self);
-	else
-		closest_object = find_immediate_prototype(self);
+	SnObject* closest_object = find_prototype(self);
 	
 	return snow_object_get_member(closest_object, sym);
 }
@@ -130,7 +149,7 @@ VALUE snow_set_member(VALUE self, SnSymbol sym, VALUE val)
 	// TODO: Properties
 	ASSERT(is_object(self));
 	SnObject* object = (SnObject*)self;
-	ASSERT(object->base.type == SN_OBJECT_TYPE);
+	//ASSERT(object->base.type == SN_OBJECT_TYPE);	// TODO: A predictable way to discern if an object type is derived from SnObject or SnObjectBase directly.
 	return snow_object_set_member(object, sym, val);
 }
 
@@ -140,42 +159,25 @@ VALUE snow_set_member_by_value(VALUE self, VALUE vsym, VALUE val)
 	return snow_set_member(self, value_to_symbol(vsym), val);
 }
 
-SnObject* find_object_prototype(VALUE self)
+SnObject* find_prototype(VALUE self)
 {
-	ASSERT(is_object(self));
-	SnObjectBase* base = (SnObjectBase*)self;
-	ASSERT(base->type < SN_NUMBER_OF_BASIC_TYPES);
-	
-	if (base->type == SN_OBJECT_TYPE)
-		return (SnObject*)self;
-	
-	return basic_prototypes[base->type];
+	if (is_object(self))
+		return self;
+	return basic_classes[typeof(self)]->instance_prototype;
 }
 
-SnObject* find_immediate_prototype(VALUE self)
-{
-	ASSERT(!is_object(self));
-	if (is_integer(self))
-		return basic_prototypes[SN_INTEGER_TYPE];
-	else if (is_float(self))
-		return basic_prototypes[SN_FLOAT_TYPE];
-	else if (is_nil(self))
-		return basic_prototypes[SN_NIL_TYPE];
-	else if (is_boolean(self))
-		return basic_prototypes[SN_BOOLEAN_TYPE];
-	else if (is_symbol(self))
-		return basic_prototypes[SN_SYMBOL_TYPE];
-	else
-		TRAP();
-	return NULL;
+SnClass* snow_get_class(SnObjectType type) {
+	ASSERT(type >= 0 && type < SN_NUMBER_OF_BASIC_TYPES);
+	return basic_classes[type];
 }
 
-SnObject** snow_get_basic_types() {
-	return basic_prototypes;
+SnClass** snow_get_basic_types() {
+	return basic_classes;
 }
 
-SnObject* snow_get_basic_type(SnObjectType type) {
-	return snow_get_basic_types()[type];
+SnObject* snow_get_prototype(SnObjectType type) {
+	ASSERT(type >= 0 && type < SN_NUMBER_OF_BASIC_TYPES);
+	return basic_classes[type]->instance_prototype;
 }
 
 const char* snow_value_to_string(VALUE val)

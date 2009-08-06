@@ -1,4 +1,5 @@
 #include "snow/wrapper.h"
+#include "snow/intern.h"
 
 SnWrapper* snow_create_wrapper(void* ptr)
 {
@@ -12,8 +13,7 @@ void* snow_wrapper_get_pointer(SnWrapper* wrapper)
 	return wrapper->ptr;
 }
 
-SnObject* create_wrapper_prototype()
+void init_wrapper_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

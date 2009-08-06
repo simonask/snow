@@ -97,8 +97,7 @@ SnAstNode* snow_ast_xor(SnAstNode* left, SnAstNode* right) { return create_ast_n
 SnAstNode* snow_ast_not(SnAstNode* expr) { return create_ast_node(SN_AST_NOT, expr); }
 
 
-SnObject* create_ast_prototype()
+void init_ast_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

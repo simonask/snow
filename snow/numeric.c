@@ -54,17 +54,14 @@ SNOW_FUNC(numeric_to_string) {
 	return snow_create_string(r);
 }
 
-SnObject* create_integer_prototype()
+void init_integer_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	snow_set_member(proto, snow_symbol("+"), snow_create_function(numeric_plus));
-	snow_set_member(proto, snow_symbol("*"), snow_create_function(numeric_multiply));
-	snow_set_member(proto, snow_symbol("to_string"), snow_create_function(numeric_to_string));
-	return proto;
+	snow_define_method(klass, "+", numeric_plus);
+	snow_define_method(klass, "*", numeric_multiply);
+	snow_define_method(klass, "to_string", numeric_to_string);
 }
 
-SnObject* create_float_prototype()
+void init_float_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

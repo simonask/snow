@@ -1,10 +1,12 @@
 #include "snow/array.h"
 #include "snow/intern.h"
 #include "snow/gc.h"
+#include "snow/class.h"
 #include <string.h>
 
 SnArray* snow_create_array() {
 	SnArray* array = (SnArray*)snow_alloc_any_object(SN_ARRAY_TYPE, sizeof(SnArray));
+	snow_object_init((SnObject*)array, NULL);
 	array->alloc_size = 0;
 	array->size = 0;
 	array->data = NULL;
@@ -83,8 +85,46 @@ intx snow_array_find(SnArray* array, VALUE val) {
 	return -1;
 }
 
-SnObject* create_array_prototype()
+SNOW_FUNC(array_new) {
+	SnArray* ar = snow_create_array_with_size(NUM_ARGS);
+	for (uintx i = 0; i < NUM_ARGS; ++i) {
+		ar->data[i] = ARGS[i];
+	}
+	return ar;
+}
+
+SNOW_FUNC(array_get) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(1);
+	ASSERT(is_integer(ARGS[0]));
+	intx i = value_to_int(ARGS[0]);
+	return snow_array_get((SnArray*)SELF, i);
+}
+
+SNOW_FUNC(array_set) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(2);
+	ASSERT(is_integer(ARGS[0]));
+	intx i = value_to_int(ARGS[0]);
+	return snow_array_set((SnArray*)SELF, i, ARGS[1]);
+}
+
+SNOW_FUNC(array_push) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(1);
+	return snow_array_push((SnArray*)SELF, ARGS[0]);
+}
+
+SNOW_FUNC(array_pop) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	return snow_array_pop((SnArray*)SELF);
+}
+
+void init_array_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	snow_define_class_method(klass, "__call__", array_new);
+	snow_define_method(klass, "get", array_get);
+	snow_define_method(klass, "set", array_set);
+	snow_define_method(klass, "push", array_push);
+	snow_define_method(klass, "pop", array_pop);
 }

@@ -4,7 +4,7 @@
 
 SnArguments* snow_create_arguments_with_size(uint32_t size)
 {
-	SnArguments* args = snow_alloc_any_object(SN_ARGUMENTS_TYPE, sizeof(SnArguments));
+	SnArguments* args = (SnArguments*)snow_alloc_any_object(SN_ARGUMENTS_TYPE, sizeof(SnArguments));
 	args->data = size ? (VALUE*)snow_gc_alloc(size * sizeof(VALUE)) : NULL;
 	args->alloc_size = size;
 	args->size = 0;
@@ -18,8 +18,7 @@ VALUE snow_arguments_push(SnArguments* args, VALUE val)
 	return val;
 }
 
-SnObject* create_arguments_prototype()
+void init_arguments_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

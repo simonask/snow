@@ -8,6 +8,7 @@
 typedef struct SnFunctionDescription {
 	SnObjectBase base;
 	SnFunctionPtr func;
+	SnSymbol name;
 	SnArray* argument_names;
 	SnMap* local_index_map;
 } SnFunctionDescription;
@@ -22,6 +23,7 @@ typedef struct SnFunction {
 } SnFunction;
 
 CAPI SnFunction* snow_create_function(SnFunctionPtr func);
+CAPI SnFunction* snow_create_function_with_name(SnFunctionPtr func, const char* name);
 CAPI SnFunction* snow_create_function_from_description(SnFunctionDescription*);
 CAPI VALUE snow_function_call(SnFunction* func, SnContext*);
 

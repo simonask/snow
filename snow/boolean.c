@@ -1,7 +1,6 @@
-#include "snow/object.h"
+#include "snow/intern.h"
 
-SnObject* create_boolean_prototype()
+void init_boolean_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

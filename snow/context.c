@@ -2,6 +2,8 @@
 #include "snow/function.h"
 #include "snow/intern.h"
 #include "snow/snow.h"
+#include "snow/globals.h"
+#include "snow/arguments.h"
 
 SnContext* snow_create_context(SnContext* static_parent)
 {
@@ -19,6 +21,7 @@ static VALUE global_context_key = NULL;
 static VALUE global_context_func_dummy(SnContext* ctx)
 {
 	TRAP(); // should never be called!
+	return NULL;
 }
 
 SnContext* snow_global_context()
@@ -28,6 +31,8 @@ SnContext* snow_global_context()
 		SnContext* ctx = snow_create_context(NULL);
 		ctx->function = snow_create_function(global_context_func_dummy);
 		global_context_key = snow_store_add(ctx);
+		
+		snow_init_globals(ctx);
 	}
 	return snow_store_get(global_context_key);
 }
@@ -115,8 +120,7 @@ VALUE snow_context_set_local_by_value(SnContext* ctx, VALUE vsym, VALUE val)
 	return val;
 }
 
-SnObject* create_context_prototype()
+void init_context_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

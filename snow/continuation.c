@@ -83,8 +83,7 @@ void snow_continuation_resume(SnContinuation* cc)
 	_continuation_resume(cc);
 }
 
-SnObject* create_continuation_prototype()
+void init_continuation_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

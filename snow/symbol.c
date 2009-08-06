@@ -43,7 +43,7 @@ VALUE snow_vsymbol(const char* cstr)
 	return symbol_to_value(snow_symbol(cstr));
 }
 
-static const char* symbol_to_string(SnSymbol sym)
+const char* snow_symbol_to_string(SnSymbol sym)
 {
 	SnArray* storage = symbol_storage();
 	ASSERT(storage);
@@ -53,8 +53,7 @@ static const char* symbol_to_string(SnSymbol sym)
 	return str->str;
 }
 
-SnObject* create_symbol_prototype()
+void init_symbol_class(SnClass* klass)
 {
-	SnObject* proto = snow_create_object(NULL);
-	return proto;
+	
 }

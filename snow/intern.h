@@ -5,7 +5,8 @@
 #include "snow/value.h"
 #include "snow/symbol.h"
 #include "snow/arch.h"
-#include "snow/prototypes.h"
+#include "snow/object.h"
+#include "snow/class.h"
 
 #include <omp.h>
 
@@ -20,7 +21,7 @@ CAPI inline void debug(const char*, ...) {}
 #include <assert.h>
 
 #define ASSERT(x) if (!(x)) TRAP();
-#define ASSERT_TYPE(OBJECT, TYPE) ASSERT(is_object(OBJECT) && ((SnObjectBase*)OBJECT)->type == TYPE)
+#define ASSERT_TYPE(OBJECT, TYPE) ASSERT(typeof(OBJECT) == (TYPE))
 
 enum SnValueType {
 	kIntegerType = 0x1,
@@ -72,12 +73,25 @@ static inline SnSymbol value_to_symbol(VALUE val) { return (SnSymbol)val >> 4; }
 
 const char* value_to_string(VALUE val);
 
+static inline SnObjectType typeof(VALUE val)
+{
+	if (is_object(val)) return ((SnObjectBase*)val)->type;
+	if (is_integer(val)) return SN_INTEGER_TYPE;
+	if (is_nil(val)) return SN_NIL_TYPE;
+	if (is_boolean(val)) return SN_BOOLEAN_TYPE;
+	if (is_symbol(val)) return SN_SYMBOL_TYPE;
+	if (is_float(val)) return SN_FLOAT_TYPE;
+	TRAP(); // unknown type?
+	return 0;
+}
+
 
 // API convenience
 
 #define SNOW_FUNC(NAME) static VALUE NAME(SnContext* _context)
 #define SELF (_context->self)
 #define ARGS (_context->args->data)
+#define NUM_ARGS (_context->args->size)
 #define REQUIRE_ARGS(n) ASSERT(_context->args->size >= n)
 
 #endif /* end of include guard: INTERN_H_WXDJG2OI */

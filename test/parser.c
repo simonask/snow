@@ -1,6 +1,7 @@
 #include "test/test.h"
 #include "snow/snow.h"
 #include "snow/intern.h"
+#include "snow/debug.h"
 
 TEST_CASE(assignments) {
 	intx correct = 3;
@@ -15,6 +16,7 @@ TEST_CASE(functions) {
 }
 
 TEST_CASE(properties) {
+	PENDING();
 	intx correct = 3;
 	VALUE v = snow_eval("@(1,2,3).length");
 	TEST_EQ(value_to_int(v), correct);
