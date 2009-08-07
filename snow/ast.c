@@ -87,7 +87,7 @@ SnAstNode* snow_ast_member_assign(SnAstNode* member, SnAstNode* node) {
 }
 SnAstNode* snow_ast_if_else(SnAstNode* expr, SnAstNode* body, SnAstNode* else_body) { return create_ast_node(SN_AST_IF_ELSE, expr, body, else_body); }
 SnAstNode* snow_ast_call(SnAstNode* func, SnAstNode* seq_args) {
-	ASSERT(seq_args->type == SN_AST_SEQUENCE);
+	ASSERT(!seq_args || (seq_args->type == SN_AST_SEQUENCE));
 	return create_ast_node(SN_AST_CALL, func, seq_args);
 }
 SnAstNode* snow_ast_loop(SnAstNode* while_true, SnAstNode* body) { return create_ast_node(SN_AST_LOOP, while_true, body); }

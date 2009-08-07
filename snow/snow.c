@@ -116,7 +116,7 @@ VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
 	context->locals = NULL;
 	if (func->desc->local_index_map)
 		context->locals = snow_create_array_with_size(snow_map_size(func->desc->local_index_map));
-	context->args = args;
+	context->args = args ? args : snow_create_arguments_with_size(0);
 	
 	return snow_function_call(func, context);
 }

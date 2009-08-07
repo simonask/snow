@@ -369,30 +369,38 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			}
 			
 			// compile arguments
-			SnAstNode* args_seq = (SnAstNode*)node->children[1];
-			ASSERT(args_seq->type == SN_AST_SEQUENCE);
-			SnArray* args = (SnArray*)args_seq->children[0];
-			ASSERT(args->base.base.type == SN_ARRAY_TYPE);
-			
-			uintx num_args = snow_array_size(args);
 			intx tmp_args = RESERVE_TMP();
-			ASM(mov_id, IMMEDIATE(num_args), RDI);
-			CALL(snow_create_arguments_with_size);
-			ASM(mov, RAX, TEMPORARY(tmp_args));
-			
-			// TODO: Handle named args
-			
-			for (uintx i = 0; i < num_args; ++i) {
-				SnAstNode* arg = (SnAstNode*)args->data[i];
-				codegen_compile_node(cgx, arg);
-				ASM(mov, RAX, RSI);
-				ASM(mov_rev, RDI, TEMPORARY(tmp_args));
-				CALL(snow_arguments_push);
+			SnAstNode* args_seq = (SnAstNode*)node->children[1];
+			if (args_seq)
+			{
+				ASSERT(args_seq->type == SN_AST_SEQUENCE);
+				SnArray* args = (SnArray*)args_seq->children[0];
+				ASSERT(args->base.base.type == SN_ARRAY_TYPE);
+
+				uintx num_args = snow_array_size(args);
+				ASM(mov_id, IMMEDIATE(num_args), RDI);
+				CALL(snow_create_arguments_with_size);
+				ASM(mov, RAX, TEMPORARY(tmp_args));
+				
+				// TODO: Handle named args
+
+				for (uintx i = 0; i < num_args; ++i) {
+					SnAstNode* arg = (SnAstNode*)args->data[i];
+					codegen_compile_node(cgx, arg);
+					ASM(mov, RAX, RSI);
+					ASM(mov_rev, RDI, TEMPORARY(tmp_args));
+					CALL(snow_arguments_push);
+				}
+				
+				ASM(mov_rev, RDX, TEMPORARY(tmp_args));
+			} else {
+				ASM(xor, RDX, RDX);
+				ASM(mov, RAX, TEMPORARY(tmp_args));
 			}
 			
 			ASM(mov_rev, RDI, TEMPORARY(tmp_self));
 			ASM(mov_rev, RSI, TEMPORARY(tmp_function));
-			ASM(mov_rev, RDX, TEMPORARY(tmp_args));
+			// args moved into RDX above
 			CALL(snow_call_with_args);
 			
 			FREE_TMP(tmp_args);
