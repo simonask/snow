@@ -41,6 +41,8 @@ names.each do |name|
     likely = nil
     if exitcode == 5
       likely = "looks like a failed assert or a debug trap"
+    elsif exitcode == 11
+      likely = "looks like a segfault"
     end
     likely = " (#{likely})" if likely
     puts "#{red('FAILED')} with exitcode #{exitcode}#{likely}."
