@@ -135,7 +135,12 @@ VALUE snow_get_member(VALUE self, SnSymbol sym)
 {
 	SnObject* closest_object = find_prototype(self);
 	
-	return snow_object_get_member(closest_object, sym);
+	VALUE member = snow_object_get_member(closest_object, sym);
+	if (!member)
+	{
+//		debug("member `%s` not found on 0x%llx\n", snow_symbol_to_string(sym), self);
+		TRAP(); // member not found
+	}
 }
 
 VALUE snow_get_member_by_value(VALUE self, VALUE sym)
