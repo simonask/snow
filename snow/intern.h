@@ -1,6 +1,7 @@
 #ifndef INTERN_H_WXDJG2OI
 #define INTERN_H_WXDJG2OI
 
+#include "snow/snow.h"
 #include "snow/basic.h"
 #include "snow/value.h"
 #include "snow/symbol.h"
@@ -67,6 +68,9 @@ static inline intx value_to_int(VALUE val) {
 	return ((intx)val >> 1) | ((intx)val < 0 ? (intx)1 << 31 : 0);
 	#endif
 }
+
+static inline VALUE boolean_to_value(bool b) { return b ? SN_TRUE : SN_FALSE; }
+static inline bool value_to_boolean(VALUE val) { return snow_eval_truth(val); }
 
 static inline VALUE symbol_to_value(SnSymbol sym) { return (VALUE)((sym << 4) | kSymbolType); }
 static inline SnSymbol value_to_symbol(VALUE val) { return (SnSymbol)val >> 4; }
