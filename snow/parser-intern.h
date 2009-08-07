@@ -27,6 +27,6 @@ HIDDEN int yylex_init(void**);
 HIDDEN int yylex_destroy(void*);
 HIDDEN void yyset_extra(YY_EXTRA_TYPE, void*);
 HIDDEN int yyparse(YY_EXTRA_TYPE, void*);
-HIDDEN void yyerror();
+HIDDEN void yyerror(struct YYLTYPE* yylocp, YY_EXTRA_TYPE state, void* scanner, const char* yymsg);
 
 #endif /* end of include guard: PARSER_INTERN_H_P8KQXQRI */

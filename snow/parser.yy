@@ -15,11 +15,16 @@
 %parse-param {void* scanner}
 %lex-param {yyscan_t* scanner}
 
-%token TOK_EOF 0
+%token TOK_EOF 0 "end of file"
 
-%left <node> TOK_END TOK_RETURN TOK_BREAK TOK_CONTINUE TOK_SELF TOK_LOG_AND TOK_LOG_OR TOK_LOG_XOR TOK_LOG_NOT
-%left <value> TOK_INTEGER TOK_FLOAT TOK_STRING TOK_TRUE TOK_FALSE TOK_NIL 
-%left <symbol> TOK_IDENTIFIER TOK_OPERATOR_FOURTH TOK_OPERATOR_THIRD TOK_OPERATOR_SECOND TOK_OPERATOR_FIRST
+%left <node> TOK_END TOK_RETURN TOK_BREAK TOK_CONTINUE TOK_SELF
+%left <value> TOK_INTEGER TOK_FLOAT TOK_STRING TOK_TRUE TOK_FALSE TOK_NIL
+%left <symbol> TOK_IDENTIFIER
+%left <symbol> TOK_OPERATOR_FOURTH
+%left <symbol> TOK_OPERATOR_THIRD
+%left <node> TOK_LOG_AND TOK_LOG_OR TOK_LOG_XOR TOK_LOG_NOT
+%left <symbol> TOK_OPERATOR_SECOND
+%left <symbol> TOK_OPERATOR_FIRST
 
 %token <node> TOK_INTERPOLATION
 %token '.' ',' '[' ']' '{' '}' '(' ')' ':' '#'
@@ -33,7 +38,7 @@
 %type <symbol> identifier
 %type <value> literal_value string_literal string_data symbol
 
-%expect 115
+%expect 133
 
 %{
 
@@ -41,6 +46,10 @@
 #include "snow/scanner.h"
 #include "snow/parser-intern.h"
 #include <stdio.h>
+
+#ifdef DEBUG
+#define YYERROR_VERBOSE
+#endif
 
 SnAstNode* snow_parse(const char* buf)
 {
@@ -61,13 +70,16 @@ SnAstNode* snow_parse(const char* buf)
 	return root;
 }
 
-void yyerror() { fprintf(stderr, "PARSER ERROR!!\n"); }
+void yyerror(struct YYLTYPE* yylocp, YY_EXTRA_TYPE state, void* scanner, const char* yymsg) {
+	error("%s\n", yymsg);
+	TRAP(); // PARSER ERROR!
+}
 
 %}
 
 %%
 
-program:    sequence                                        { state->result = $$ = snow_ast_function("<noname>", state->streamname, NULL, $1); }
+program:    sequence TOK_EOF                                { state->result = $$ = snow_ast_function("<noname>", state->streamname, NULL, $1); }
             ;
 
 statement:  function                                        { $$ = $1; }
@@ -80,6 +92,8 @@ statement:  function                                        { $$ = $1; }
 
 conditional: TOK_IF expression TOK_EOL sequence TOK_EOL conditional_tail                { $$ = snow_ast_if_else($2, $4, $6); }
              | TOK_UNLESS expression TOK_EOL sequence TOK_EOL conditional_tail          { $$ = snow_ast_if_else(snow_ast_not($2), $4, $6); }
+             | function TOK_IF expression                                               { $$ = snow_ast_if_else($3, $1, snow_ast_literal(SN_NIL)); }
+             | function TOK_UNLESS expression                                           { $$ = snow_ast_if_else(snow_ast_not($3), $1, snow_ast_literal(SN_NIL)); }
              ;
 
 conditional_tail: TOK_END                                                       { $$ = NULL; }
@@ -130,8 +144,8 @@ closure:    '[' parameters ']' scope                        { $$ = $4; $$->child
 scope:      '{' sequence '}'                                { $$ = snow_ast_function("<unnamed>", state->streamname, NULL, $2); }
             ;
 
-symbol:     '#' identifier                                  { $$ = snow_ast_literal(symbol_to_value($2)); }
-            | '#' TOK_STRING                                    { $$ = snow_ast_literal(symbol_to_value(snow_symbol($2))); }
+symbol:     '#' identifier                                  { $$ = symbol_to_value($2); }
+            | '#' TOK_STRING                                    { $$ = symbol_to_value(snow_symbol_from_string($2)); }
             ;
 
 literal_value:    TOK_INTEGER | TOK_FLOAT | TOK_TRUE | TOK_FALSE | TOK_NIL | string_literal | symbol;
