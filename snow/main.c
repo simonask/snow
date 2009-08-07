@@ -1,31 +1,99 @@
+#include "config.h"
+
 #include "snow/snow.h"
 #include "snow/object.h"
 #include "snow/gc.h"
 #include "snow/intern.h"
 #include "snow/function.h"
 #include "snow/codegen.h"
-#include <stdio.h>
+#include "snow/parser.h"
 
-VALUE print_object(SnContext* me)
+#include <stdio.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+#include <unistd.h>
+#include <getopt.h>
+
+#if defined(ARCH_x86_64)
+#define ARCH_NAME "x86-64"
+#else
+#define ARCH_NAME "<UNKNOWN ARCH>"
+#endif
+
+static void print_version_info()
 {
-	printf("printing... 0x%llx\n", me->self);
-	return SN_NIL;
+	printf("snow 0.0.0 (prealpha super unstable) [" ARCH_NAME "]\n");
 }
 
 static void interactive_prompt()
 {
-	SnObject* obj = snow_create_object(NULL);
-	SnObject* obj2 = snow_create_object(obj);
-	
-	snow_set_member(obj, snow_symbol("hej"), obj2);
-	snow_set_member(obj, snow_symbol("foo"), int_to_value(123));
-	snow_set_member(obj, snow_symbol("p"), snow_create_function(print_object));
-	snow_call_method(obj, snow_symbol("p"), 0);
 }
 
-int main(int argc, char const *argv[])
+int main(int argc, char* const* argv)
 {
 	snow_init();
-	interactive_prompt();
+	
+	static int debug_mode = false;
+	static int verbose_mode = false;
+	static int interactive_mode = false;
+	
+	SnArray* require_files = snow_create_array();
+	
+	while (true)
+	{
+		int c;
+		
+		static struct option long_options[] = {
+			{"debug",       
+			no_argument,     
+			  &debug_mode,   
+			    'd'},
+			{"version",     no_argument,       NULL,              'v'},
+			{"interactive", no_argument,       &interactive_mode, 'i'},
+			{"require",     required_argument, NULL,              'r'},
+			{"verbose",     no_argument,       &verbose_mode,      1 },
+			{0,0,0,0}
+		};
+		
+		int option_index = -1;
+		
+		c = getopt_long(argc, argv, "dvir:", long_options, &option_index);
+		if (c < 0)
+			break;
+		
+		switch (c)
+		{
+			case 'v':
+			{
+				print_version_info();
+				return 0;
+			}
+			case 'r':
+			{
+				SnString* filename = snow_create_string(optarg);
+				snow_array_push(require_files, filename);
+				break;
+			}
+			case '?':
+				TRAP(); // unknown argument
+			default:
+				break;
+		}
+	}
+	
+	if (optind < argc) {
+		// require loose filenames
+		SnString* filename = snow_create_string(argv[optind++]);
+		snow_array_push(require_files, filename);
+	}
+	
+	for (uintx i = 0; i < require_files->size; ++i) {
+		snow_require(((SnString*)require_files->data[i])->str);
+	}
+	
+	if (interactive_mode) {
+		interactive_prompt();
+	}
+	
 	return 0;
 }
