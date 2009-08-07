@@ -36,6 +36,34 @@ SNOW_FUNC(numeric_multiply) {
 	}
 }
 
+SNOW_FUNC(numeric_less_than) {
+	ASSERT(is_numeric(SELF));
+	REQUIRE_ARGS(1);
+	ASSERT(is_numeric(ARGS[0]));
+	
+	if (is_integer(SELF) && is_integer(ARGS[0])) {
+		return boolean_to_value(value_to_int(SELF) < value_to_int(ARGS[0]));
+	} else {
+		float a = is_integer(SELF) ? (float)value_to_int(SELF) : value_to_float(SELF);
+		float b = is_integer(ARGS[0]) ? (float)value_to_int(ARGS[0]) : value_to_float(ARGS[0]);
+		return boolean_to_value(a < b);
+	}
+}
+
+SNOW_FUNC(numeric_greater_than) {
+	ASSERT(is_numeric(SELF));
+	REQUIRE_ARGS(1);
+	ASSERT(is_numeric(ARGS[0]));
+	
+	if (is_integer(SELF) && is_integer(ARGS[0])) {
+		return boolean_to_value(value_to_int(SELF) > value_to_int(ARGS[0]));
+	} else {
+		float a = is_integer(SELF) ? (float)value_to_int(SELF) : value_to_float(SELF);
+		float b = is_integer(ARGS[0]) ? (float)value_to_int(ARGS[0]) : value_to_float(ARGS[0]);
+		return boolean_to_value(a > b);
+	}
+}
+
 SNOW_FUNC(numeric_to_string) {
 	ASSERT(is_numeric(SELF));
 	
@@ -58,6 +86,8 @@ void init_integer_class(SnClass* klass)
 {
 	snow_define_method(klass, "+", numeric_plus);
 	snow_define_method(klass, "*", numeric_multiply);
+	snow_define_method(klass, "<", numeric_less_than);
+	snow_define_method(klass, ">", numeric_greater_than);
 	snow_define_method(klass, "to_string", numeric_to_string);
 }
 
