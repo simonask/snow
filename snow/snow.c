@@ -197,6 +197,10 @@ const char* snow_value_to_string(VALUE val)
 	return str->str;
 }
 
+bool snow_eval_truth(VALUE val) {
+	return !(!val || val == SN_NIL || val == SN_FALSE);
+}
+
 static SnArray** store_ptr() {
 	static SnArray* array = NULL;
 	if (!array)

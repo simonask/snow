@@ -24,6 +24,7 @@ CAPI SnClass* snow_get_class(SnObjectType);
 CAPI SnClass** snow_get_basic_types();
 CAPI SnObject* snow_get_prototype(SnObjectType);
 CAPI const char* snow_value_to_string(VALUE val);
+CAPI bool snow_eval_truth(VALUE val);                                                    ATTR_HOT;
 
 CAPI VALUE snow_store_add(VALUE val)                                                     ATTR_HOT;
 CAPI VALUE snow_store_get(VALUE key)                                                     ATTR_HOT;
