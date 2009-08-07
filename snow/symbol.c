@@ -38,6 +38,12 @@ SnSymbol snow_symbol(const char* cstr)
 	return new_symbol;
 }
 
+SnSymbol snow_symbol_from_string(SnString* str)
+{
+	ASSERT_TYPE(str, SN_STRING_TYPE);
+	return snow_symbol(str->str);
+}
+
 VALUE snow_vsymbol(const char* cstr)
 {
 	return symbol_to_value(snow_symbol(cstr));
