@@ -315,6 +315,27 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		
 		case SN_AST_IF_ELSE:
 		{
+			Label if_false = ASM(label);
+			Label after = ASM(label);
+			// compile condition
+			codegen_compile_node(cgx, (SnAstNode*)node->children[0]);
+			ASM(mov, RAX, RDI);
+			CALL(snow_eval_truth);
+			ASM(xor, RCX, RCX);
+			ASM(cmp, RAX, RCX);
+			LabelRef false_jump = ASM(j, CC_ZERO, &if_false);
+			// was true, execute truth body
+			if (node->children[1])
+				codegen_compile_node(cgx, (SnAstNode*)node->children[1]);
+			LabelRef after_jump = ASM(jmp, &after);
+			ASM(bind, &if_false);
+			// was false, execute false body
+			if (node->children[2])
+				codegen_compile_node(cgx, (SnAstNode*)node->children[2]);
+			ASM(bind, &after);
+			
+			ASM(link, &false_jump);
+			ASM(link, &after_jump);
 			break;
 		}
 		
@@ -380,10 +401,35 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			break;
 		}
 		case SN_AST_LOOP:
+		{
+			TRAP(); // Not implemented
+			break;
+		}
 		case SN_AST_AND:
 		case SN_AST_OR:
 		case SN_AST_XOR:
+			TRAP(); // logical expressions not implemented yet
+			break;
 		case SN_AST_NOT:
-		break;
+		{
+			Label if_false = ASM(label);
+			Label after = ASM(label);
+		
+			codegen_compile_node(cgx, node->children[0]);
+			ASM(mov, RAX, RDI);
+			CALL(snow_eval_truth);
+			ASM(xor, RCX, RCX);
+			ASM(cmp, RAX, RCX);
+			LabelRef false_jump = ASM(j, CC_ZERO, &if_false);
+			ASM(mov_id, IMMEDIATE(SN_FALSE), RAX);
+			LabelRef after_jump = ASM(jmp, &after);
+			ASM(bind, &if_false);
+			ASM(mov_id, IMMEDIATE(SN_TRUE), RAX);
+			ASM(bind, &after);
+			
+			ASM(link, &false_jump);
+			ASM(link, &after_jump);
+			break;
+		}
 	}
 }
