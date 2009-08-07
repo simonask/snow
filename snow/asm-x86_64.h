@@ -246,7 +246,7 @@ static inline void asm_bind(SnLinkBuffer* lb, Label* label) {
 
 static inline void asm_link(SnLinkBuffer* lb, LabelRef* ref) {
 	ASSERT(ref->label->offset >= 0 && "Label was not bound yet.");
-	int32_t diff = ref->label->offset - ref->offset + 4;
+	int32_t diff = ref->label->offset - (ref->offset + 4);
 	snow_linkbuffer_modify(lb, ref->offset, 4, (byte*)&diff);
 }
 
