@@ -7,6 +7,8 @@
 #include "snow/function.h"
 #include "snow/codegen.h"
 #include "snow/parser.h"
+#include "snow/linkbuffer.h"
+#include "snow/str.h"
 
 #include <stdio.h>
 #include <readline/readline.h>
@@ -27,6 +29,27 @@ static void print_version_info()
 
 static void interactive_prompt()
 {
+	const char* global_prompt = "snow> ";
+	const char* unfinished_prompt = "snow*> ";
+	bool unfinished_expr = false;
+	
+	SnLinkBuffer* input_buffer = snow_create_linkbuffer(1024);
+
+	char* line;
+	while ((line = readline(unfinished_expr ? unfinished_prompt : global_prompt)) != NULL) {
+		if (*line) // strlen(line) != 0
+			add_history(line);
+		snow_linkbuffer_push_string(input_buffer, line);
+		free(line);
+
+		//unfinished_expr = is_expr_unfinished(buffer.str());
+		if (!unfinished_expr) {
+			SnString* str = snow_create_string_from_linkbuffer(input_buffer);
+			VALUE result = snow_eval(str->str);
+			printf("=> %s\n", snow_value_to_string(snow_call_method(result, snow_symbol("inspect"), 0)));
+			snow_linkbuffer_clear(input_buffer);
+		}
+	}
 }
 
 int main(int argc, char* const* argv)
@@ -44,13 +67,10 @@ int main(int argc, char* const* argv)
 		int c;
 		
 		static struct option long_options[] = {
-			{"debug",       
-			no_argument,     
-			  &debug_mode,   
-			    'd'},
+			{"debug",       no_argument,       &debug_mode,       'd'},
 			{"version",     no_argument,       NULL,              'v'},
-			{"interactive", no_argument,       &interactive_mode, 'i'},
 			{"require",     required_argument, NULL,              'r'},
+			{"interactive", no_argument,       &interactive_mode,  1 },
 			{"verbose",     no_argument,       &verbose_mode,      1 },
 			{0,0,0,0}
 		};
@@ -72,6 +92,11 @@ int main(int argc, char* const* argv)
 			{
 				SnString* filename = snow_create_string(optarg);
 				snow_array_push(require_files, filename);
+				break;
+			}
+			case 'i':
+			{
+				interactive_mode = true;
 				break;
 			}
 			case '?':
