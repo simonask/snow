@@ -88,13 +88,14 @@ void codegen_compile_root(SnCodegen* cg)
 		SnArray* args_array = (SnArray*)args_seq->children[0];
 		ASSERT(args_array->base.base.type == SN_ARRAY_TYPE);
 		cgx->base.result->argument_names = args_array;
-		for (uintx i = 0; i < args_array->size; ++i) {
-			ASSERT(is_symbol(args_array->data[i]));
+		for (uintx i = 0; i < snow_array_size(args_array); ++i) {
+			VALUE vsym = snow_array_get(args_array, i);
+			ASSERT(is_symbol(vsym));
 
-			intx idx = snow_function_description_add_local(cgx->base.result, value_to_symbol(args_array->data[i]));
+			intx idx = snow_function_description_add_local(cgx->base.result, value_to_symbol(vsym));
 
 			ASM(mov, R15, RDI);
-			ASM(mov_id, IMMEDIATE(args_array->data[i]), RSI);
+			ASM(mov_id, IMMEDIATE(vsym), RSI);
 			CALL(snow_context_get_named_argument_by_value);
 			ASM(mov, R14, RDI);
 			ASM(mov_id, IMMEDIATE(idx), RSI);
@@ -162,8 +163,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		{
 			SnArray* seq = (SnArray*)node->children[0];
 			ASSERT(seq->base.base.type == SN_ARRAY_TYPE);
-			for (uintx i = 0; i < seq->size; ++i) {
-				codegen_compile_node(cgx, (SnAstNode*)seq->data[i]);
+			for (uintx i = 0; i < snow_array_size(seq); ++i) {
+				codegen_compile_node(cgx, (SnAstNode*)snow_array_get(seq, i));
 			}
 			break;
 		}
@@ -385,7 +386,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				// TODO: Handle named args
 
 				for (uintx i = 0; i < num_args; ++i) {
-					SnAstNode* arg = (SnAstNode*)args->data[i];
+					SnAstNode* arg = (SnAstNode*)snow_array_get(args, i);
 					codegen_compile_node(cgx, arg);
 					ASM(mov, RAX, RSI);
 					ASM(mov_rev, RDI, TEMPORARY(tmp_args));

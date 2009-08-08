@@ -23,9 +23,8 @@ SnSymbol snow_symbol(const char* cstr)
 	
 	SnString* str = snow_create_string(cstr);
 	
-	for (uintx i = 0; i < storage->size; ++i) {
-		ASSERT(is_object(storage->data[i]));
-		SnString* existing = storage->data[i];
+	for (uintx i = 0; i < snow_array_size(storage); ++i) {
+		SnString* existing = (SnString*)snow_array_get(storage, i);
 		ASSERT_TYPE(existing, SN_STRING_TYPE);
 		
 		if (snow_string_compare(str, existing) == 0) {
@@ -33,7 +32,7 @@ SnSymbol snow_symbol(const char* cstr)
 		}
 	}
 	
-	SnSymbol new_symbol = storage->size;
+	SnSymbol new_symbol = snow_array_size(storage);
 	snow_array_push(storage, str);
 	return new_symbol;
 }
@@ -53,7 +52,7 @@ const char* snow_symbol_to_string(SnSymbol sym)
 {
 	SnArray* storage = symbol_storage();
 	ASSERT(storage);
-	ASSERT(sym < storage->size);
+	ASSERT(sym < snow_array_size(storage));
 	SnString* str = snow_array_get(storage, sym);
 	ASSERT(str != SN_NIL);
 	return str->str;

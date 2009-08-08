@@ -5,9 +5,7 @@
 
 typedef struct SnArray {
 	SnObject base;
-	uintx alloc_size;
-	uintx size;
-	VALUE* data;
+	struct array_t a;
 } SnArray;
 
 CAPI SnArray* snow_create_array();
@@ -21,6 +19,6 @@ CAPI VALUE snow_array_pop(SnArray*);
 CAPI intx snow_array_find(SnArray*, VALUE);
 
 
-static inline uintx snow_array_size(SnArray* ar) { return ar->size; }
+static inline uintx snow_array_size(SnArray* ar) { return ar->a.size; }
 
 #endif /* end of include guard: ARRAY_H_N1C9JYJW */

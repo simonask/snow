@@ -87,8 +87,8 @@ int main(int argc, char* const* argv)
 		snow_array_push(require_files, filename);
 	}
 	
-	for (uintx i = 0; i < require_files->size; ++i) {
-		snow_require(((SnString*)require_files->data[i])->str);
+	for (uintx i = 0; i < snow_array_size(require_files); ++i) {
+		snow_require(((SnString*)snow_array_get(require_files, i))->str);
 	}
 	
 	if (interactive_mode) {

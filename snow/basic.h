@@ -29,11 +29,27 @@
 #ifdef ARCH_IS_64_BIT
 typedef int64_t intx;
 typedef uint64_t uintx;
+typedef int32_t inth;
+typedef uint32_t uinth;
 #else
 typedef int32_t intx;
 typedef uint32_t uintx;
+typedef int16_t inth;
+typedef uint16_t uinth;
 #endif
 
+#ifndef byte
 typedef unsigned char byte;
+#endif
+typedef void* VALUE;
+
+struct array_t {
+	// this array type is supposed to be used by more advanced structures wishing to 
+	// implement array-like data structures without allocating an SnArray, which would
+	// pointer indirection. See array-intern.h for functions manipulating this struct.
+	VALUE* data;
+	uinth size;
+	uinth alloc_size;
+};
 
 #endif /* end of include guard: BASIC_H_N5K8EFY5 */
