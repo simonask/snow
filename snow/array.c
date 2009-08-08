@@ -92,6 +92,11 @@ SNOW_FUNC(_array_pop) {
 	return snow_array_pop((SnArray*)SELF);
 }
 
+SNOW_FUNC(_array_length) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	return int_to_value(snow_array_size((SnArray*)SELF));
+}
+
 void init_array_class(SnClass* klass)
 {
 	snow_define_class_method(klass, "__call__", _array_new);
@@ -99,4 +104,5 @@ void init_array_class(SnClass* klass)
 	snow_define_method(klass, "set", _array_set);
 	snow_define_method(klass, "push", _array_push);
 	snow_define_method(klass, "pop", _array_pop);
+	snow_define_property(klass, "length", _array_length, NULL);
 }
