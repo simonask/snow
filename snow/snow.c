@@ -135,7 +135,7 @@ VALUE snow_get_member(VALUE self, SnSymbol sym)
 {
 	SnObject* closest_object = find_prototype(self);
 	
-	VALUE member = snow_object_get_member(closest_object, sym);
+	VALUE member = snow_object_get_member(closest_object, self, sym);
 	if (!member)
 	{
 //		debug("member `%s` not found on 0x%llx\n", snow_symbol_to_string(sym), self);
@@ -155,7 +155,7 @@ VALUE snow_set_member(VALUE self, SnSymbol sym, VALUE val)
 	ASSERT(is_object(self));
 	SnObject* object = (SnObject*)self;
 	//ASSERT(object->base.type == SN_OBJECT_TYPE);	// TODO: A predictable way to discern if an object type is derived from SnObject or SnObjectBase directly.
-	return snow_object_set_member(object, sym, val);
+	return snow_object_set_member(object, self, sym, val);
 }
 
 VALUE snow_set_member_by_value(VALUE self, VALUE vsym, VALUE val)

@@ -16,7 +16,6 @@ SnClass* snow_create_class(const char* name)
 
 VALUE _snow_define_method(SnClass* klass, const char* name, SnFunctionPtr function, const char* function_name)
 {
-	ASSERT(klass);
 	ASSERT_TYPE(klass, SN_CLASS_TYPE);
 	ASSERT(klass->instance_prototype);
 	ASSERT(name);
@@ -30,7 +29,6 @@ VALUE _snow_define_method(SnClass* klass, const char* name, SnFunctionPtr functi
 
 VALUE _snow_define_class_method(SnClass* klass, const char* name, SnFunctionPtr function, const char* function_name)
 {
-	ASSERT(klass);
 	ASSERT_TYPE(klass, SN_CLASS_TYPE);
 	ASSERT(name);
 	ASSERT(function);
@@ -38,6 +36,23 @@ VALUE _snow_define_class_method(SnClass* klass, const char* name, SnFunctionPtr 
 	SnFunction* func = snow_create_function_with_name(function, function_name);
 	snow_set_member_by_value(klass, sym, func);
 	return func;
+}
+
+void _snow_define_property(SnClass* klass, const char* name, SnFunctionPtr getter, const char* getter_name, SnFunctionPtr setter, const char* setter_name)
+{
+	ASSERT_TYPE(klass, SN_CLASS_TYPE);
+	ASSERT(name);
+	SnSymbol sym = snow_symbol(name);
+	if (getter)
+	{
+		SnFunction* getter_func = snow_create_function_with_name(getter, getter_name);
+		snow_object_set_property_getter(klass->instance_prototype, sym, getter_func);
+	}
+	if (setter)
+	{
+		SnFunction* setter_func = snow_create_function_with_name(setter, setter_name);
+		snow_object_set_property_setter(klass->instance_prototype, sym, setter_func);
+	}
 }
 
 SNOW_FUNC(class_new) {
@@ -74,5 +89,5 @@ void init_class_class(SnClass* klass)
 {
 	snow_define_class_method(klass, "__call__", class_new_class);
 	snow_define_method(klass, "__call__", class_new);
-	snow_define_method(klass, "name", class_name);
+	snow_define_property(klass, "name", class_name, NULL);
 }

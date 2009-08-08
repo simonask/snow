@@ -41,14 +41,17 @@ typedef struct SnObject
 	
 	struct SnObject* prototype;
 	void* members;
-	void* properties;
+	struct array_t property_names;
+	struct array_t property_data;
 } SnObject;
 
 CAPI SnObjectBase* snow_alloc_any_object(SnObjectType type, uintx size);
 CAPI SnObject* snow_create_object(SnObject* prototype);
 CAPI void snow_object_init(SnObject* obj, SnObject* prototype);
 CAPI bool snow_object_has_member(SnObject* obj, SnSymbol symbol);
-CAPI VALUE snow_object_get_member(SnObject* obj, SnSymbol symbol);
-CAPI VALUE snow_object_set_member(SnObject* obj, SnSymbol symbol, VALUE value);
+CAPI VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol symbol);
+CAPI VALUE snow_object_set_member(SnObject* obj, VALUE self, SnSymbol symbol, VALUE value);
+CAPI VALUE snow_object_set_property_getter(SnObject* obj, SnSymbol symbol, VALUE getter);
+CAPI VALUE snow_object_set_property_setter(SnObject* obj, SnSymbol symbol, VALUE setter);
 
 #endif /* end of include guard: OBJECT_H_FSS98HM9 */
