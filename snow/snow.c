@@ -195,10 +195,8 @@ const char* snow_value_to_string(VALUE val)
 		got_sym = true;
 	}
 	
-	VALUE str_val = snow_call_method(val, to_string, 0);
-	ASSERT(is_object(str_val));
-	SnString* str = (SnString*)str_val;
-	ASSERT(str->base.type == SN_STRING_TYPE);
+	SnString* str = (SnString*)snow_call_method(val, to_string, 0);
+	ASSERT_TYPE(str, SN_STRING_TYPE);
 	return str->str;
 }
 
