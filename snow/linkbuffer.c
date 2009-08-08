@@ -102,4 +102,6 @@ void snow_linkbuffer_clear(SnLinkBuffer* buf) {
 		free(page);
 		page = page->next;
 	}
+	buf->head = NULL;
+	buf->tail = NULL;
 }
