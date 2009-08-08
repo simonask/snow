@@ -7,6 +7,7 @@ endif
 libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	arguments.c \
 	arguments.h \
+	array-intern.h \
 	array.c \
 	array.h \
 	ast.c \
@@ -21,11 +22,11 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	codegen.h \
 	context.c \
 	context.h \
-	continuation.h \
 	continuation-intern.h \
 	continuation.c \
-	debug.h \
+	continuation.h \
 	debug.c \
+	debug.h \
 	function.c \
 	function.h \
 	gc.c \
