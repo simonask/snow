@@ -119,7 +119,7 @@ SNOW_FUNC(object_inspect) {
 	VALUE vsym_classname = snow_get_member(snow_get_member(SELF, snow_symbol("class")), snow_symbol("name"));
 	ASSERT(is_symbol(vsym_classname));
 	uint64_t ptr = (uint64_t)SELF;
-	snprintf(cstr, 64, "<%s:%llx>", snow_symbol_to_string(value_to_symbol(vsym_classname)), ptr);
+	snprintf(cstr, 64, "<%s:0x%llx>", snow_symbol_to_string(value_to_symbol(vsym_classname)), ptr);
 	return snow_create_string(cstr);
 }
 
