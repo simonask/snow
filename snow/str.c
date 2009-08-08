@@ -37,7 +37,13 @@ intx snow_string_compare(SnString* a, SnString* b)
 	return strcmp(a->str, b->str);
 }
 
+SNOW_FUNC(string_to_string)
+{
+	ASSERT_TYPE(SELF, SN_STRING_TYPE);
+	return SELF;
+}
+
 void init_string_class(SnClass* klass)
 {
-	
+	snow_define_method(klass, "to_string", string_to_string);
 }
