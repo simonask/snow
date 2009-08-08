@@ -1,7 +1,7 @@
 #ifndef ARCH_H_QW6ZZE35
 #define ARCH_H_QW6ZZE35
 
-#ifdef ARCH_x86_64
+#if defined(ARCH_x86_64)
 #define GET_STACK_PTR(var) __asm__("mov %%rsp, %0" : "=r"(var))
 #define GET_BASE_PTR(var) __asm__("mov %%rbp, %0" : "=r"(var))
 #define TRAP() __asm__("int3\nnop\n")
@@ -16,6 +16,11 @@ typedef struct SnRegisters {
 	void* r15;
 	void* rip;
 } SnRegisters;
+
+#else
+
+#error Unsupported architecture. Supported build architecures: x86-64
+
 #endif
 
 #endif /* end of include guard: ARCH_H_QW6ZZE35 */
