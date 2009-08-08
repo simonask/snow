@@ -70,7 +70,8 @@ SNOW_FUNC(_array_get) {
 	REQUIRE_ARGS(1);
 	ASSERT(is_integer(ARGS[0]));
 	intx i = value_to_int(ARGS[0]);
-	return snow_array_get((SnArray*)SELF, i);
+	VALUE v = snow_array_get((SnArray*)SELF, i);
+	return v ? v : SN_NIL;
 }
 
 SNOW_FUNC(_array_set) {
