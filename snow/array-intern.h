@@ -19,6 +19,11 @@ static inline void array_init_with_size(struct array_t* array, uintx size)
 	array->alloc_size = size;
 }
 
+static inline uintx array_size(struct array_t* array)
+{
+	return array->size;
+}
+
 static inline void array_grow(struct array_t* array, intx new_size)
 {
 	if (new_size > array->alloc_size)
@@ -58,6 +63,21 @@ static inline VALUE array_set(struct array_t* array, intx idx, VALUE val)
 		TRAP(); // index out of bounds
 	array->data[idx] = val;
 	return val;
+}
+
+static inline VALUE array_push(struct array_t* array, VALUE val)
+{
+	return array_set(array, array_size(array), val);
+}
+
+static inline intx array_find(struct array_t* array, VALUE val)
+{
+	for (intx i = 0; i < array->size; ++i)
+	{
+		if (array->data[i] == val)
+			return i;
+	}
+	return -1;
 }
 
 #endif /* end of include guard: ARRAY_INTERN_H_JUS95Q03 */
