@@ -2,7 +2,6 @@
 #define SNOW_H_YMYJ9XZE
 
 #include "snow/basic.h"
-#include "snow/value.h"
 #include "snow/symbol.h"
 #include "snow/arguments.h"
 #include "snow/class.h"

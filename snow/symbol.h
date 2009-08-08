@@ -2,7 +2,6 @@
 #define SYMBOL_H_MKL3HAUK
 
 #include "snow/basic.h"
-#include "snow/value.h"
 
 typedef uintx SnSymbol;
 

@@ -2,7 +2,6 @@
 #define OBJECT_H_FSS98HM9
 
 #include "snow/basic.h"
-#include "snow/value.h"
 #include "snow/symbol.h"
 
 typedef enum SnObjectType

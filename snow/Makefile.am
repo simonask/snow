@@ -53,9 +53,9 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	str.h \
 	symbol.c \
 	symbol.h \
-	value.h \
 	wrapper.c \
 	wrapper.h
+
 
 CLEANFILES = parser.c parser.tab.h scanner.c
 
