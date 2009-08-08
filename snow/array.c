@@ -60,7 +60,7 @@ intx snow_array_find(SnArray* array, VALUE val) {
 SNOW_FUNC(_array_new) {
 	SnArray* array = snow_create_array_with_size(NUM_ARGS);
 	for (uintx i = 0; i < NUM_ARGS; ++i) {
-		INTERN->data[i] = ARGS[i];
+		snow_array_set(array, i, ARGS[i]);
 	}
 	return array;
 }
