@@ -157,6 +157,7 @@ void init_integer_class(SnClass* klass)
 	snow_define_method(klass, "<", numeric_less_than);
 	snow_define_method(klass, ">", numeric_greater_than);
 	snow_define_method(klass, "to_string", numeric_to_string);
+	snow_define_method(klass, "inspect", numeric_to_string);
 }
 
 void init_float_class(SnClass* klass)
