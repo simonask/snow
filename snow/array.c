@@ -9,7 +9,6 @@
 
 SnArray* snow_create_array() {
 	SnArray* array = (SnArray*)snow_alloc_any_object(SN_ARRAY_TYPE, sizeof(SnArray));
-	snow_object_init((SnObject*)array, NULL);
 	array_init(INTERN);
 	return array;
 }

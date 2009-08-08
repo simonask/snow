@@ -12,9 +12,9 @@
 
 #include <stdarg.h>
 
-static SnObject* find_prototype(VALUE)        ATTR_HOT;
+static SnObject* get_closest_object(VALUE)        ATTR_HOT;
 
-static SnClass* basic_classes[SN_NUMBER_OF_BASIC_TYPES];
+static SnClass* basic_classes[SN_TYPE_MAX];
 
 void snow_init()
 {
@@ -133,7 +133,7 @@ VALUE snow_call_method(VALUE self, SnSymbol member, uintx num_args, ...)
 
 VALUE snow_get_member(VALUE self, SnSymbol sym)
 {
-	SnObject* closest_object = find_prototype(self);
+	SnObject* closest_object = get_closest_object(self);
 	
 	VALUE member = snow_object_get_member(closest_object, self, sym);
 	if (!member)
@@ -164,15 +164,27 @@ VALUE snow_set_member_by_value(VALUE self, VALUE vsym, VALUE val)
 	return snow_set_member(self, value_to_symbol(vsym), val);
 }
 
-SnObject* find_prototype(VALUE self)
+inline SnObject* get_closest_object(VALUE self)
 {
 	if (is_object(self))
-		return self;
+	{
+		SnObjectBase* base = (SnObjectBase*)self;
+		uintx mask = base->type & SN_TYPE_MASK;
+		switch (mask)
+		{
+			case SN_NORMAL_OBJECT_TYPE_BASE:
+				return (SnObject*)base;
+			case SN_THIN_OBJECT_TYPE_BASE:
+				return snow_get_prototype(base->type);
+			default:
+				TRAP(); // Unknown object type ... what's going on?
+		}
+	}
 	return basic_classes[typeof(self)]->instance_prototype;
 }
 
 SnClass* snow_get_class(SnObjectType type) {
-	ASSERT(type >= 0 && type < SN_NUMBER_OF_BASIC_TYPES);
+	ASSERT(type >= 0 && type < SN_TYPE_MAX);
 	return basic_classes[type];
 }
 
@@ -181,7 +193,7 @@ SnClass** snow_get_basic_types() {
 }
 
 SnObject* snow_get_prototype(SnObjectType type) {
-	ASSERT(type >= 0 && type < SN_NUMBER_OF_BASIC_TYPES);
+	ASSERT(type >= 0 && type < SN_TYPE_MAX);
 	return basic_classes[type]->instance_prototype;
 }
 

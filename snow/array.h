@@ -4,7 +4,7 @@
 #include "snow/object.h"
 
 typedef struct SnArray {
-	SnObject base;
+	SnObjectBase base;
 	struct array_t a;
 } SnArray;
 

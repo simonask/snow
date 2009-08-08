@@ -86,7 +86,7 @@ void codegen_compile_root(SnCodegen* cg)
 	{
 		ASSERT(args_seq->type == SN_AST_SEQUENCE);
 		SnArray* args_array = (SnArray*)args_seq->children[0];
-		ASSERT(args_array->base.base.type == SN_ARRAY_TYPE);
+		ASSERT_TYPE(args_array, SN_ARRAY_TYPE);
 		cgx->base.result->argument_names = args_array;
 		for (uintx i = 0; i < snow_array_size(args_array); ++i) {
 			VALUE vsym = snow_array_get(args_array, i);
@@ -162,7 +162,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		case SN_AST_SEQUENCE:
 		{
 			SnArray* seq = (SnArray*)node->children[0];
-			ASSERT(seq->base.base.type == SN_ARRAY_TYPE);
+			ASSERT_TYPE(seq, SN_ARRAY_TYPE);
 			for (uintx i = 0; i < snow_array_size(seq); ++i) {
 				codegen_compile_node(cgx, (SnAstNode*)snow_array_get(seq, i));
 			}
@@ -376,7 +376,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			{
 				ASSERT(args_seq->type == SN_AST_SEQUENCE);
 				SnArray* args = (SnArray*)args_seq->children[0];
-				ASSERT(args->base.base.type == SN_ARRAY_TYPE);
+				ASSERT_TYPE(args, SN_ARRAY_TYPE);
 
 				uintx num_args = snow_array_size(args);
 				ASM(mov_id, IMMEDIATE(num_args), RDI);
