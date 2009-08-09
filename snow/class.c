@@ -20,10 +20,10 @@ VALUE _snow_define_method(SnClass* klass, const char* name, SnFunctionPtr functi
 	ASSERT(klass->instance_prototype);
 	ASSERT(name);
 	ASSERT(function);
-	VALUE sym = snow_vsymbol(name);
+	SnSymbol sym = snow_symbol(name);
 	SnFunction* func = snow_create_function_with_name(function, function_name);
 	// TODO: mark as leaf scope
-	snow_set_member_by_value(klass->instance_prototype, sym, func);
+	snow_set_member(klass->instance_prototype, sym, func);
 	return func;
 }
 
@@ -32,9 +32,9 @@ VALUE _snow_define_class_method(SnClass* klass, const char* name, SnFunctionPtr 
 	ASSERT_TYPE(klass, SN_CLASS_TYPE);
 	ASSERT(name);
 	ASSERT(function);
-	VALUE sym = snow_vsymbol(name);
+	SnSymbol sym = snow_symbol(name);
 	SnFunction* func = snow_create_function_with_name(function, function_name);
-	snow_set_member_by_value(klass, sym, func);
+	snow_set_member(klass, sym, func);
 	return func;
 }
 

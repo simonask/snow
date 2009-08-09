@@ -136,19 +136,7 @@ VALUE snow_call_method(VALUE self, SnSymbol member, uintx num_args, ...)
 VALUE snow_get_member(VALUE self, SnSymbol sym)
 {
 	SnObject* closest_object = get_closest_object(self);
-	
-	VALUE member = snow_object_get_member(closest_object, self, sym);
-	if (!member)
-	{
-//		debug("member `%s` not found on 0x%llx\n", snow_symbol_to_string(sym), self);
-		TRAP(); // member not found
-	}
-}
-
-VALUE snow_get_member_by_value(VALUE self, VALUE sym)
-{
-	ASSERT(is_symbol(sym));
-	return snow_get_member(self, value_to_symbol(sym));
+	return snow_object_get_member(closest_object, self, sym);
 }
 
 VALUE snow_set_member(VALUE self, SnSymbol sym, VALUE val)
@@ -158,12 +146,6 @@ VALUE snow_set_member(VALUE self, SnSymbol sym, VALUE val)
 	SnObject* object = (SnObject*)self;
 	//ASSERT(object->base.type == SN_OBJECT_TYPE);	// TODO: A predictable way to discern if an object type is derived from SnObject or SnObjectBase directly.
 	return snow_object_set_member(object, self, sym, val);
-}
-
-VALUE snow_set_member_by_value(VALUE self, VALUE vsym, VALUE val)
-{
-	ASSERT(is_symbol(vsym));
-	return snow_set_member(self, value_to_symbol(vsym), val);
 }
 
 inline SnObject* get_closest_object(VALUE self)

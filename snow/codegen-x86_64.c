@@ -246,8 +246,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			
 			codegen_compile_node(cgx, self);
 			ASM(mov, RAX, RDI);
-			ASM(mov_id, IMMEDIATE(vsym), RSI);
-			CALL(snow_get_member_by_value);
+			ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
+			CALL(snow_get_member);
 			break;
 		}
 		
@@ -299,8 +299,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			codegen_compile_node(cgx, val);
 			ASM(mov, RAX, RDX);
 			ASM(mov_rev, RDI, TEMPORARY(tmp_self));
-			ASM(mov_id, IMMEDIATE(vsym), RSI);
-			CALL(snow_set_member_by_value);
+			ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
+			CALL(snow_set_member);
 			break;
 		}
 		
@@ -346,8 +346,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				VALUE vsym = func->children[1];
 				ASSERT(is_symbol(vsym));
 				ASM(mov, RAX, RDI);
-				ASM(mov_id, IMMEDIATE(vsym), RSI);
-				CALL(snow_get_member_by_value);
+				ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
+				CALL(snow_get_member);
 				ASM(mov, RAX, TEMPORARY(tmp_function));
 			}
 			else
