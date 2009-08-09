@@ -111,6 +111,7 @@ VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
 	SnSymbol call_sym = snow_symbol("__call__");
 	while (typeof(closure) != SN_FUNCTION_TYPE)
 	{
+		self = closure;
 		closure = snow_get_member(closure, call_sym);
 	}
 	
