@@ -96,6 +96,39 @@ SNOW_FUNC(_array_length) {
 	return int_to_value(snow_array_size((SnArray*)SELF));
 }
 
+SNOW_FUNC(_array_inspect) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	SnArray* array = (SnArray*)SELF;
+	
+	SnSymbol inspect = snow_symbol("inspect");
+	
+	// TODO: Use internal snow string concatenation, and generally rewrite this mess
+	char* result = NULL;
+	for (intx i = 0; i < array_size(INTERN); ++i)
+	{
+		char* old_result = result;
+		
+		const char* converted = snow_value_to_string(snow_call_method(array_get(INTERN, i), inspect, 0));
+		
+		if (!old_result)
+		{
+			asprintf(&result, "%s", converted);
+		}
+		else
+		{
+			asprintf(&result, "%s, %s", old_result, converted);
+			free(old_result);
+		}
+	}
+	
+	char* old_result = result;
+	asprintf(&result, "@(%s)", result ? result : "");
+	free(old_result);
+	SnString* str = snow_create_string(result);
+	free(result);
+	return str;
+}
+
 void init_array_class(SnClass* klass)
 {
 	snow_define_class_method(klass, "__call__", _array_new);
@@ -103,5 +136,6 @@ void init_array_class(SnClass* klass)
 	snow_define_method(klass, "set", _array_set);
 	snow_define_method(klass, "push", _array_push);
 	snow_define_method(klass, "pop", _array_pop);
+	snow_define_method(klass, "inspect", _array_inspect);
 	snow_define_property(klass, "length", _array_length, NULL);
 }
