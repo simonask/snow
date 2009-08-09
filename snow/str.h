@@ -15,5 +15,6 @@ CAPI SnString* snow_create_string(const char* str);
 CAPI SnString* snow_create_string_from_data(const char* str, uintx len);
 CAPI SnString* snow_create_string_from_linkbuffer(struct SnLinkBuffer* buf);
 CAPI intx snow_string_compare(SnString* a, SnString* b);
+CAPI uintx snow_string_length(SnString* str);
 
 #endif /* end of include guard: STRING_H_OYTL2E1P */

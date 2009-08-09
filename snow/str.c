@@ -39,13 +39,32 @@ intx snow_string_compare(SnString* a, SnString* b)
 	return strcmp(a->str, b->str);
 }
 
+uintx snow_string_length(SnString* str)
+{
+	return strlen(str->str);
+}
+
 SNOW_FUNC(string_to_string)
 {
 	ASSERT_TYPE(SELF, SN_STRING_TYPE);
 	return SELF;
 }
 
+SNOW_FUNC(string_inspect)
+{
+	ASSERT_TYPE(SELF, SN_STRING_TYPE);
+	SnString* self = (SnString*)SELF;
+	uintx len = snow_string_length(self);
+	ASSERT_STACK_SPACE(len + 32);
+	char str[len+3];
+	memcpy(&str[1], self->str, len);
+	str[0] = str[len+1] = '"';
+	str[len+2] = '\0';
+	return snow_create_string(str);
+}
+
 void init_string_class(SnClass* klass)
 {
 	snow_define_method(klass, "to_string", string_to_string);
+	snow_define_method(klass, "inspect", string_inspect);
 }
