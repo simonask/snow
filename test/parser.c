@@ -126,6 +126,26 @@ TEST_CASE(associativity) {
 	TEST_EQ(value_to_int(v), correct);
 }
 
+TEST_CASE(named_arguments) {
+	SnContext* ctx = snow_create_context(NULL);
+	snow_eval_in_context("foo: [a, b] { @(a, b) }", ctx);
+	VALUE r[5];
+	r[0] = snow_eval_in_context("foo(1, 2)", ctx);
+	r[1] = snow_eval_in_context("foo(a: 1, b: 2)", ctx);
+	r[2] = snow_eval_in_context("foo(b: 2, a: 1)", ctx);
+	r[3] = snow_eval_in_context("foo(2, a: 1)", ctx);
+	r[4] = snow_eval_in_context("foo(b: 2, 1)", ctx);
+	
+	for (uintx i = 0; i < 5; ++i)
+	{
+		TEST(is_object(r[i]));
+		SnArray* ar = (SnArray*)r[i];
+		TEST(typeof(ar) == SN_ARRAY_TYPE);
+		TEST(snow_array_get(ar, 0) == int_to_value(1));
+		TEST(snow_array_get(ar, 1) == int_to_value(2));
+	}
+}
+
 /*TEST_CASE(string_interpolation) {
 	std::string correct = std::string("hej 7 dav 2");
 	VALUE v = snow_eval("\"hej ${3+4} dav ${5-3}\"");

@@ -22,7 +22,7 @@ VALUE snow_arguments_push(SnArguments* args, VALUE val)
 
 VALUE snow_arguments_push_named(SnArguments* args, SnSymbol sym, VALUE val)
 {
-	intx idx = snow_arguments_add_name(args, sym);
+	intx idx = array_find_or_add(NAMES, symbol_to_value(sym));
 	return array_set(DATA, idx, val);
 }
 
