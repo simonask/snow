@@ -8,23 +8,15 @@ SnFunctionDescription* snow_create_function_description(SnFunctionPtr func)
 	desc->func = func;
 	desc->name = snow_symbol("<unnamed>");
 	desc->argument_names = NULL;
-	desc->local_index_map = NULL;
+	desc->local_names = snow_create_array();
 	return desc;
 }
 
 intx snow_function_description_add_local(SnFunctionDescription* desc, SnSymbol sym)
 {
-	if (!desc->local_index_map)
-		desc->local_index_map = snow_create_map();
-	VALUE vsym = symbol_to_value(sym);
-	VALUE existing = snow_map_get(desc->local_index_map, vsym);
-	if (existing)
-		return value_to_int(existing);
+	ASSERT(desc->local_names);
 	
-	// not found, insert
-	intx idx = snow_map_size(desc->local_index_map);
-	snow_map_set(desc->local_index_map, symbol_to_value(sym), int_to_value(idx));
-	return idx;
+	return snow_array_find_or_add(desc->local_names, symbol_to_value(sym));
 }
 
 SnFunction* snow_create_function(SnFunctionPtr func)
@@ -54,7 +46,20 @@ SnFunction* snow_create_function_from_description(SnFunctionDescription* desc)
 
 VALUE snow_function_call(SnFunction* func, SnContext* context)
 {
-	context->function = func;
+	ASSERT(context);
+	
+	// TODO: Optimize this
+	SnArray* arg_names = func->desc->argument_names;
+	if (arg_names)
+	{
+		for (intx i = 0; i < snow_array_size(arg_names); ++i)
+		{
+			VALUE vsym = snow_array_get(arg_names, i);
+			ASSERT(is_symbol(vsym));
+			snow_arguments_add_name(context->args, value_to_symbol(vsym));
+		}
+	}
+	
 	SnContinuation* continuation = snow_create_continuation(func->desc->func, context);
 	SnContinuation* here = snow_get_current_continuation();
 	

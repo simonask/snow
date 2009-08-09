@@ -10,7 +10,7 @@ typedef struct SnFunctionDescription {
 	SnFunctionPtr func;
 	SnSymbol name;
 	SnArray* argument_names;
-	SnMap* local_index_map;
+	SnArray* local_names;
 } SnFunctionDescription;
 
 CAPI SnFunctionDescription* snow_create_function_description(SnFunctionPtr func);

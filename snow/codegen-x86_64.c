@@ -91,12 +91,13 @@ void codegen_compile_root(SnCodegen* cg)
 		for (uintx i = 0; i < snow_array_size(args_array); ++i) {
 			VALUE vsym = snow_array_get(args_array, i);
 			ASSERT(is_symbol(vsym));
+			SnSymbol sym = value_to_symbol(vsym);
 
 			intx idx = snow_function_description_add_local(cgx->base.result, value_to_symbol(vsym));
 
 			ASM(mov, R15, RDI);
-			ASM(mov_id, IMMEDIATE(vsym), RSI);
-			CALL(snow_context_get_named_argument_by_value);
+			ASM(mov_id, IMMEDIATE(sym), RSI);
+			CALL(snow_context_get_named_argument);
 			ASM(mov, R14, RDI);
 			ASM(mov_id, IMMEDIATE(idx), RSI);
 			ASM(mov, RAX, RDX);
@@ -225,25 +226,25 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			VALUE vsym = node->children[0];
 			ASSERT(is_symbol(vsym));
 			
-			VALUE vidx = NULL;
-			if (cgx->base.result->local_index_map)
+			intx idx = -1;
+			if (cgx->base.result->local_names)
 			{
-				vidx = snow_map_get(cgx->base.result->local_index_map, vsym);
+				idx = snow_array_find(cgx->base.result->local_names, vsym);
 			}
 			
-			if (vidx)
+			if (idx >= 0)
 			{
 				// local to this scope
 				ASM(mov, R14, RDI);
-				ASM(mov_id, IMMEDIATE(value_to_int(vidx)), RSI);
+				ASM(mov_id, IMMEDIATE(idx), RSI);
 				CALL(snow_array_get);
 			}
 			else
 			{
 				// local to parent or injected scope
 				ASM(mov, R15, RDI);
-				ASM(mov_id, IMMEDIATE(vsym), RSI);
-				CALL(snow_context_get_local_by_value);
+				ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
+				CALL(snow_context_get_local);
 			}
 			break;
 		}
@@ -269,17 +270,17 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			
 			codegen_compile_node(cgx, val);
 			
-			VALUE vidx = NULL;
-			if (cgx->base.result->local_index_map)
+			intx idx = -1;
+			if (cgx->base.result->local_names)
 			{
-				vidx = snow_map_get(cgx->base.result->local_index_map, vsym);
+				idx = snow_array_find(cgx->base.result->local_names, vsym);
 			}
 			
-			if (vidx)
+			if (idx >= 0)
 			{
 				// local to this scope
 				ASM(mov, R14, RDI);
-				ASM(mov_id, IMMEDIATE(value_to_int(vidx)), RSI);
+				ASM(mov_id, IMMEDIATE(idx), RSI);
 				ASM(mov, RAX, RDX);
 				CALL(snow_array_set);
 			}
@@ -287,9 +288,9 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			{
 				// local to a parent or injected scope
 				ASM(mov, R15, RDI);
-				ASM(mov_id, IMMEDIATE(vsym), RSI);
+				ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
 				ASM(mov, RAX, RDX);
-				CALL(snow_context_set_local_by_value);
+				CALL(snow_context_set_local);
 			}
 			break;
 		}

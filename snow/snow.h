@@ -7,8 +7,12 @@
 #include "snow/class.h"
 #include <stdarg.h>
 
+struct SnFunction;
+struct SnContext;
+
 CAPI void snow_init();
 CAPI VALUE snow_eval(const char* str);
+CAPI VALUE snow_eval_in_context(const char* str, struct SnContext* context);
 CAPI VALUE snow_require(const char* file);
 
 CAPI VALUE snow_call(VALUE self, VALUE closure, uintx num_args, ...);

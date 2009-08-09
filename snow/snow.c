@@ -64,12 +64,16 @@ void snow_init()
 
 VALUE snow_eval(const char* str)
 {
+	return snow_eval_in_context(str, snow_global_context());
+}
+
+VALUE snow_eval_in_context(const char* str, SnContext* context)
+{
 	SnAstNode* ast = snow_parse(str);
 	SnCodegen* cg = snow_create_codegen(ast);
 	SnFunction* func = snow_codegen_compile(cg);
 	
-	// TODO: Global scope
-	return snow_call(NULL, func, 0);
+	return snow_function_call(func, context);
 }
 
 VALUE snow_require(const char* file)
@@ -112,13 +116,9 @@ VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
 	ASSERT_TYPE(func, SN_FUNCTION_TYPE);
 	
 	// TODO: Proper context setup
-	SnContext* context = snow_create_context(func->declaration_context);
+	SnContext* context = snow_create_context_for_function(func);
 	context->self = self;
-	context->function = func;
-	context->locals = NULL;
-	if (func->desc->local_index_map)
-		context->locals = snow_create_array_with_size(snow_map_size(func->desc->local_index_map));
-	context->args = args ? args : snow_create_arguments_with_size(0);
+	context->args = args;
 	
 	return snow_function_call(func, context);
 }

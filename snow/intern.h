@@ -94,9 +94,9 @@ static inline SnObjectType typeof(VALUE val)
 
 #define SNOW_FUNC(NAME) static VALUE NAME(SnContext* _context)
 #define SELF (_context->self)
-#define ARGS (_context->args->data)
-#define NUM_ARGS (_context->args->size)
-#define REQUIRE_ARGS(n) ASSERT(_context->args->size >= n)
+#define ARGS (_context->args->data.data)
+#define NUM_ARGS (_context->args ? _context->args->data.size : 0)
+#define REQUIRE_ARGS(n) ASSERT(_context->args->data.size >= n)
 
 // place this macro in all recursive C functions
 #define STACK_GUARD snow_continuation_stack_guard()
