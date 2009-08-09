@@ -25,6 +25,6 @@ typedef struct SnFunction {
 CAPI SnFunction* snow_create_function(SnFunctionPtr func);
 CAPI SnFunction* snow_create_function_with_name(SnFunctionPtr func, const char* name);
 CAPI SnFunction* snow_create_function_from_description(SnFunctionDescription*);
-CAPI VALUE snow_function_call(SnFunction* func, SnContext*);
+CAPI VALUE snow_function_call(SnFunction* func, SnContext*)                                  ATTR_HOT;
 
 #endif /* end of include guard: FUNCTION_H_CKWRVD6K */

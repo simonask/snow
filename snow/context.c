@@ -100,7 +100,12 @@ VALUE snow_context_set_local(SnContext* ctx, SnSymbol sym, VALUE val)
 		ctx = ctx->static_parent;
 	}
 	
-	ctx = backup;
+	return snow_context_set_local_local(backup, sym, val);
+}
+
+VALUE snow_context_set_local_local(SnContext* ctx, SnSymbol sym, VALUE val)
+{
+	VALUE vsym = symbol_to_value(sym);
 	
 	if (!ctx->local_names)
 	{
@@ -111,11 +116,8 @@ VALUE snow_context_set_local(SnContext* ctx, SnSymbol sym, VALUE val)
 	if (!ctx->locals)
 		ctx->locals = snow_create_array();
 	
-	intx idx = snow_array_size(ctx->local_names);
-	snow_array_push(ctx->local_names, vsym);
-	snow_array_set(ctx->locals, idx, val);
-	
-	return val;
+	intx idx = snow_array_find_or_add(ctx->local_names, vsym);
+	return snow_array_set(ctx->locals, idx, val);
 }
 
 void init_context_class(SnClass* klass)

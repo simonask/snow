@@ -80,7 +80,7 @@ void codegen_compile_root(SnCodegen* cg)
 	
 	ASSERT(cgx->base.root->type == SN_AST_FUNCTION);
 	
-	// convert args to locals
+	// add argument names to list of locals
 	SnAstNode* args_seq = (SnAstNode*)cgx->base.root->children[2];
 	if (args_seq)
 	{
@@ -92,20 +92,8 @@ void codegen_compile_root(SnCodegen* cg)
 			VALUE vsym = snow_array_get(args_array, i);
 			ASSERT(is_symbol(vsym));
 			SnSymbol sym = value_to_symbol(vsym);
-
-			intx idx = snow_function_description_add_local(cgx->base.result, value_to_symbol(vsym));
-
-			ASM(mov, R15, RAX);
-			ASM(mov_rev, RDI, ADDRESS(RAX, offsetof(SnContext, args)));
-			ASM(mov_id, IMMEDIATE(sym), RSI);
-			CALL(snow_arguments_get_by_name);
-			ASM(mov, R14, RDI);
-			ASM(mov_id, IMMEDIATE(idx), RSI);
-			ASM(mov, RAX, RDX);
-			CALL(snow_array_set);
+			snow_function_description_add_local(cgx->base.result, sym);
 		}
-	} else {
-		cgx->base.result->argument_names = snow_create_array();
 	}
 	
 	// always clear rax before body, so empty functions will return nil.

@@ -56,7 +56,9 @@ VALUE snow_function_call(SnFunction* func, SnContext* context)
 		{
 			VALUE vsym = snow_array_get(arg_names, i);
 			ASSERT(is_symbol(vsym));
-			snow_arguments_add_name(context->args, value_to_symbol(vsym));
+			SnSymbol sym = value_to_symbol(vsym);
+			intx idx = snow_arguments_add_name(context->args, sym);
+			snow_context_set_local_local(context, sym, snow_arguments_get_by_index(context->args, idx));
 		}
 	}
 	
