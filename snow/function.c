@@ -5,7 +5,6 @@
 SnFunctionDescription* snow_create_function_description(SnFunctionPtr func)
 {
 	SnFunctionDescription* desc = (SnFunctionDescription*)snow_alloc_any_object(SN_FUNCTION_DESCRIPTION_TYPE, sizeof(SnFunctionDescription));
-	snow_object_init((SnObject*)desc, snow_get_prototype(SN_FUNCTION_TYPE));
 	desc->func = func;
 	desc->name = snow_symbol("<unnamed>");
 	desc->argument_names = NULL;
@@ -47,6 +46,7 @@ SnFunction* snow_create_function_from_description(SnFunctionDescription* desc)
 	ASSERT(desc->base.type == SN_FUNCTION_DESCRIPTION_TYPE);
 	ASSERT(desc->func);
 	SnFunction* func = (SnFunction*)snow_alloc_any_object(SN_FUNCTION_TYPE, sizeof(SnFunction));
+	snow_object_init((SnObject*)func, snow_get_prototype(SN_FUNCTION_TYPE));
 	func->desc = desc;
 	func->declaration_context = NULL;
 	return func;
