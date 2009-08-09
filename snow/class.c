@@ -60,6 +60,11 @@ SNOW_FUNC(class_new) {
 	ASSERT_TYPE(self, SN_CLASS_TYPE);
 	ASSERT(self->instance_prototype);
 	SnObject* new_object = snow_create_object(self->instance_prototype);
+	VALUE initialize = snow_get_member(new_object, snow_symbol("initialize"));
+	if (initialize)
+	{
+		snow_call_with_args(new_object, initialize, _context->args);
+	}
 	return new_object;
 }
 
