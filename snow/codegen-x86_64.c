@@ -95,9 +95,10 @@ void codegen_compile_root(SnCodegen* cg)
 
 			intx idx = snow_function_description_add_local(cgx->base.result, value_to_symbol(vsym));
 
-			ASM(mov, R15, RDI);
+			ASM(mov, R15, RAX);
+			ASM(mov_rev, RDI, ADDRESS(RAX, offsetof(SnContext, args)));
 			ASM(mov_id, IMMEDIATE(sym), RSI);
-			CALL(snow_context_get_named_argument);
+			CALL(snow_arguments_get_by_name);
 			ASM(mov, R14, RDI);
 			ASM(mov_id, IMMEDIATE(idx), RSI);
 			ASM(mov, RAX, RDX);
@@ -388,10 +389,28 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 
 				for (uintx i = 0; i < num_args; ++i) {
 					SnAstNode* arg = (SnAstNode*)snow_array_get(args, i);
-					codegen_compile_node(cgx, arg);
-					ASM(mov, RAX, RSI);
-					ASM(mov_rev, RDI, TEMPORARY(tmp_args));
-					CALL(snow_arguments_push);
+					
+					if (arg->type == SN_AST_LOCAL_ASSIGNMENT)
+					{
+						VALUE vname = arg->children[0];
+						ASSERT(is_symbol(vname));
+						SnSymbol name = value_to_symbol(vname);
+						SnAstNode* val = (SnAstNode*)arg->children[1];
+						// named argument
+						codegen_compile_node(cgx, val);
+						ASM(mov_id, IMMEDIATE(name), RSI);
+						ASM(mov, RAX, RDX);
+						ASM(mov_rev, RDI, TEMPORARY(tmp_args));
+						CALL(snow_arguments_push_named);
+					}
+					else
+					{
+						// normal argument
+						codegen_compile_node(cgx, arg);
+						ASM(mov, RAX, RSI);
+						ASM(mov_rev, RDI, TEMPORARY(tmp_args));
+						CALL(snow_arguments_push);
+					}
 				}
 				
 				ASM(mov_rev, RDX, TEMPORARY(tmp_args));

@@ -51,16 +51,6 @@ SnContext* snow_global_context()
 	return snow_store_get(global_context_key);
 }
 
-VALUE snow_context_get_named_argument(SnContext* ctx, SnSymbol name)
-{
-	if (ctx->args) {
-		intx idx = snow_arguments_get_index_for_name(ctx->args, name);
-		if (idx >= 0)
-			return snow_arguments_get_by_index(ctx->args, idx);
-	}
-	return SN_NIL;
-}
-
 VALUE snow_context_get_local(SnContext* ctx, SnSymbol sym)
 {
 	STACK_GUARD;
