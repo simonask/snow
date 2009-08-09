@@ -17,6 +17,7 @@ NOINLINE void _continuation_resume(SnContinuation* cc) {
 	: "m"(cc->context), "m"(cc->reg.rsp), "m"(cc->reg.rbp), "m"(cc->reg.rip)
 	: "%rax", "%rdi", "%rsi", "%rsp", "%r8"
 	);
+	TRAP(); // should never be reached
 }
 
 NOINLINE bool _continuation_save(SnContinuation* cc)
