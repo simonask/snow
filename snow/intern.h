@@ -7,6 +7,7 @@
 #include "snow/arch.h"
 #include "snow/object.h"
 #include "snow/class.h"
+#include "snow/continuation.h"
 
 #include <omp.h>
 
@@ -96,5 +97,10 @@ static inline SnObjectType typeof(VALUE val)
 #define ARGS (_context->args->data)
 #define NUM_ARGS (_context->args->size)
 #define REQUIRE_ARGS(n) ASSERT(_context->args->size >= n)
+
+// place this macro in all recursive C functions
+#define STACK_GUARD snow_continuation_stack_guard()
+// place this with large stack allocations
+#define ASSERT_STACK_SPACE(n) ASSERT(snow_current_continuation_available_stack_space() >= n);
 
 #endif /* end of include guard: INTERN_H_WXDJG2OI */

@@ -6,6 +6,8 @@
 
 SnString* snow_create_string(const char* cstr)
 {
+	STACK_GUARD;
+	
 	SnString* str = (SnString*)snow_alloc_any_object(SN_STRING_TYPE, sizeof(SnString));
 	uintx len = strlen(cstr);
 	str->str = snow_gc_alloc(len+1);

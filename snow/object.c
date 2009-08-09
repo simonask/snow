@@ -34,6 +34,8 @@ void snow_object_init(SnObject* obj, SnObject* prototype)
 
 VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol member)
 {
+	STACK_GUARD;
+	
 	intx property_idx = array_find(&obj->property_names, symbol_to_value(member));
 	if (property_idx >= 0)
 	{
@@ -62,6 +64,8 @@ VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol member)
 
 static inline VALUE object_set_with_property(SnObject* obj, VALUE self, SnSymbol member, VALUE val)
 {
+	STACK_GUARD;
+	
 	intx property_idx = array_find(&obj->property_names, symbol_to_value(member));
 	if (property_idx >= 0)
 	{

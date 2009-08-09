@@ -14,8 +14,13 @@ static void set_current_continuation(SnContinuation* cc) {
 }
 
 void snow_init_current_continuation() {
-	SnContinuation* cc = snow_create_continuation(NULL, NULL);
+	SnContinuation* cc = (SnContinuation*)snow_alloc_any_object(SN_CONTINUATION_TYPE, sizeof(SnContinuation));
+	cc->function = NULL;
+	cc->stack_hi = (byte*)(uintx)-1;
+	cc->stack_lo = NULL;
 	cc->running = true;
+	cc->context = NULL;
+	cc->return_val = NULL;
 	set_current_continuation(cc);
 }
 

@@ -100,6 +100,8 @@ VALUE snow_call_va(VALUE self, VALUE closure, uintx num_args, va_list* ap)
 
 VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
 {
+	STACK_GUARD;
+	
 	SnSymbol call_sym = snow_symbol("__call__");
 	while (typeof(closure) != SN_FUNCTION_TYPE)
 	{
