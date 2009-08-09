@@ -3,6 +3,8 @@
 #include "snow/intern.h"
 #include "snow/debug.h"
 
+#include <math.h>
+
 TEST_CASE(assignments) {
 	intx correct = 3;
 	VALUE v = snow_eval("h: 3");
