@@ -72,3 +72,8 @@ void init_function_class(SnClass* klass)
 {
 	
 }
+
+void init_function_description_class(SnClass* klass)
+{
+	
+}

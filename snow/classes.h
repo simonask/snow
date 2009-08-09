@@ -9,6 +9,7 @@ HIDDEN void init_continuation_class(SnClass* klass);
 HIDDEN void init_context_class(SnClass* klass);
 HIDDEN void init_arguments_class(SnClass* klass);
 HIDDEN void init_function_class(SnClass* klass);
+HIDDEN void init_function_description_class(SnClass* klass);
 HIDDEN void init_string_class(SnClass* klass);
 HIDDEN void init_array_class(SnClass* klass);
 HIDDEN void init_map_class(SnClass* klass);

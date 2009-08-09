@@ -28,6 +28,7 @@ void snow_init()
 	basic_classes[SN_CONTEXT_TYPE] = snow_create_class("Context");
 	basic_classes[SN_ARGUMENTS_TYPE] = snow_create_class("Arguments");
 	basic_classes[SN_FUNCTION_TYPE] = snow_create_class("Function");
+	basic_classes[SN_FUNCTION_DESCRIPTION_TYPE] = snow_create_class("FunctionDescription");
 	basic_classes[SN_STRING_TYPE] = snow_create_class("String");
 	basic_classes[SN_ARRAY_TYPE] = snow_create_class("Array");
 	basic_classes[SN_MAP_TYPE] = snow_create_class("Map");
@@ -47,6 +48,7 @@ void snow_init()
 	init_context_class(basic_classes[SN_CONTEXT_TYPE]);
 	init_arguments_class(basic_classes[SN_ARGUMENTS_TYPE]);
 	init_function_class(basic_classes[SN_FUNCTION_TYPE]);
+	init_function_description_class(basic_classes[SN_FUNCTION_DESCRIPTION_TYPE]);
 	init_string_class(basic_classes[SN_STRING_TYPE]);
 	init_array_class(basic_classes[SN_ARRAY_TYPE]);
 	init_map_class(basic_classes[SN_MAP_TYPE]);
