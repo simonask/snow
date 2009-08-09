@@ -3,6 +3,7 @@
 #include "snow/gc.h"
 #include "snow/class.h"
 #include "snow/array-intern.h"
+#include "snow/continuation.h"
 #include <string.h>
 
 #define INTERN (&array->a)
@@ -43,18 +44,11 @@ VALUE snow_array_push(SnArray* array, VALUE value) {
 }
 
 VALUE snow_array_pop(SnArray* array) {
-	if (INTERN->size > 0)
-		return INTERN->data[--INTERN->size];
-	else
-		return SN_NIL;
+	return array_pop(INTERN);
 }
 
 intx snow_array_find(SnArray* array, VALUE val) {
-	for (inth i = 0; i < INTERN->size; ++i) {
-		if (INTERN->data[i] == val)
-			return (intx)i;
-	}
-	return -1;
+	return array_find(INTERN, val);
 }
 
 SNOW_FUNC(_array_new) {
