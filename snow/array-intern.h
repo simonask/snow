@@ -5,6 +5,8 @@
 #include "snow/gc.h"
 #include "snow/intern.h"
 
+typedef intx(*compare_func_t)(VALUE a, VALUE b);
+
 static inline void array_init(struct array_t* array)
 {
 	array->data = 0;
@@ -14,7 +16,7 @@ static inline void array_init(struct array_t* array)
 
 static inline void array_init_with_size(struct array_t* array, uintx size)
 {
-	array->data = (VALUE*)snow_gc_alloc(size * sizeof(VALUE));
+	array->data = size ? (VALUE*)snow_gc_alloc(size * sizeof(VALUE)) : NULL;
 	array->size = 0;
 	array->alloc_size = size;
 }
@@ -88,6 +90,25 @@ static inline intx array_find(struct array_t* array, VALUE val)
 			return i;
 	}
 	return -1;
+}
+
+static inline intx array_find_with_compare(struct array_t* array, VALUE val, compare_func_t cmp)
+{
+	for (intx i = 0; i < array->size; ++i)
+	{
+		if (cmp(array->data[i], val) == 0)
+			return i;
+	}
+	return -1;
+}
+
+static inline intx array_find_or_add(struct array_t* array, VALUE val)
+{
+	int i = array_find(array, val);
+	if (i >= 0) return i;
+	i = array_size(array);
+	array_push(array, val);
+	return i;
 }
 
 #endif /* end of include guard: ARRAY_INTERN_H_JUS95Q03 */

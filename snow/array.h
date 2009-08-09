@@ -17,6 +17,7 @@ CAPI VALUE snow_array_set(SnArray*, intx, VALUE);
 CAPI VALUE snow_array_push(SnArray*, VALUE);
 CAPI VALUE snow_array_pop(SnArray*);
 CAPI intx snow_array_find(SnArray*, VALUE);
+CAPI intx snow_array_find_or_add(SnArray*, VALUE);
 
 
 static inline uintx snow_array_size(SnArray* ar) { return ar->a.size; }
