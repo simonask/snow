@@ -9,9 +9,13 @@
 #include "snow/classes.h"
 #include "snow/parser.h"
 #include "snow/debug.h"
+#include "snow/linkbuffer.h"
 #include "config.h"
 
 #include <stdarg.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <stdio.h>
 
 static SnObject* get_closest_object(VALUE)        ATTR_HOT;
 
@@ -95,10 +99,81 @@ SnArray* snow_get_load_paths()
 	return snow_store_get(load_paths_key);
 }
 
-VALUE snow_require(const char* file)
+static VALUE required_files_key = NULL;
+
+VALUE snow_require(const char* _file)
 {
-	TRAP(); // TODO
-	return SN_NIL;
+	// TODO: Make this work on non-posix
+	
+	SnString* file = snow_create_string(_file);
+	SnString* found = NULL;
+	
+	struct stat s;
+	
+	if (file->str[0] != '/')
+	{
+		SnString* slash = snow_create_string("/");
+		// first, check wd
+		char _cwd[1024];
+		getcwd(_cwd, 1024);
+		SnString* cwd = snow_string_concatenate(snow_create_string(_cwd), slash);
+		
+		SnString* candidate = snow_string_concatenate(cwd, file);
+		if (!stat(candidate->str, &s))
+		{
+			// found!
+			found = candidate;
+		}
+		else
+		{
+			// not found, check load paths
+			SnArray* load_paths = snow_get_load_paths();
+			for (intx i = 0; i < snow_array_size(load_paths); ++i)
+			{
+				SnString* path = snow_string_concatenate(snow_array_get(load_paths, i), slash);
+				if (path->str[0] != '/')
+					path = snow_string_concatenate(cwd, path);
+				candidate = snow_string_concatenate(path, file);
+				if (!stat(candidate->str, &s))
+				{
+					// found!
+					found = candidate;
+					break;
+				}
+			}
+		}
+	}
+	
+	if (!found)
+		TRAP(); // file not found
+	
+	if (!required_files_key)		
+		required_files_key = snow_store_add(snow_create_map());
+	SnMap* required_files = snow_store_get(required_files_key);
+	
+	// TODO: check timestamps in required_files
+
+	
+	FILE* f = fopen(found->str, "r");
+	SnLinkBuffer* buffer = snow_create_linkbuffer(1024);
+	char tmp[1024];
+	size_t n;
+	while (!feof(f))
+	{
+		n = fread(tmp, 1, 1024, f);
+		ASSERT(n < 1024);
+		snow_linkbuffer_push_data(buffer, tmp, n);
+	}
+	fclose(f);
+	uintx len = snow_linkbuffer_size(buffer);
+	char* source = (char*)malloc(len+1);
+	snow_linkbuffer_copy_data(buffer, source, len);
+	source[len] = '\0';
+	VALUE result = snow_eval(source);
+	snow_free_linkbuffer(buffer);
+	free(source);
+	
+	return SN_TRUE;
 }
 
 VALUE snow_call(VALUE self, VALUE closure, uintx num_args, ...)
