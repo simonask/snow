@@ -419,7 +419,22 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		}
 		case SN_AST_LOOP:
 		{
-			TRAP(); // Not implemented
+			Label cond = ASM(label);
+			Label after = ASM(label);
+			
+			ASM(bind, &cond);
+			codegen_compile_node(cgx, (SnAstNode*)node->children[0]);
+			ASM(mov, RAX, RDI);
+			CALL(snow_eval_truth);
+			ASM(xor, RCX, RCX);
+			ASM(cmp, RAX, RCX);
+			LabelRef after_jmp = ASM(j, CC_ZERO, &after);
+			codegen_compile_node(cgx, (SnAstNode*)node->children[1]);
+			LabelRef cond_jmp = ASM(jmp, &cond);
+			ASM(bind, &after);
+			
+			ASM(link, &after_jmp);
+			ASM(link, &cond_jmp);
 			break;
 		}
 		case SN_AST_AND:
