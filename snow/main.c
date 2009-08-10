@@ -24,7 +24,7 @@
 
 static void print_version_info()
 {
-	printf("snow 0.0.0 (prealpha super unstable) [" ARCH_NAME "]\n");
+	printf(PACKAGE " " VERSION " (prealpha super unstable) [" ARCH_NAME "]\n");
 }
 
 static void interactive_prompt()

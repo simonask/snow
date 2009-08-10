@@ -9,6 +9,7 @@
 #include "snow/classes.h"
 #include "snow/parser.h"
 #include "snow/debug.h"
+#include "config.h"
 
 #include <stdarg.h>
 
@@ -76,6 +77,22 @@ VALUE snow_eval_in_context(const char* str, SnContext* context)
 	SnFunction* func = snow_codegen_compile(cg);
 	
 	return snow_function_call(func, context);
+}
+
+static VALUE load_paths_key = NULL;
+
+SnArray* snow_get_load_paths()
+{
+	if (!load_paths_key)
+	{
+		SnArray* load_paths = snow_create_array();
+		SnString* libdir = snow_create_string(SNOW_PATH_DATADIR "/snow");
+		
+		snow_array_push(load_paths, libdir);
+		load_paths_key = snow_store_add(load_paths);
+		return load_paths;
+	}
+	return snow_store_get(load_paths_key);
 }
 
 VALUE snow_require(const char* file)
@@ -206,7 +223,7 @@ bool snow_eval_truth(VALUE val) {
 static SnArray** store_ptr() {
 	static SnArray* array = NULL;
 	if (!array)
-		array = snow_create_array();
+		array = snow_create_array_with_size(1024);
 	return &array;
 }
 

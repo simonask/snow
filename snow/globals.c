@@ -31,4 +31,6 @@ void snow_init_globals(SnContext* ctx)
 	
 	// others
 	set_global(ctx, snow_symbol("@"), snow_get_class(SN_ARRAY_TYPE));
+	
+	set_global(ctx, snow_symbol("LOAD_PATHS"), snow_get_load_paths());
 }
