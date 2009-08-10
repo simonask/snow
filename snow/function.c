@@ -65,7 +65,10 @@ VALUE snow_function_call(SnFunction* func, SnContext* context)
 	SnContinuation* continuation = snow_create_continuation(func->desc->func, context);
 	SnContinuation* here = snow_get_current_continuation();
 	
-	return snow_continuation_call(continuation, here);
+	VALUE ret = snow_continuation_call(continuation, here);
+	if (!ret)
+		ret = SN_NIL;
+	return ret;
 }
 
 void init_function_class(SnClass* klass)

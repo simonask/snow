@@ -31,15 +31,23 @@ SnContinuation* snow_get_current_continuation() {
 SnContinuation* snow_create_continuation(SnFunctionPtr func, SnContext* context)
 {
 	SnContinuation* cc = (SnContinuation*)snow_alloc_any_object(SN_CONTINUATION_TYPE, sizeof(SnContinuation));
+	snow_continuation_init(cc, func, context, CONTINUATION_STACK_SIZE);
+	return cc;
+}
+
+void snow_continuation_init(SnContinuation* cc, SnFunctionPtr func, SnContext* context, uintx stack_size)
+{
 	cc->function = func;
-	cc->stack_lo = (byte*)snow_gc_alloc(CONTINUATION_STACK_SIZE);
-	cc->stack_hi = cc->stack_lo + CONTINUATION_STACK_SIZE;
-	memset((void*)cc->stack_lo, 0xcd, CONTINUATION_STACK_SIZE);
+	if (stack_size)
+	{
+		cc->stack_lo = (byte*)snow_gc_alloc(stack_size);
+		cc->stack_hi = cc->stack_lo + stack_size;
+		memset((void*)cc->stack_lo, 0xcd, stack_size);
+	}
 	cc->running = false;
 	cc->return_to = NULL;
 	cc->context = context;
 	cc->return_val = NULL;
-	return cc;
 }
 
 VALUE snow_continuation_call(SnContinuation* cc, SnContinuation* return_to)

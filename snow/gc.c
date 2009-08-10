@@ -1,7 +1,7 @@
 #include "snow/gc.h"
 #include "snow/arch.h"
 #include "snow/intern.h"
-
+#include "snow/continuation.h"
 
 static void* gc_stack_top = NULL;
 
@@ -18,12 +18,17 @@ typedef struct GCHeader {
 	uint32_t size;
 	uint32_t flags;
 	SnGCFreeFunc free_func;
+	
+	#ifdef ARCH_IS_32_BIT
+	byte padding[4];
+	#endif
 } GCHeader;
 
 static const int ALIGNMENT = 0x10;
 
 static bool gc_contains(void*);
 static void* gc_alloc(uintx size, GCHeader**) __attribute__((alloc_size(1)));
+static VALUE gc_intern(SnContext*);
 
 static void* gc_alloc(uintx size, GCHeader** header)
 {
@@ -81,7 +86,7 @@ void snow_gc_set_free_func(void* data, SnGCFreeFunc func)
 {
 	ASSERT(gc_contains(data));
 	ASSERT(((uintx)data & 0xf) == 0);
-	GCHeader* header = data - sizeof(GCHeader);
+	GCHeader* header = (GCHeader*)((byte*)data - sizeof(GCHeader));
 	header->free_func = func;
 }
 
@@ -90,20 +95,21 @@ bool gc_contains(void* ptr)
 	return (byte*)ptr >= &gc_nursery[ALIGNMENT] && (byte*)ptr < &gc_nursery[gc_nursery_offset];
 }
 
+static SnContinuation gc_cc;
+
 void snow_gc()
 {
-	TRAP(); // gc not implemented
-	debug("nursery is at 0x%llx\n", gc_nursery);
-	void** i;
-	GET_BASE_PTR(i);
-	void** end = (void**)gc_stack_top;
-	for (; i < end; ++i)
-	{
-		if (gc_contains(*i))
-		{
-			debug("root: 0x%llx\n", *i);
-		}
-	}
+	snow_continuation_init(&gc_cc, gc_intern, NULL, 0);
+	uintx stack_size = 1 << 20; // 1Mb stack!
+	gc_cc.stack_lo = (byte*)malloc(stack_size);
+	gc_cc.stack_hi = gc_cc.stack_lo + stack_size;
+	snow_continuation_call(&gc_cc, snow_get_current_continuation());
+	free(gc_cc.stack_lo);
+}
+
+VALUE gc_intern(SnContext* ctx)
+{
+	puts("LOL");
 }
 
 void snow_gc_stack_top(void* top)
