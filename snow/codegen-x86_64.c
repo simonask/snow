@@ -62,7 +62,41 @@ void codegen_free_tmp(SnCodegenX* cgx, intx tmp)
 #define RESERVE_TMP() codegen_reserve_tmp(cgx)
 #define FREE_TMP(tmp) codegen_free_tmp(cgx, tmp)
 #define TEMPORARY(tmp) ADDRESS(RBP, -(tmp+1) * sizeof(VALUE))
-#define CALL(func) ASM(mov_id, IMMEDIATE(func), RCX); ASM(call, RCX); // TODO: auto-inlining
+#define CALL(func) codegen_compile_call_with_inlining(cgx, (void(*)())(func))
+
+static void codegen_compile_call_with_inlining(SnCodegenX* cgx, void(*func)())
+{
+	const uintx eval_truth = (uintx)snow_eval_truth;
+	
+	if (func == (void(*)())snow_eval_truth)
+	{
+		Label was_true = ASM(label);
+		
+		uintx mask = ~(uintx)0x6;
+		// if RDI has bits set besides for 0x6, it's true for certain
+		ASM(mov, RDI, RAX);
+		ASM(mov_id, IMMEDIATE(mask), RCX);
+		ASM(and, RCX, RAX);
+		ASM(xor, RCX, RCX);
+		ASM(cmp, RAX, RCX);
+		LabelRef was_true_jmp1 = ASM(j, CC_NOT_ZERO, &was_true);
+		ASM(mov, RDI, RAX);
+		ASM(mov_id, IMMEDIATE(SN_TRUE), RCX);
+		ASM(cmp, RAX, RCX);
+		LabelRef was_true_jmp2 = ASM(j, CC_EQUAL, &was_true);
+		ASM(xor, RAX, RAX);
+		ASM(bind, &was_true);
+		
+		ASM(link, &was_true_jmp1);
+		ASM(link, &was_true_jmp2);
+	}
+	else
+	{
+		// no inline version for this codegen
+		ASM(mov_id, IMMEDIATE(func), RCX);
+		ASM(call, RCX);
+	}
+}
 
 void codegen_compile_root(SnCodegen* cg)
 {
