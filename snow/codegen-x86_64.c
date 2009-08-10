@@ -66,8 +66,6 @@ void codegen_free_tmp(SnCodegenX* cgx, intx tmp)
 
 static void codegen_compile_call_with_inlining(SnCodegenX* cgx, void(*func)())
 {
-	const uintx eval_truth = (uintx)snow_eval_truth;
-	
 	if (func == (void(*)())snow_eval_truth)
 	{
 		Label was_true = ASM(label);
