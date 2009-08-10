@@ -15,7 +15,7 @@ SnString* snow_create_string(const char* cstr)
 	return str;
 }
 
-SnString* snow_create_string_from_Data(const char* cstr, uintx len)
+SnString* snow_create_string_from_data(const char* cstr, uintx len)
 {
 	SnString* str = (SnString*)snow_alloc_any_object(SN_STRING_TYPE, sizeof(SnString));
 	str->str = snow_gc_alloc(len+1);
@@ -42,6 +42,19 @@ intx snow_string_compare(SnString* a, SnString* b)
 uintx snow_string_length(SnString* str)
 {
 	return strlen(str->str);
+}
+
+SnString* snow_string_concatenate(SnString* a, SnString* b)
+{
+	uintx len_a = snow_string_length(a);
+	uintx len_b = snow_string_length(b);
+	SnString* str = (SnString*)snow_alloc_any_object(SN_STRING_TYPE, sizeof(SnString));
+	uintx len_result = len_a + len_b;
+	str->str = snow_gc_alloc(len_result + 1);
+	memcpy(str->str, a->str, len_a);
+	memcpy(&str->str[len_a], b->str, len_b);
+	str->str[len_result] = '\0';
+	return str;
 }
 
 SNOW_FUNC(string_to_string)
