@@ -129,6 +129,20 @@ SNOW_FUNC(_array_inspect) {
 	return str;
 }
 
+SNOW_FUNC(_array_each) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(1);
+	SnArray* array = (SnArray*)SELF;
+	VALUE closure = ARGS[0];
+	
+	for (intx i = 0; i < array_size(INTERN); ++i)
+	{
+		snow_call(NULL, closure, 1, array_get(INTERN, i));
+	}
+	
+	return array;
+}
+
 void init_array_class(SnClass* klass)
 {
 	snow_define_class_method(klass, "__call__", _array_new);
@@ -138,5 +152,7 @@ void init_array_class(SnClass* klass)
 	snow_define_method(klass, "<<", _array_push);
 	snow_define_method(klass, "pop", _array_pop);
 	snow_define_method(klass, "inspect", _array_inspect);
+	snow_define_method(klass, "each", _array_each);
+	
 	snow_define_property(klass, "length", _array_length, NULL);
 }
