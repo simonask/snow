@@ -6,7 +6,7 @@
 
 static const char* symstr(SnSymbol sym)
 {
-	return snow_symbol_to_string(sym);
+	return snow_symbol_to_cstr(sym);
 }
 
 void snow_debug_print_return_chain()

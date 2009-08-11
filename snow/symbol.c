@@ -48,17 +48,33 @@ VALUE snow_vsymbol(const char* cstr)
 	return symbol_to_value(snow_symbol(cstr));
 }
 
-const char* snow_symbol_to_string(SnSymbol sym)
+const char* snow_symbol_to_cstr(SnSymbol sym)
+{
+	return snow_symbol_to_string(sym)->str;
+}
+
+SnString* snow_symbol_to_string(SnSymbol sym)
 {
 	SnArray* storage = symbol_storage();
 	ASSERT(storage);
 	ASSERT(sym < snow_array_size(storage));
 	SnString* str = snow_array_get(storage, sym);
-	ASSERT(str != SN_NIL);
-	return str->str;
+	ASSERT(str);
+	return str;
+}
+
+SNOW_FUNC(symbol_to_string) {
+	ASSERT(is_symbol(SELF));
+	return snow_symbol_to_string(value_to_symbol(SELF));
+}
+
+SNOW_FUNC(symbol_inspect) {
+	ASSERT(is_symbol(SELF));
+	return snow_string_concatenate(snow_create_string("#"), snow_symbol_to_string(value_to_symbol(SELF)));
 }
 
 void init_symbol_class(SnClass* klass)
 {
-	
+	snow_define_method(klass, "to_string", symbol_to_string);
+	snow_define_method(klass, "inspect", symbol_inspect);
 }
