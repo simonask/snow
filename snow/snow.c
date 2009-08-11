@@ -295,7 +295,7 @@ bool snow_eval_truth(VALUE val) {
 	return !(!val || val == SN_NIL || val == SN_FALSE);
 }
 
-static SnArray** store_ptr() {
+HIDDEN SnArray** _snow_store_ptr() {
 	static SnArray* array = NULL;
 	if (!array)
 		array = snow_create_array_with_size(1024);
@@ -303,7 +303,7 @@ static SnArray** store_ptr() {
 }
 
 VALUE snow_store_add(VALUE val) {
-	SnArray* store = *store_ptr();
+	SnArray* store = *_snow_store_ptr();
 	intx key = snow_array_size(store);
 	snow_array_push(store, val);
 	return int_to_value(key);
@@ -311,7 +311,7 @@ VALUE snow_store_add(VALUE val) {
 
 VALUE snow_store_get(VALUE key) {
 	ASSERT(is_integer(key));
-	SnArray* store = *store_ptr();
+	SnArray* store = *_snow_store_ptr();
 	intx nkey = value_to_int(key);
 	return snow_array_get(store, nkey);
 }
