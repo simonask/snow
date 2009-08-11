@@ -40,7 +40,7 @@ void snow_continuation_init(SnContinuation* cc, SnFunctionPtr func, SnContext* c
 	cc->function = func;
 	if (stack_size)
 	{
-		cc->stack_lo = (byte*)snow_gc_alloc(stack_size);
+		cc->stack_lo = (byte*)valloc(stack_size);
 		cc->stack_hi = cc->stack_lo + stack_size;
 		memset((void*)cc->stack_lo, 0xcd, stack_size);
 	}
