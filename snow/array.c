@@ -135,6 +135,7 @@ void init_array_class(SnClass* klass)
 	snow_define_method(klass, "get", _array_get);
 	snow_define_method(klass, "set", _array_set);
 	snow_define_method(klass, "push", _array_push);
+	snow_define_method(klass, "<<", _array_push);
 	snow_define_method(klass, "pop", _array_pop);
 	snow_define_method(klass, "inspect", _array_inspect);
 	snow_define_property(klass, "length", _array_length, NULL);
