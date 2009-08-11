@@ -46,6 +46,7 @@ typedef enum SnObjectType
 typedef struct SnObjectBase
 {
 	SnObjectType type;
+	uint32_t flags;
 } SnObjectBase;
 
 typedef struct SnObject

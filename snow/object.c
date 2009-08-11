@@ -13,6 +13,7 @@ SnObjectBase* snow_alloc_any_object(SnObjectType type, uintx size)
 	ASSERT(size > sizeof(SnObjectBase) && "You probably don't want to allocate an SnObjectBase.");
 	SnObjectBase* base = (SnObjectBase*)snow_gc_alloc_object(size);
 	base->type = type;
+	base->flags = 0;
 	return base;
 }
 
