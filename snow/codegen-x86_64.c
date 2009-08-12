@@ -105,10 +105,10 @@ void codegen_compile_root(SnCodegen* cg)
 	ASM(push, RBP);
 	ASM(mov, RSP, RBP);
 	int32_t stack_size_offset = ASM(sub_id, 0, RSP);
-	ASM(push, R15);
+	ASM(push, R13);
 	ASM(push, R14);
-	ASM(mov, RDI, R15);                                           // function context in r15
-	ASM(mov_rev, R14, ADDRESS(R15, offsetof(SnContext, locals))); // locals array in r14
+	ASM(mov, RDI, R13);                                           // function context in r13
+	ASM(mov_rev, R14, ADDRESS(R13, offsetof(SnContext, locals))); // locals array in r14
 	
 	ASSERT(cgx->base.root->type == SN_AST_FUNCTION);
 	
@@ -140,7 +140,7 @@ void codegen_compile_root(SnCodegen* cg)
 	Label return_label = ASM(label);
 	ASM(bind, &return_label);
 	ASM(pop, R14);
-	ASM(pop, R15);
+	ASM(pop, R13);
 	ASM(leave);
 	ASM(ret);
 	
@@ -200,7 +200,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			CALL(snow_store_get);
 			ASM(mov, RAX, RDI);
 			CALL(snow_create_function_from_description);
-			ASM(mov, R15, ADDRESS(RAX, offsetof(SnFunction, declaration_context)));
+			ASM(mov, R13, ADDRESS(RAX, offsetof(SnFunction, declaration_context)));
 			break;
 		}
 			
@@ -238,7 +238,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		
 		case SN_AST_SELF:
 		{
-			ASM(mov_rev, RAX, ADDRESS(R15, offsetof(SnContext, self)));
+			ASM(mov_rev, RAX, ADDRESS(R13, offsetof(SnContext, self)));
 			break;
 		}
 		
@@ -263,7 +263,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			else
 			{
 				// local to parent or injected scope
-				ASM(mov, R15, RDI);
+				ASM(mov, R13, RDI);
 				ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
 				CALL(snow_context_get_local);
 			}
@@ -308,7 +308,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			else
 			{
 				// local to a parent or injected scope
-				ASM(mov, R15, RDI);
+				ASM(mov, R13, RDI);
 				ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
 				ASM(mov, RAX, RDX);
 				CALL(snow_context_set_local);

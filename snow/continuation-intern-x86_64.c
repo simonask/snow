@@ -1,50 +1,64 @@
 #include "snow/continuation-intern.h"
 
-NOINLINE void _continuation_resume(SnContinuation* cc) {
+#define NO_PROFILING __attribute__((flatten,no_instrument_function))
+
+NOINLINE NO_PROFILING void _continuation_resume(SnContinuation* cc) {
 	__asm__ __volatile__(
 		// restore registers from saved continuation (cc)
-		// TODO: restore all the non-volatile registers
-		"movq %0, %%rdi\n"
-		"movq %1, %%rsp\n"
-		"movq %2, %%rbp\n"
+		"movq %0, %%rax\n"	// regs in rax
+		"movq %1, %%rdi\n"	// context in rdi
+		"movq 0(%%rax), %%rbx\n"
+		"movq 8(%%rax), %%rbp\n"
+		"movq 16(%%rax), %%rsp\n"
+		"movq 24(%%rax), %%r12\n"
+		"movq 32(%%rax), %%r13\n"
+		"movq 40(%%rax), %%r14\n"
+		"movq 48(%%rax), %%r15\n"
+		"movq 56(%%rax), %%r8\n"
 		// indicate to function being resumed that it was resumed
 		// the contents of %rax will be seen as the return value from _continuation save
 		"movq $1, %%rax\n"
 		// perform the jump
-		"movq %3, %%r8\n"
 		"jmpq *%%r8\n"
 	:
-	: "m"(cc->context), "m"(cc->reg.rsp), "m"(cc->reg.rbp), "m"(cc->reg.rip)
-	: "%rax", "%rdi", "%rsi", "%rsp", "%r8"
+	:
+		"r"(&cc->reg),
+		"r"(cc->context)
+	: "%rax", "%r8", "%rdi"
 	);
 	TRAP(); // should never be reached
 }
 
-NOINLINE bool _continuation_save(SnContinuation* cc)
+NOINLINE NO_PROFILING bool _continuation_save(SnContinuation* cc)
 {
 	__asm__ __volatile__(
-	// rsp is rbp+0x10, since the stack size of this function is 0 + size of link space (saved %rbp and %rsp)
-	"movq %%rsp, %0\n"
-	"addq $0x10, %0\n"
+	"movq %0, %%rax\n" // regs in rax
+	"movq %%rbx, 0(%%rax)\n"
 	// rbp stored on the stack
-	"movq (%%rbp), %%rax\n"
-	"movq %%rax, %1\n"
+	"movq (%%rbp), %%rcx\n"
+	"movq %%rcx, 8(%%rax)\n"
+	// rsp is rsp+0x10, since the stack size of this function is 0 + size of link space (saved %rbp and %rsp)
+	"movq %%rsp, 16(%%rax)\n"
+	"addq $0x10, 16(%%rax)\n"
+	// other regs
+	"movq %%r12, 24(%%rax)\n"
+	"movq %%r13, 32(%%rax)\n"
+	"movq %%r14, 40(%%rax)\n"
+	"movq %%r15, 48(%%rax)\n"
 	// read instruction pointer for calling function from the stack.
 	// This will be the instruction pointer to the instruction after the `call` that entered _continuation_save.
 	"movq %%rbp, %%r8\n"
-	"movq 8(%%r8), %%rax\n"
-	"movq %%rax, %2\n"
+	"movq 8(%%r8), %%rcx\n"
+	"movq %%rcx, 56(%%rax)\n"
 	// TODO: save all the non-volatile registers, not just rsp/rbp/rip.
-	: "=m"(cc->reg.rsp), "=m"(cc->reg.rbp), "=m"(cc->reg.rip)
 	:
-	: "%rax"
+	: "r"(&cc->reg)
+	: "%rax", "%rcx"
 	);
 	return false;	
 }
 
-NOINLINE __attribute__((flatten,no_instrument_function)) void _continuation_return_handler();
-
-void _continuation_return_handler() {
+void NO_PROFILING _continuation_return_handler() {
 	/*
 		This is a bouncer function that catches when the outmost function in
 		a continuation returns. It assumes that a pointer to the current continuation

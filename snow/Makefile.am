@@ -27,6 +27,8 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	continuation.h \
 	debug.c \
 	debug.h \
+	fixed-alloc.c \
+	fixed-alloc.h \
 	function.c \
 	function.h \
 	gc.c \

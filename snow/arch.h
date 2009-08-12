@@ -7,6 +7,7 @@
 #define TRAP() __asm__("int3\nnop\n")
 
 typedef struct SnRegisters {
+	// XXX: DO NOT CHANGE ORDER! Codegen depends on it because gcc is mentally challenged.
 	void* rbx;
 	void* rbp;
 	void* rsp;
@@ -14,7 +15,7 @@ typedef struct SnRegisters {
 	void* r13;
 	void* r14;
 	void* r15;
-	void* rip;
+	void(*rip)();
 } SnRegisters;
 
 #else

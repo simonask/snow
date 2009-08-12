@@ -13,6 +13,7 @@ typedef struct SnContinuation {
 	byte* stack_lo;
 	bool running;
 	struct SnContinuation* return_to;
+	struct SnContinuation* please_clean;
 
 	SnContext* context;
 	VALUE return_val;
@@ -22,11 +23,12 @@ CAPI void snow_init_current_continuation();
 CAPI SnContinuation* snow_get_current_continuation();
 
 CAPI SnContinuation* snow_create_continuation(SnFunctionPtr, SnContext* context);
-CAPI void snow_continuation_init(SnContinuation*, SnFunctionPtr, SnContext*, uintx stack_size);
+CAPI void snow_continuation_init(SnContinuation*, SnFunctionPtr, SnContext*)         ATTR_HOT;
 CAPI VALUE snow_continuation_call(SnContinuation*, SnContinuation* return_to)        ATTR_HOT;
 CAPI void snow_continuation_yield(SnContinuation* cc, VALUE val)                     ATTR_HOT;
 CAPI void snow_continuation_return(SnContinuation* cc, VALUE val)                    ATTR_HOT;
 CAPI void snow_continuation_resume(SnContinuation* cc)                               ATTR_HOT;
+CAPI void snow_continuation_get_stack_bounds(SnContinuation* cc, byte** lo, byte** hi);
 
 static inline void snow_continuation_stack_guard() {
 	byte* sp;
