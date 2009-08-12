@@ -377,7 +377,6 @@ static VALUE gc_intern(SnContext* ctx)
 	free(gc_nursery.data);
 	memcpy(&gc_nursery, &new_nursery, sizeof(struct heap_t));
 	
-	TRAP(); // gc done
 	return NULL;
 }
 
