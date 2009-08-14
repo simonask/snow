@@ -373,6 +373,11 @@ static VALUE gc_intern(SnContext* ctx)
 	gc_scan_memory((byte*)_snow_store_ptr(), sizeof(SnArray*), GC_OP_UPDATE);
 	gc_scan_memory((byte*)snow_get_basic_types(), SN_TYPE_MAX*sizeof(VALUE), GC_OP_UPDATE);
 	
+	#ifdef DEBUG
+	// poison the old nursery (how cruel!)
+	memset(gc_nursery.data, 0xab, gc_nursery.size);
+	#endif
+	
 	// set new nursery as the current nursery
 	free(gc_nursery.data);
 	memcpy(&gc_nursery, &new_nursery, sizeof(struct heap_t));
