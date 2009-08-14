@@ -18,6 +18,7 @@ SnFunction* snow_codegen_compile(SnCodegen* cg)
 SnFunctionDescription* snow_codegen_compile_description(SnCodegen* cg)
 {
 	cg->result = snow_create_function_description(NULL);
+	snow_array_push(cg->result->local_names, snow_vsymbol("it"));
 	
 	codegen_compile_root(cg);
 	

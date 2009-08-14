@@ -36,7 +36,9 @@ CAPI SnContext* snow_create_context(SnContext* static_parent);
 CAPI SnContext* snow_create_context_for_function(struct SnFunction* func);
 CAPI SnContext* snow_global_context();
 CAPI VALUE snow_context_get_local(SnContext*, SnSymbol)                      ATTR_HOT;
+CAPI VALUE snow_context_get_local_local(SnContext*, SnSymbol)                ATTR_HOT;
 CAPI VALUE snow_context_set_local(SnContext*, SnSymbol, VALUE val)           ATTR_HOT;
 CAPI VALUE snow_context_set_local_local(SnContext*, SnSymbol, VALUE val)     ATTR_HOT;
+CAPI VALUE snow_context_get_it(SnContext*)                                   ATTR_HOT;
 
 #endif /* end of include guard: CONTEXT_H_ZSI0OCOV */

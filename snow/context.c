@@ -55,17 +55,12 @@ VALUE snow_context_get_local(SnContext* ctx, SnSymbol sym)
 {
 	STACK_GUARD;
 	
-	VALUE vsym = symbol_to_value(sym);
-	
 	SnContext* last_ctx = NULL;
 	while (ctx)
 	{
-		if (ctx->local_names && ctx->locals)
-		{
-			intx idx = snow_array_find(ctx->local_names, vsym);
-			if (idx >= 0)
-				return snow_array_get(ctx->locals, idx);
-		}
+		VALUE val = snow_context_get_local_local(ctx, sym);
+		if (val)
+			return val;
 		
 		last_ctx = ctx;
 		ctx = ctx->static_parent;
@@ -79,6 +74,18 @@ VALUE snow_context_get_local(SnContext* ctx, SnSymbol sym)
 	}
 	
 	TRAP(); // no such local
+	return NULL;
+}
+
+VALUE snow_context_get_local_local(SnContext* ctx, SnSymbol sym)
+{
+	if (ctx->local_names && ctx->locals)
+	{
+		VALUE vsym = symbol_to_value(sym);
+		int idx = snow_array_find(ctx->local_names, vsym);
+		if (idx >= 0)
+			return snow_array_get(ctx->locals, idx);
+	}
 	return NULL;
 }
 

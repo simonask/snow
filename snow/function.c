@@ -44,9 +44,17 @@ SnFunction* snow_create_function_from_description(SnFunctionDescription* desc)
 	return func;
 }
 
+static VALUE sym_it = NULL;
+
 VALUE snow_function_call(SnFunction* func, SnContext* context)
 {
 	ASSERT(context);
+	
+	if (!sym_it)
+		sym_it = snow_vsymbol("it");
+	
+	VALUE it = context->args ? snow_arguments_get_by_index(context->args, 0) : NULL;
+	snow_context_set_local_local(context, value_to_symbol(sym_it), it ? it : SN_NIL);
 	
 	// TODO: Optimize this
 	SnArray* arg_names = func->desc->argument_names;
