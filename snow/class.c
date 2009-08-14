@@ -75,7 +75,7 @@ SNOW_FUNC(class_name) {
 }
 
 SNOW_FUNC(class_new_class) {
-	SnClass* self = SELF;
+	SnClass* self = (SnClass*)SELF;
 	ASSERT_TYPE(self, SN_CLASS_TYPE);
 	SnClass* new_class = snow_create_class("<Anonymous Class>");
 	
@@ -90,9 +90,16 @@ SNOW_FUNC(class_new_class) {
 	return new_class;
 }
 
+SNOW_FUNC(class_instance_prototype) {
+	SnClass* self = (SnClass*)SELF;
+	ASSERT_TYPE(self, SN_CLASS_TYPE);
+	return self->instance_prototype;
+}
+
 void init_class_class(SnClass* klass)
 {
 	snow_define_class_method(klass, "__call__", class_new_class);
 	snow_define_method(klass, "__call__", class_new);
 	snow_define_property(klass, "name", class_name, NULL);
+	snow_define_property(klass, "instance_prototype", class_instance_prototype, NULL);
 }
