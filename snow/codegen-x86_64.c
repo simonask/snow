@@ -177,7 +177,17 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 	switch (node->type) {
 		case SN_AST_LITERAL:
 		{
-			ASM(mov_id, IMMEDIATE(node->children[0]), RAX);
+			VALUE val = node->children[0];
+			if (is_object(val))
+			{
+				VALUE key = snow_store_add(val);
+				ASM(mov_id, IMMEDIATE(key), RDI);
+				CALL(snow_store_get);
+			}
+			else
+			{
+				ASM(mov_id, IMMEDIATE(node->children[0]), RAX);
+			}
 			break;
 		}
 		
