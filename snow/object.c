@@ -28,7 +28,7 @@ void snow_object_init(SnObject* obj, SnObject* prototype)
 {
 	obj->prototype = prototype;
 	obj->members = NULL;
-	obj->prototype = NULL;
+	obj->prototype = prototype;
 	array_init(&obj->property_names);
 	array_init(&obj->property_data);
 }
@@ -128,7 +128,13 @@ SNOW_FUNC(object_inspect) {
 	return snow_create_string(cstr);
 }
 
+SNOW_FUNC(object_eval) {
+	REQUIRE_ARGS(1);
+	snow_call(SELF, ARGS[0], 0);
+}
+
 void init_object_class(SnClass* klass)
 {
 	snow_define_method(klass, "inspect", object_inspect);
+	snow_define_method(klass, "object_eval", object_eval);
 }
