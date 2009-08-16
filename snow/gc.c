@@ -265,7 +265,7 @@ static inline void gc_scan_memory(byte* mem_start, size_t mem_size, GCOperation 
 				{
 					VALUE new_object_start = *((VALUE*)object_start);
 					ASSERT(new_object_start != object_start);
-					uintx offset = *i - object_start;
+					uintx offset = (uintx)*i - (uintx)object_start;
 					object_start = new_object_start;
 					*i = (VALUE)((byte*)new_object_start + offset);
 					

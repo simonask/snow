@@ -135,7 +135,11 @@ SNOW_FUNC(numeric_to_string) {
 	
 	if (is_integer(SELF)) {
 		intx n = value_to_int(SELF);
+		#ifdef ARCH_IS_64_BIT
 		snprintf(r, 32, "%lld", n);
+		#else
+		snprintf(r, 32, "%d", n);
+		#endif
 	} else if (is_float(SELF)) {
 		float f = value_to_float(SELF);
 		snprintf(r, 32, "%f", f);

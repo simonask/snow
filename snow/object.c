@@ -130,7 +130,7 @@ SNOW_FUNC(object_inspect) {
 
 SNOW_FUNC(object_eval) {
 	REQUIRE_ARGS(1);
-	snow_call(SELF, ARGS[0], 0);
+	return snow_call(SELF, ARGS[0], 0);
 }
 
 void init_object_class(SnClass* klass)

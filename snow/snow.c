@@ -156,7 +156,7 @@ VALUE snow_require(const char* _file)
 	
 	FILE* f = fopen(found->str, "r");
 	SnLinkBuffer* buffer = snow_create_linkbuffer(1024);
-	char tmp[1024];
+	byte tmp[1024];
 	size_t n;
 	while (!feof(f))
 	{

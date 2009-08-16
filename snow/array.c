@@ -5,6 +5,7 @@
 #include "snow/array-intern.h"
 #include "snow/continuation.h"
 #include <string.h>
+#include <stdio.h>
 
 #define INTERN (&array->a)
 

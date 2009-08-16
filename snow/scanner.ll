@@ -61,7 +61,7 @@ SnLinkBuffer* string_buffer = NULL;
 <STRING_DOUBLE>\\r                     { STR_CHAR('\r'); }
 <STRING_DOUBLE>\\b                     { STR_CHAR('\b'); }
 <STRING_DOUBLE>\\f                     { STR_CHAR('\f'); }
-<STRING_DOUBLE>\\e                     { STR_CHAR('\e'); }
+<STRING_DOUBLE>\\e                     { STR_CHAR('\033'); }
 <STRING_DOUBLE>\\0[0-7]+               { STR_CHAR((char)strtoll(&yytext[1], NULL, 8)); }
 <STRING_DOUBLE>\\(.|\n)                { STR_CHAR(yytext[1]); }
 <STRING_DOUBLE>\$\{                    { BEGIN(STRING_INTERPOLATION); yylval->value = snow_create_string_from_linkbuffer(string_buffer); STR_CLEAR(); return TOK_STRING; }

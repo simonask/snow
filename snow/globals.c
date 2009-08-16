@@ -1,6 +1,7 @@
 #include "snow/globals.h"
 #include "snow/intern.h"
 #include "snow/snow.h"
+#include <stdio.h>
 
 static inline void set_global(SnContext* ctx, SnSymbol name, VALUE val) {
 	snow_context_set_local(ctx, name, val);
