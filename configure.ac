@@ -6,9 +6,9 @@ AC_CONFIG_HEADERS(config.h)
 
 AC_CANONICAL_HOST()
 
-AC_PROG_CC([ gcc-mp-4.4 ])
+AC_PROG_CC([ gcc-mp-4.4 gcc-4.4 gcc44 gcc ])
 
-AM_PROG_AS([ gcc-mp-4.4 ])
+AM_PROG_AS([ gcc-mp-4.4 gcc-4.4 gcc44 gcc ])
 
 AC_PROG_LEX([ flex ])
 
