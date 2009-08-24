@@ -1,5 +1,5 @@
 SUBDIRS = ../snow
-bin_PROGRAMS = codegen parser symbol
+noinst_PROGRAMS = codegen parser symbol
 codegen_SOURCES = codegen.c test.c
 codegen_LDADD = ../snow/libsnow.la
 parser_SOURCES = parser.c test.c

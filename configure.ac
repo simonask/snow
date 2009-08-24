@@ -70,4 +70,4 @@ AC_DEFINE_DIR(SNOW_PATH_SYSCONFDIR, [sysconfdir], [System configuration dir])
 AC_DEFINE_DIR(SNOW_PATH_DATADIR, [datadir], [The directory for installing idiosyncratic read-only architecture-independent data.])
 AC_DEFINE_DIR(SNOW_PATH_DATAROOTDIR, [datarootdir], [The root of the directory tree for read-only architecture-independent data files.])
 
-AC_OUTPUT(Makefile snow/Makefile test/Makefile)
+AC_OUTPUT(Makefile snow/Makefile lib/Makefile test/Makefile)

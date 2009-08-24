@@ -6,59 +6,64 @@ endif
 
 libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	arguments.c \
-	arguments.h \
-	array-intern.h \
 	array.c \
-	array.h \
 	ast.c \
-	ast.h \
-	basic.h \
 	boolean.c \
 	class.c \
-	class.h \
-	classes.h \
-	codegen-intern.h \
 	codegen.c \
-	codegen.h \
 	context.c \
-	context.h \
-	continuation-intern.h \
 	continuation.c \
-	continuation.h \
 	debug.c \
-	debug.h \
 	fixed-alloc.c \
-	fixed-alloc.h \
 	function.c \
-	function.h \
 	gc.c \
-	gc.h \
 	globals.c \
-	globals.h \
 	intern.c \
-	intern.h \
 	linkbuffer.c \
-	linkbuffer.h \
 	map.c \
-	map.h \
 	nil.c \
 	numeric.c \
-	numeric.h \
 	object.c \
-	object.h \
 	parser.c \
-	parser.h \
 	scanner.c \
-	scanner.h \
 	snow.c \
-	snow.h \
 	str.c \
-	str.h \
 	symbol.c \
+	wrapper.c
+
+include_snowdir = $(includedir)/snow
+include_snow_HEADERS = \
+	arguments.h \
+	array.h \
+	ast.h \
+	basic.h \
+	class.h \
+	classes.h \
+	codegen.h \
+	context.h \
+	continuation.h \
+	function.h \
+	gc.h \
+	globals.h \
+	linkbuffer.h \
+	map.h \
+	numeric.h \
+	object.h \
+	parser.h \
+	scanner.h \
+	str.h \
 	symbol.h \
-	wrapper.c \
 	wrapper.h
 
+include_HEADERS = snow.h
+	
+noinst_HEADERS = \
+	array-intern.h \
+	codegen-intern.h \
+	continuation-intern.h \
+	fixed-alloc.h \
+	debug.h \
+	intern.h
 
 CLEANFILES = parser.c parser.tab.h scanner.c
 
