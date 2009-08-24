@@ -12,6 +12,7 @@ typedef struct SnContinuation {
 	byte* stack_hi;
 	byte* stack_lo;
 	bool running;
+	bool interruptible;
 	struct SnContinuation* return_to;
 	struct SnContinuation* please_clean;
 

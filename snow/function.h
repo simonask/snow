@@ -11,6 +11,7 @@ typedef struct SnFunctionDescription {
 	SnSymbol name;
 	SnArray* argument_names;
 	SnArray* local_names;
+	bool interruptible;
 } SnFunctionDescription;
 
 CAPI SnFunctionDescription* snow_create_function_description(SnFunctionPtr func);

@@ -9,6 +9,7 @@ SnFunctionDescription* snow_create_function_description(SnFunctionPtr func)
 	desc->name = snow_symbol("<unnamed>");
 	desc->argument_names = NULL;
 	desc->local_names = snow_create_array();
+	desc->interruptible = true;
 	return desc;
 }
 
@@ -71,10 +72,21 @@ VALUE snow_function_call(SnFunction* func, SnContext* context)
 		}
 	}
 	
-	SnContinuation* continuation = snow_create_continuation(func->desc->func, context);
 	SnContinuation* here = snow_get_current_continuation();
-	
-	VALUE ret = snow_continuation_call(continuation, here);
+	VALUE ret = NULL;
+	if (!func->desc->interruptible)
+	{
+		bool old_interruptible = here->interruptible;
+		here->interruptible = false;
+		ret = func->desc->func(context);	// call without creating a continuation
+		here->interruptible = old_interruptible;
+	}
+	else
+	{
+		SnContinuation* continuation = snow_create_continuation(func->desc->func, context);
+		ret = snow_continuation_call(continuation, here);
+	}
+
 	if (!ret)
 		ret = SN_NIL;
 	return ret;

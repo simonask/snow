@@ -23,6 +23,7 @@ void snow_init_current_continuation() {
 	cc->stack_hi = (byte*)(uintx)-1;
 	cc->stack_lo = NULL;
 	cc->running = true;
+	cc->interruptible = false;
 	cc->return_to = NULL;
 	cc->please_clean = NULL;
 	cc->context = NULL;
@@ -48,6 +49,7 @@ void snow_continuation_init(SnContinuation* cc, SnFunctionPtr func, SnContext* c
 	cc->stack_lo = NULL;
 	cc->stack_hi = NULL;
 	cc->running = false;
+	cc->interruptible = true;
 	cc->return_to = NULL;
 	cc->please_clean = NULL;
 	cc->context = context;
@@ -101,6 +103,7 @@ VALUE snow_continuation_call(SnContinuation* cc, SnContinuation* return_to)
 
 void snow_continuation_yield(SnContinuation* cc, VALUE val)
 {
+	ASSERT(cc->interruptible);
 	if (_continuation_save(cc)) {
 		TRAP();
 		// was restarted after yield
@@ -114,6 +117,7 @@ void snow_continuation_yield(SnContinuation* cc, VALUE val)
 
 void snow_continuation_return(SnContinuation* cc, VALUE val)
 {
+	ASSERT(cc->interruptible);
 	cc->running = false;
 	cc->return_val = val;
 	
