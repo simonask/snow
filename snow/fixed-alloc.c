@@ -20,7 +20,10 @@ void fixed_free(struct fixed_alloc_t* alloc, void* ptr)
 {
 	if (ptr)
 	{
+		#ifdef DEBUG
 		memset(ptr, 0xef, alloc->page_size);
+		#endif
+		
 		*((void**)ptr) = alloc->free_element;
 		alloc->free_element = ptr;
 	}
