@@ -143,6 +143,11 @@ VALUE snow_require(const char* _file)
 			}
 		}
 	}
+	else if (!stat(file->str, &s))
+	{
+		// found!
+		found = file;
+	}
 	
 	if (!found)
 		TRAP(); // file not found
