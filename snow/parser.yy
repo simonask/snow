@@ -131,6 +131,7 @@ local: identifier                                          { $$ = snow_ast_local
             
 variable:   local                                      { $$ = $1; }
             | member                                        { $$ = $1; }
+            | TOK_SELF                                      { $$ = $1; }
             ;
 
 parameters: identifier                                      { $$ = snow_ast_sequence(1, symbol_to_value($1)); }
