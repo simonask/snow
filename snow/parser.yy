@@ -1,6 +1,5 @@
 %code requires {
 #include "snow/ast.h"
-#include "snow/intern.h"
 #include "snow/parser-intern.h"
 }
 
