@@ -33,6 +33,7 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 
 include_snowdir = $(includedir)/snow
 include_snow_HEADERS = \
+	arch.h \
 	arguments.h \
 	array.h \
 	ast.h \
