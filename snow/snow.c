@@ -171,12 +171,12 @@ VALUE snow_require(const char* _file)
 	}
 	fclose(f);
 	uintx len = snow_linkbuffer_size(buffer);
-	char* source = (char*)malloc(len+1);
+	char* source = (char*)snow_malloc(len+1);
 	snow_linkbuffer_copy_data(buffer, source, len);
 	source[len] = '\0';
 	VALUE result = snow_eval(source);
 	snow_free_linkbuffer(buffer);
-	free(source);
+	snow_free(source);
 	
 	return SN_TRUE;
 }

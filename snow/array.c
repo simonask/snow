@@ -118,15 +118,15 @@ SNOW_FUNC(_array_inspect) {
 		else
 		{
 			asprintf(&result, "%s, %s", old_result, converted);
-			free(old_result);
+			snow_free(old_result);
 		}
 	}
 	
 	char* old_result = result;
 	asprintf(&result, "@(%s)", result ? result : "");
-	free(old_result);
+	snow_free(old_result);
 	SnString* str = snow_create_string(result);
-	free(result);
+	snow_free(result);
 	return str;
 }
 

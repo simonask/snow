@@ -4,7 +4,7 @@
 #include <string.h>
 
 SnLinkBuffer* snow_create_linkbuffer(uintx page_size) {
-	SnLinkBuffer* buf = (SnLinkBuffer*)malloc(sizeof(SnLinkBuffer));
+	SnLinkBuffer* buf = (SnLinkBuffer*)snow_malloc(sizeof(SnLinkBuffer));
 	buf->page_size = page_size;
 	buf->head = NULL;
 	buf->tail = NULL;
@@ -13,7 +13,7 @@ SnLinkBuffer* snow_create_linkbuffer(uintx page_size) {
 
 void snow_free_linkbuffer(SnLinkBuffer* buf) {
 	snow_linkbuffer_clear(buf);
-	free(buf);
+	snow_free(buf);
 }
 
 uintx snow_linkbuffer_size(SnLinkBuffer* buf) {
@@ -32,7 +32,7 @@ uintx snow_linkbuffer_size(SnLinkBuffer* buf) {
 uintx snow_linkbuffer_push(SnLinkBuffer* buf, byte b) {
 	if (!buf->tail || buf->tail->offset == buf->page_size) {
 		SnLinkBufferPage* old_tail = buf->tail;
-		buf->tail = (SnLinkBufferPage*)malloc(sizeof(SnLinkBufferPage) + buf->page_size);
+		buf->tail = (SnLinkBufferPage*)snow_malloc(sizeof(SnLinkBufferPage) + buf->page_size);
 		buf->tail->next = NULL;
 		buf->tail->offset = 0;
 		if (!buf->head)
@@ -99,8 +99,9 @@ uintx snow_linkbuffer_modify(SnLinkBuffer* buf, uintx offset, uintx len, byte* n
 void snow_linkbuffer_clear(SnLinkBuffer* buf) {
 	SnLinkBufferPage* page = buf->head;
 	while (page) {
-		free(page);
-		page = page->next;
+		SnLinkBufferPage* next = page->next;
+		snow_free(page);
+		page = next;
 	}
 	buf->head = NULL;
 	buf->tail = NULL;

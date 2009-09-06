@@ -69,7 +69,7 @@ void _test_pending() {
 
 void _register_test(const char* name, void(*func)()) {
 	ASSERT(test == 0xcdefabcd); // make sure statics have been set!
-	struct test_case* test_case = (struct test_case*)malloc(sizeof(struct test_case));
+	struct test_case* test_case = (struct test_case*)snow_malloc(sizeof(struct test_case));
 	test_case->func = func;
 	test_case->name = name;
 	test_case->next = NULL;

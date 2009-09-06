@@ -2,6 +2,7 @@
 #define PARSER_INTERN_H_P8KQXQRI
 
 #include "snow/parser.h"
+#include "snow/gc.h"
 
 typedef struct SnParserState {
 	void* yyscanner;
@@ -21,6 +22,8 @@ typedef union SnTokenValue {
 #define YYSTYPE SnTokenValue
 #define YY_EXTRA_TYPE SnParserState*
 struct YYLTYPE;
+#define YYMALLOC snow_malloc
+#define YYFREE snow_free
 
 HIDDEN int yylex(YYSTYPE*, struct YYLTYPE*, void*);
 HIDDEN int yylex_init(void**);

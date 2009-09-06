@@ -9,6 +9,7 @@
 #include "snow/parser.h"
 #include "snow/linkbuffer.h"
 #include "snow/str.h"
+#include <stdlib.h>
 
 #include <stdio.h>
 #include <readline/readline.h>
@@ -51,6 +52,7 @@ static void interactive_prompt()
 		}
 	}
 }
+
 
 int main(int argc, char* const* argv)
 {

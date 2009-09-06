@@ -40,10 +40,16 @@ do {                                                  \
 //#define YY_USER_ACTION  yylloc->columns(yyleng);
 //%option prefix="snow_flex_"
 
+#include "snow/intern.h"
+
 SnLinkBuffer* string_buffer = NULL;
 #define STR_CHAR(c) snow_linkbuffer_push(string_buffer, c)
 #define STR_CHARS(str) snow_linkbuffer_push_string(string_buffer, str);
 #define STR_CLEAR() snow_linkbuffer_clear(string_buffer)
+
+#define malloc snow_malloc
+#define free snow_free
+#define realloc snow_realloc
 %}
 
 %% 
@@ -123,3 +129,7 @@ not                                    { return TOK_LOG_NOT; }
 [^ \t\r\n.,\[\]{}():#a-zA-Z0-9\"]+     { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_SECOND; }
 
 %%
+
+#undef malloc
+#undef realloc
+#undef free
