@@ -69,7 +69,7 @@ void snow_init()
 	init_symbol_class(basic_classes[SN_SYMBOL_TYPE]);
 	init_float_class(basic_classes[SN_FLOAT_TYPE]);
 	
-	snow_init_current_continuation();
+	snow_init_main_continuation();
 }
 
 VALUE snow_eval(const char* str)

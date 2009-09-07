@@ -13,7 +13,7 @@ static void continuation_init_stack(SnContinuation*);
 #define CONTINUATION_STACK_SIZE  (1 << 13) // 8K
 static FIXED_ALLOCATOR(stack_alloc, CONTINUATION_STACK_SIZE);
 
-void snow_init_current_continuation() {
+void snow_init_main_continuation() {
 	SnContinuation* cc = (SnContinuation*)snow_alloc_any_object(SN_CONTINUATION_TYPE, sizeof(SnContinuation));
 	cc->function = NULL;
 	cc->stack_hi = (byte*)(uintx)-1;

@@ -21,7 +21,7 @@ typedef struct SnContinuation {
 	VALUE return_val;
 } SnContinuation;
 
-CAPI void snow_init_current_continuation();
+CAPI void snow_init_main_continuation();
 
 CAPI SnContinuation* snow_create_continuation(SnFunctionPtr, SnContext* context);
 CAPI void snow_continuation_init(SnContinuation*, SnFunctionPtr, SnContext*)         ATTR_HOT;
