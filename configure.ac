@@ -6,9 +6,11 @@ AC_CONFIG_HEADERS(config.h)
 
 AC_CANONICAL_HOST()
 
-AC_PROG_CC([ gcc-mp-4.4 gcc-4.4 gcc44 gcc ])
+AC_PROG_CC([ gcc-mp-4.4 gcc ])
 
-AM_PROG_AS([ gcc-mp-4.4 gcc-4.4 gcc44 gcc ])
+AM_PROG_AS([ gcc-mp-4.4 gcc ])
+
+AM_PROG_LD([ gcc-mp-4.4 gcc ])
 
 AC_PROG_LEX([ flex ])
 
@@ -30,13 +32,13 @@ esac
 AM_CONDITIONAL(ARCH_x86_64, test "x$ARCH" = xx86_64)
 AM_CONDITIONAL(ARCH_x86_32, test "x$ARCH" = xx86_32)
 
-_DEBUG_CFLAGS="-fopenmp -O0 -pg -g -DDEBUG -Wfatal-errors"
-_RELEASE_CFLAGS="-fopenmp -Os -pipe -fomit-frame-pointer -Wdisabled-optimization"
-_WARNING_CFLAGS="-Wall -Wno-unused -Werror=shadow -Werror=clobbered -pedantic -Werror=implicit -Werror=uninitialized -Werror=parentheses -Winline"
+_DEBUG_CFLAGS="-O0 -pg -g -DDEBUG"
+_RELEASE_CFLAGS="-Os -pipe -fomit-frame-pointer -Wdisabled-optimization"
+_WARNING_CFLAGS="-Wall -Werror=shadow -pedantic -Werror=implicit -Werror=parentheses -Werror=implicit -Winline"
 
-CFLAGS="-std=c99 $_DEBUG_CFLAGS $ARCH_CFLAGS $_WARNING_CFLAGS"
+CFLAGS="-std=c99 $ARCH_CFLAGS $_WARNING_CFLAGS $_DEBUG_CFLAGS"
 CCASFLAGS="$CFLAGS"
-LDFLAGS="-Wl,-all_load -ldl"
+LDFLAGS="-Wl,-all_load -ldl -lpthread"
 
 AC_PROG_LIBTOOL
 

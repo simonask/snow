@@ -2,9 +2,16 @@
 #define BASIC_H_N5K8EFY5
 
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+
+
+#ifdef DMALLOC
+#include <dmalloc.h>
+#endif
+
+#define MAKE_VERSION(major, minor, patch) (major * 1000000 + minor * 1000 + patch)
+#define GCC_VERSION MAKE_VERSION(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
 
 #ifdef __cplusplus__
 #define CAPI extern "C"
@@ -13,9 +20,14 @@
 #endif
 
 #define NOINLINE __attribute__((noinline))
-#define ATTR_HOT __attribute__((hot))
 #define HIDDEN __attribute__((visibility ("hidden")))
 #define USED __attribute__((used))
+
+#if GCC_VERSION >= MAKE_VERSION(4, 4, 0)
+#define ATTR_HOT __attribute__((hot))
+#else
+#define ATTR_HOT
+#endif
 
 
 #ifdef ARCH_x86_64

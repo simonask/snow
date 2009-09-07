@@ -5,6 +5,7 @@
 #include "snow/snow.h"
 #include "snow/str.h"
 #include "snow/array-intern.h"
+#include "snow/lock.h"
 
 #include <stdio.h>
 
@@ -14,6 +15,7 @@ SnObjectBase* snow_alloc_any_object(SnObjectType type, uintx size)
 	SnObjectBase* base = (SnObjectBase*)snow_gc_alloc_object(size);
 	base->type = type;
 	base->flags = 0;
+	base->locked_by_thread = (uint16_t)0xffff;
 	return base;
 }
 
@@ -54,7 +56,7 @@ VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol member)
 			return val;
 	}
 	
-	SnObject* prototype = obj->prototype ? obj->prototype : snow_get_prototype(typeof(obj));
+	SnObject* prototype = obj->prototype ? obj->prototype : snow_get_prototype(snow_typeof(obj));
 	if (prototype != obj)
 	{
 		return snow_object_get_member(prototype, self, member);

@@ -29,6 +29,8 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	snow.c \
 	str.c \
 	symbol.c \
+	task.c \
+	task-intern-dummy.c \
 	wrapper.c
 
 include_snowdir = $(includedir)/snow
@@ -47,6 +49,7 @@ include_snow_HEADERS = \
 	gc.h \
 	globals.h \
 	linkbuffer.h \
+	lock.h \
 	map.h \
 	numeric.h \
 	object.h \
@@ -54,6 +57,7 @@ include_snow_HEADERS = \
 	scanner.h \
 	str.h \
 	symbol.h \
+	task.h \
 	wrapper.h
 
 include_HEADERS = snow.h
@@ -64,7 +68,8 @@ noinst_HEADERS = \
 	continuation-intern.h \
 	fixed-alloc.h \
 	debug.h \
-	intern.h
+	intern.h \
+	task-intern.h
 
 CLEANFILES = parser.c parser.tab.h scanner.c
 

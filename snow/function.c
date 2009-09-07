@@ -36,7 +36,7 @@ SnFunction* snow_create_function_with_name(SnFunctionPtr func, const char* name)
 SnFunction* snow_create_function_from_description(SnFunctionDescription* desc)
 {
 	ASSERT(desc);
-	ASSERT(desc->base.type == SN_FUNCTION_DESCRIPTION_TYPE);
+	ASSERT_TYPE(desc, SN_FUNCTION_DESCRIPTION_TYPE);
 	ASSERT(desc->func);
 	SnFunction* func = (SnFunction*)snow_alloc_any_object(SN_FUNCTION_TYPE, sizeof(SnFunction));
 	snow_object_init((SnObject*)func, snow_get_prototype(SN_FUNCTION_TYPE));

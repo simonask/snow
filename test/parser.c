@@ -142,7 +142,7 @@ TEST_CASE(named_arguments) {
 	{
 		TEST(is_object(r[i]));
 		SnArray* ar = (SnArray*)r[i];
-		TEST(typeof(ar) == SN_ARRAY_TYPE);
+		TEST(snow_typeof(ar) == SN_ARRAY_TYPE);
 		TEST(snow_array_get(ar, 0) == int_to_value(1));
 		TEST(snow_array_get(ar, 1) == int_to_value(2));
 	}

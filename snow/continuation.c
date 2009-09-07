@@ -3,6 +3,7 @@
 #include "snow/gc.h"
 #include "snow/intern.h"
 #include "snow/fixed-alloc.h"
+#include "snow/task.h"
 
 #include <string.h>
 
@@ -11,11 +12,6 @@ static void continuation_init_stack(SnContinuation*);
 
 #define CONTINUATION_STACK_SIZE  (1 << 13) // 8K
 static FIXED_ALLOCATOR(stack_alloc, CONTINUATION_STACK_SIZE);
-static SnContinuation* _current_continuation = NULL;
-
-static void set_current_continuation(SnContinuation* cc) {
-	_current_continuation = cc;
-}
 
 void snow_init_current_continuation() {
 	SnContinuation* cc = (SnContinuation*)snow_alloc_any_object(SN_CONTINUATION_TYPE, sizeof(SnContinuation));
@@ -28,11 +24,7 @@ void snow_init_current_continuation() {
 	cc->please_clean = NULL;
 	cc->context = NULL;
 	cc->return_val = NULL;
-	set_current_continuation(cc);
-}
-
-SnContinuation* snow_get_current_continuation() {
-	return _current_continuation;
+	snow_set_current_continuation(cc);
 }
 
 SnContinuation* snow_create_continuation(SnFunctionPtr func, SnContext* context)
@@ -132,7 +124,7 @@ void snow_continuation_return(SnContinuation* cc, VALUE val)
 
 void snow_continuation_resume(SnContinuation* cc)
 {
-	set_current_continuation(cc);
+	snow_set_current_continuation(cc);
 	
 	if (!cc->running)
 	{

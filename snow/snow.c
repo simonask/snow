@@ -10,6 +10,8 @@
 #include "snow/parser.h"
 #include "snow/debug.h"
 #include "snow/linkbuffer.h"
+#include "snow/lock.h"
+#include "snow/task.h"
 #include "config.h"
 
 #include <stdarg.h>
@@ -26,6 +28,7 @@ void snow_init()
 	void* stack_top;
 	GET_BASE_PTR(stack_top);
 	snow_gc_stack_top(stack_top);
+	snow_init_task_manager(4); // default 4 threads
 	
 	basic_classes[SN_OBJECT_TYPE] = snow_create_class("Object");
 	basic_classes[SN_CLASS_TYPE] = snow_create_class("Class");
@@ -79,7 +82,6 @@ VALUE snow_eval_in_context(const char* str, SnContext* context)
 	SnAstNode* ast = snow_parse(str);
 	SnCodegen* cg = snow_create_codegen(ast);
 	SnFunction* func = snow_codegen_compile(cg);
-	
 	return snow_function_call(func, context);
 }
 
@@ -207,7 +209,7 @@ VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
 	ASSERT(closure != NULL)
 	
 	SnSymbol call_sym = snow_symbol("__call__");
-	while (typeof(closure) != SN_FUNCTION_TYPE)
+	while (snow_typeof(closure) != SN_FUNCTION_TYPE)
 	{
 		self = closure;
 		closure = snow_get_member(closure, call_sym);
@@ -265,7 +267,7 @@ inline SnObject* get_closest_object(VALUE self)
 				TRAP(); // Unknown object type ... what's going on?
 		}
 	}
-	return basic_classes[typeof(self)]->instance_prototype;
+	return basic_classes[snow_typeof(self)]->instance_prototype;
 }
 
 SnClass* snow_get_class(SnObjectType type) {
@@ -310,14 +312,19 @@ HIDDEN SnArray** _snow_store_ptr() {
 
 VALUE snow_store_add(VALUE val) {
 	SnArray* store = *_snow_store_ptr();
+	snow_lock(store);
 	intx key = snow_array_size(store);
 	snow_array_push(store, val);
+	snow_unlock(store);
 	return int_to_value(key);
 }
 
 VALUE snow_store_get(VALUE key) {
 	ASSERT(is_integer(key));
 	SnArray* store = *_snow_store_ptr();
+	snow_lock(store);
 	intx nkey = value_to_int(key);
-	return snow_array_get(store, nkey);
+	VALUE val = snow_array_get(store, nkey);
+	snow_unlock(store);
+	return val;
 }

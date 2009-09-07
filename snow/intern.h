@@ -8,21 +8,20 @@
 #include "snow/object.h"
 #include "snow/class.h"
 #include "snow/continuation.h"
-
-#include <omp.h>
+#include "snow/gc.h"
 
 CAPI void warn(const char* msg, ...);
 CAPI void error(const char* msg, ...);
 #ifdef DEBUG
 CAPI void debug(const char* msg, ...);
 #else
-CAPI inline void debug(const char*, ...) {}
+CAPI inline void debug(const char* msg, ...) {}
 #endif
 
 #include <assert.h>
 
 #define ASSERT(x) if (!(x)) TRAP();
-#define ASSERT_TYPE(OBJECT, TYPE) ASSERT(typeof(OBJECT) == (TYPE))
+#define ASSERT_TYPE(OBJECT, TYPE) ASSERT(snow_typeof(OBJECT) == (TYPE))
 
 enum SnValueType {
 	kIntegerType = 0x1,
@@ -77,7 +76,7 @@ static inline SnSymbol value_to_symbol(VALUE val) { return (SnSymbol)val >> 4; }
 
 const char* value_to_string(VALUE val);
 
-static inline SnObjectType typeof(VALUE val)
+static inline SnObjectType snow_typeof(VALUE val)
 {
 	if (is_object(val)) return ((SnObjectBase*)val)->type;
 	if (is_integer(val)) return SN_INTEGER_TYPE;

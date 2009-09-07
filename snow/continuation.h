@@ -4,6 +4,7 @@
 #include "snow/object.h"
 #include "snow/arch.h"
 #include "snow/context.h"
+#include "snow/task.h"
 
 typedef struct SnContinuation {
 	SnObjectBase base;
@@ -21,7 +22,6 @@ typedef struct SnContinuation {
 } SnContinuation;
 
 CAPI void snow_init_current_continuation();
-CAPI SnContinuation* snow_get_current_continuation();
 
 CAPI SnContinuation* snow_create_continuation(SnFunctionPtr, SnContext* context);
 CAPI void snow_continuation_init(SnContinuation*, SnFunctionPtr, SnContext*)         ATTR_HOT;

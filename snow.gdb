@@ -36,7 +36,7 @@ define snow-restore-registers
 end
 
 define snow-return-chain
-	set $top_cc = _current_continuation
+	set $top_cc = (SnContinuation*)snow_get_current_continuation()
 	snow-save-registers($top_cc)
 	
 	set $cc = $top_cc

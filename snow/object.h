@@ -46,8 +46,16 @@ typedef enum SnObjectType
 typedef struct SnObjectBase
 {
 	SnObjectType type;
-	uint32_t flags;
+	uint16_t flags;
+	uint16_t locked_by_thread;
 } SnObjectBase;
+
+typedef enum SnObjectFlags
+{
+	SN_OBJECT_FLAG_LOCKED = 1,
+/*	SN_OBJECT_FLAG_READ_LOCK = 1,
+	SN_OBJECT_FLAG_WRITE_LOCK = 1 << 1,*/
+} SnObjectFlags;
 
 typedef struct SnObject
 {
