@@ -76,8 +76,19 @@ SNOW_FUNC(string_inspect)
 	return snow_create_string(str);
 }
 
+SNOW_FUNC(string_compare)
+{
+	ASSERT_TYPE(SELF, SN_STRING_TYPE);
+	SnString* self = (SnString*)SELF;
+	REQUIRE_ARGS(1);
+	ASSERT_TYPE(ARGS[0], SN_STRING_TYPE);
+	SnString* other = (SnString*)ARGS[0];
+	return strcmp(self->str, other->str);
+}
+
 void init_string_class(SnClass* klass)
 {
 	snow_define_method_nocc(klass, "to_string", string_to_string);
 	snow_define_method_nocc(klass, "inspect", string_inspect);
+	snow_define_method_nocc(klass, "<=>", string_compare);
 }

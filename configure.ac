@@ -16,6 +16,9 @@ AC_PROG_LEX([ flex ])
 
 AC_PROG_YACC([ bison ])
 
+AM_PROG_LIBTOOL
+LT_INIT([dlopen,shared])
+
 ARCH="unknown"
 
 case $host_cpu in

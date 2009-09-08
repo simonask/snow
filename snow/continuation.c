@@ -10,7 +10,7 @@
 static void continuation_cleanup(VALUE vcc);
 static void continuation_init_stack(SnContinuation*);
 
-#define CONTINUATION_STACK_SIZE  (1 << 13) // 8K
+#define CONTINUATION_STACK_SIZE  (1 << 16) // 64K
 static FIXED_ALLOCATOR(stack_alloc, CONTINUATION_STACK_SIZE);
 
 void snow_init_main_continuation() {

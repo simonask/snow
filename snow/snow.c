@@ -12,12 +12,14 @@
 #include "snow/linkbuffer.h"
 #include "snow/lock.h"
 #include "snow/task.h"
+#include "snow/library.h"
 #include "config.h"
 
 #include <stdarg.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <dlfcn.h>
 
 static SnObject* get_closest_object(VALUE)        ATTR_HOT;
 
@@ -101,67 +103,10 @@ SnArray* snow_get_load_paths()
 	return snow_store_get(load_paths_key);
 }
 
-static VALUE required_files_key = NULL;
 
-VALUE snow_require(const char* _file)
+static void load_source(const char* file)
 {
-	// TODO: Make this work on non-posix
-	
-	SnString* file = snow_create_string(_file);
-	SnString* found = NULL;
-	
-	struct stat s;
-	
-	if (file->str[0] != '/')
-	{
-		SnString* slash = snow_create_string("/");
-		// first, check wd
-		char _cwd[1024];
-		getcwd(_cwd, 1024);
-		SnString* cwd = snow_string_concatenate(snow_create_string(_cwd), slash);
-		
-		SnString* candidate = snow_string_concatenate(cwd, file);
-		if (!stat(candidate->str, &s))
-		{
-			// found!
-			found = candidate;
-		}
-		else
-		{
-			// not found, check load paths
-			SnArray* load_paths = snow_get_load_paths();
-			for (intx i = 0; i < snow_array_size(load_paths); ++i)
-			{
-				SnString* path = snow_string_concatenate(snow_array_get(load_paths, i), slash);
-				if (path->str[0] != '/')
-					path = snow_string_concatenate(cwd, path);
-				candidate = snow_string_concatenate(path, file);
-				if (!stat(candidate->str, &s))
-				{
-					// found!
-					found = candidate;
-					break;
-				}
-			}
-		}
-	}
-	else if (!stat(file->str, &s))
-	{
-		// found!
-		found = file;
-	}
-	
-	if (!found)
-		TRAP(); // file not found
-	
-	if (!required_files_key)		
-		required_files_key = snow_store_add(snow_create_map());
-	SnMap* required_files = snow_store_get(required_files_key);
-	
-	// TODO: check timestamps in required_files
-
-	
-	FILE* f = fopen(found->str, "r");
+	FILE* f = fopen(file, "r");
 	SnLinkBuffer* buffer = snow_create_linkbuffer(1024);
 	byte tmp[1024];
 	size_t n;
@@ -176,11 +121,119 @@ VALUE snow_require(const char* _file)
 	char* source = (char*)snow_malloc(len+1);
 	snow_linkbuffer_copy_data(buffer, source, len);
 	source[len] = '\0';
-	VALUE result = snow_eval(source);
+	
+	snow_eval(source);
+	
 	snow_free_linkbuffer(buffer);
 	snow_free(source);
+}
+
+static void load_dynamic_library(const char* file)
+{
+	void* handle = dlopen(file, RTLD_NOW | RTLD_LOCAL | RTLD_FIRST);
+	if (!handle)
+	{
+		const char* err = dlerror();
+		TRAP(); // dlopen failed. inspect 'err' to see the error message.
+	}
 	
-	return SN_TRUE;
+	SnLibraryInfo* info = (SnLibraryInfo*)dlsym(handle, "library_info");
+	if (!info)
+		TRAP(); // no library_info symbol in dynamic library
+	debug("loading dynamic library: %s version %u\n", info->name, info->version);
+	info->initialize(snow_global_context());
+}
+
+static VALUE loaded_files_key = NULL;
+
+VALUE snow_load(const char* file)
+{
+	debug("attempting to load file: %s\n", file);
+	struct stat s;
+	if (!stat(file, &s))
+	{
+		if (!loaded_files_key)		
+			loaded_files_key = snow_store_add(snow_create_map_with_deep_comparison());
+		SnMap* loaded_files = snow_store_get(loaded_files_key);
+
+		snow_lock(loaded_files);
+		SnString* file_str = snow_create_string(file);
+		VALUE found = snow_map_get(loaded_files, file_str);
+		if (found)
+			return SN_FALSE;
+		snow_map_set(loaded_files, file_str, SN_TRUE);
+		snow_unlock(loaded_files);
+		// TODO: check timestamps in required_files
+		
+		// XXX: come up with a better way to distinguish Snow files and dynaminc libraries
+		uintx filename_length = strlen(file);
+		bool is_snow = file[filename_length-3] == '.' && file[filename_length-2] == 's' && file[filename_length-1] == 'n';
+		if (is_snow)
+			load_source(file);
+		else
+			load_dynamic_library(file);
+
+		return SN_TRUE;
+	}
+	return NULL;
+}
+
+VALUE snow_require(const char* _file)
+{
+	// TODO: Make this work on non-posix
+	
+	SnString* file = snow_create_string(_file);
+	SnString* found = NULL;
+	SnString* dot = snow_create_string(".");
+	
+	SnString* file_dot = snow_string_concatenate(file, dot);
+	
+	static const size_t NUM_CANDIDATES = 4;
+	SnString* candidates[] = {
+		file,
+		snow_string_concatenate(file_dot, snow_create_string("sn")),
+		snow_string_concatenate(file_dot, snow_create_string("so")),
+		snow_string_concatenate(file_dot, snow_create_string("dylib")),
+	};
+	
+	if (file->str[0] != '/')
+	{
+		SnString* slash = snow_create_string("/");
+		// first, check wd
+		char _cwd[1024];
+		getcwd(_cwd, 1024);
+		SnString* cwd = snow_string_concatenate(snow_create_string(_cwd), slash);
+		
+		for (size_t i = 0; i < NUM_CANDIDATES; ++i)
+		{
+			SnString* candidate = snow_string_concatenate(cwd, candidates[i]);
+			VALUE result = snow_load(candidate->str);
+			if (result)
+				return result;
+		}
+		
+		SnArray* load_paths = snow_get_load_paths();
+		
+		for (intx i = 0; i < snow_array_size(load_paths); ++i)
+		{
+			SnString* path = snow_string_concatenate(snow_array_get(load_paths, i), slash);
+			for (size_t j = 0; j < NUM_CANDIDATES; ++j)
+			{
+				SnString* candidate = snow_string_concatenate(path, candidates[j]);
+				VALUE result = snow_load(candidate->str);
+				if (result)
+					return result;
+			}
+		}
+	}
+	else
+	{
+		VALUE result = snow_load(file->str);
+		if (result)
+			return result;
+	}
+	
+	TRAP(); // required file not found!
 }
 
 VALUE snow_call(VALUE self, VALUE closure, uintx num_args, ...)
@@ -229,6 +282,8 @@ VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
 VALUE snow_call_method(VALUE self, SnSymbol member, uintx num_args, ...)
 {
 	VALUE method = snow_get_member(self, member);
+	if (!method)
+		TRAP(); // no such method!
 	va_list ap;
 	va_start(ap, num_args);
 	VALUE ret = snow_call_va(self, method, num_args, &ap);
@@ -301,6 +356,13 @@ const char* snow_value_to_string(VALUE val)
 
 bool snow_eval_truth(VALUE val) {
 	return !(!val || val == SN_NIL || val == SN_FALSE);
+}
+
+int snow_compare_objects(VALUE a, VALUE b)
+{
+	VALUE n = snow_call_method(a, snow_symbol("<=>"), 1, b);
+	ASSERT(is_integer(n));
+	return value_to_int(n);
 }
 
 HIDDEN SnArray** _snow_store_ptr() {

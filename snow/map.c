@@ -22,6 +22,11 @@ SnMap* snow_create_map_with_compare(SnMapCompare cmp)
 	return map;
 }
 
+SnMap* snow_create_map_with_deep_comparison()
+{
+	return snow_create_map_with_compare(snow_compare_objects);
+}
+
 bool snow_map_contains(SnMap* map, VALUE key)
 {
 	return snow_map_get(map, key) != NULL;

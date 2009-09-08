@@ -48,6 +48,7 @@ include_snow_HEADERS = \
 	function.h \
 	gc.h \
 	globals.h \
+	library.h \
 	linkbuffer.h \
 	lock.h \
 	map.h \
