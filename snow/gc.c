@@ -481,9 +481,18 @@ void* snow_malloc(uintx size)
 void* snow_malloc_aligned(uintx size, uintx alignment)
 {
 	void* ptr = NULL;
+	
+	#if defined(_POSIX_ADVISORY_INFO) && _POSIX_ADVISORY_INFO > 0
 	int r = posix_memalign(&ptr, alignment, size);
 	ASSERT(r != EINVAL); // alignment not a power of 2, or not a multiple of sizeof(void*)
 	ASSERT(r == 0); // other error (out of memory?)
+	#else
+	ASSERT(alignment <= 4096); // alignment must be less than 4K on systems without posix_memalign
+	ASSERT((alignment & (alignment - 1)) == 0); // alignment is not a power of 2
+	ptr = valloc(size);
+	ASSERT(ptr); // memory allocation failed
+	#endif
+	
 	return ptr;
 }
 
