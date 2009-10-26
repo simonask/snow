@@ -55,6 +55,8 @@ VALUE snow_context_get_local(SnContext* ctx, SnSymbol sym)
 {
 	STACK_GUARD;
 	
+	SnContext* top_ctx = ctx; // used for local_missing
+	
 	SnContext* last_ctx = NULL;
 	while (ctx)
 	{
@@ -73,8 +75,9 @@ VALUE snow_context_get_local(SnContext* ctx, SnSymbol sym)
 		return snow_context_get_local(global, sym);
 	}
 	
-	TRAP(); // no such local
-	return NULL;
+	SnObject* func = top_ctx->function;
+	if (!func) func = snow_get_prototype(SN_FUNCTION_TYPE);
+	return snow_call_method(func, snow_symbol("local_missing"), 2, top_ctx->self, symbol_to_value(sym));
 }
 
 VALUE snow_context_get_local_local(SnContext* ctx, SnSymbol sym)

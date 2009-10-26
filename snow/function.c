@@ -92,9 +92,25 @@ VALUE snow_function_call(SnFunction* func, SnContext* context)
 	return ret;
 }
 
+
+SNOW_FUNC(function_local_missing) {
+	REQUIRE_ARGS(2);
+	ASSERT_TYPE(ARGS[1], SN_SYMBOL_TYPE);
+	VALUE self = ARGS[0];
+	SnSymbol sym = value_to_symbol(ARGS[1]);
+	if (ARGS[0])
+	{
+		VALUE member = snow_get_member(self, sym);
+		if (member) return member;
+	}
+	TRAP(); // LOCAL MISSING. TODO: Exception.
+	return SN_NIL;
+}
+
+
 void init_function_class(SnClass* klass)
 {
-	
+	snow_define_method(klass, "local_missing", function_local_missing);
 }
 
 void init_function_description_class(SnClass* klass)
