@@ -88,7 +88,7 @@ SNOW_FUNC(string_compare)
 
 void init_string_class(SnClass* klass)
 {
-	snow_define_method_nocc(klass, "to_string", string_to_string);
-	snow_define_method_nocc(klass, "inspect", string_inspect);
-	snow_define_method_nocc(klass, "<=>", string_compare);
+	snow_define_method(klass, "to_string", string_to_string);
+	snow_define_method(klass, "inspect", string_inspect);
+	snow_define_method(klass, "<=>", string_compare);
 }

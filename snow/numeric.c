@@ -152,16 +152,16 @@ SNOW_FUNC(numeric_to_string) {
 
 void init_integer_class(SnClass* klass)
 {
-	snow_define_method_nocc(klass, "+", numeric_plus);
-	snow_define_method_nocc(klass, "-", numeric_minus);
-	snow_define_method_nocc(klass, "*", numeric_multiply);
-	snow_define_method_nocc(klass, "/", numeric_divide);
-	snow_define_method_nocc(klass, "%", numeric_modulo);
+	snow_define_method(klass, "+", numeric_plus);
+	snow_define_method(klass, "-", numeric_minus);
+	snow_define_method(klass, "*", numeric_multiply);
+	snow_define_method(klass, "/", numeric_divide);
+	snow_define_method(klass, "%", numeric_modulo);
 	snow_define_method(klass, "**", numeric_power);
-	snow_define_method_nocc(klass, "<", numeric_less_than);
-	snow_define_method_nocc(klass, ">", numeric_greater_than);
-	snow_define_method_nocc(klass, "to_string", numeric_to_string);
-	snow_define_method_nocc(klass, "inspect", numeric_to_string);
+	snow_define_method(klass, "<", numeric_less_than);
+	snow_define_method(klass, ">", numeric_greater_than);
+	snow_define_method(klass, "to_string", numeric_to_string);
+	snow_define_method(klass, "inspect", numeric_to_string);
 }
 
 void init_float_class(SnClass* klass)

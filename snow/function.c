@@ -9,7 +9,7 @@ SnFunctionDescription* snow_create_function_description(SnFunctionPtr func)
 	desc->name = snow_symbol("<unnamed>");
 	desc->argument_names = NULL;
 	desc->local_names = snow_create_array();
-	desc->interruptible = true;
+	desc->interruptible = false;
 	return desc;
 }
 

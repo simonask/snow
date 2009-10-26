@@ -137,6 +137,6 @@ SNOW_FUNC(object_eval) {
 
 void init_object_class(SnClass* klass)
 {
-	snow_define_method_nocc(klass, "inspect", object_inspect);
-	snow_define_method_nocc(klass, "object_eval", object_eval);
+	snow_define_method(klass, "inspect", object_inspect);
+	snow_define_method(klass, "object_eval", object_eval);
 }

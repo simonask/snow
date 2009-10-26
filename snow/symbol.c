@@ -75,6 +75,6 @@ SNOW_FUNC(symbol_inspect) {
 
 void init_symbol_class(SnClass* klass)
 {
-	snow_define_method_nocc(klass, "to_string", symbol_to_string);
-	snow_define_method_nocc(klass, "inspect", symbol_inspect);
+	snow_define_method(klass, "to_string", symbol_to_string);
+	snow_define_method(klass, "inspect", symbol_inspect);
 }

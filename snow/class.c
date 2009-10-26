@@ -103,8 +103,8 @@ SNOW_FUNC(class_instance_prototype) {
 
 void init_class_class(SnClass* klass)
 {
-	snow_define_class_method_nocc(klass, "__call__", class_new_class);
-	snow_define_method_nocc(klass, "__call__", class_new);
+	snow_define_class_method(klass, "__call__", class_new_class);
+	snow_define_method(klass, "__call__", class_new);
 	snow_define_property(klass, "name", class_name, NULL);
 	snow_define_property(klass, "instance_prototype", class_instance_prototype, NULL);
 }
