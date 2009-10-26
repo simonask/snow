@@ -57,7 +57,6 @@ static inline VALUE array_get(struct array_t* array, intx idx)
 
 static inline VALUE array_set(struct array_t* array, intx idx, VALUE val)
 {
-	ASSERT(val);
 	if (idx >= array->size)
 		array_grow(array, idx+1);
 	if (idx < 0)
@@ -70,7 +69,6 @@ static inline VALUE array_set(struct array_t* array, intx idx, VALUE val)
 
 static inline VALUE array_push(struct array_t* array, VALUE val)
 {
-	ASSERT(val);
 	return array_set(array, array_size(array), val);
 }
 
