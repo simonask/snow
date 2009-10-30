@@ -161,6 +161,8 @@ void codegen_compile_root(SnCodegen* cg)
 	
 	// link stack size
 	uintx stack_size = cgx->num_temporaries * sizeof(VALUE);
+	stack_size += (stack_size & 0xf); // alignment
+	ASSERT(stack_size % 0x10 == 0);
 	snow_linkbuffer_modify(cgx->base.buffer, stack_size_offset, 4, (byte*)&stack_size);
 	
 	
