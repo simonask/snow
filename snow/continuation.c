@@ -4,6 +4,7 @@
 #include "snow/intern.h"
 #include "snow/fixed-alloc.h"
 #include "snow/task.h"
+#include "snow/task-intern.h"
 
 #include <string.h>
 
@@ -46,6 +47,7 @@ void snow_continuation_init(SnContinuation* cc, SnFunctionPtr func, SnContext* c
 	cc->please_clean = NULL;
 	cc->context = context;
 	cc->return_val = NULL;
+	cc->task_id = snow_get_current_task_id();
 }
 
 static void continuation_init_stack(SnContinuation* cc)
@@ -125,6 +127,8 @@ void snow_continuation_return(SnContinuation* cc, VALUE val)
 
 void snow_continuation_resume(SnContinuation* cc)
 {
+	SnContinuation* current = snow_get_current_continuation();
+	ASSERT(cc->task_id == current->task_id); // can't resume continuations across threads/tasks
 	snow_set_current_continuation(cc);
 	
 	if (!cc->running)

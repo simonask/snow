@@ -28,6 +28,25 @@ static void print_version_info()
 	printf(PACKAGE " " VERSION " (prealpha super unstable) [" ARCH_NAME "]\n");
 }
 
+static void try_execute_line(void* userdata)
+{
+	SnLinkBuffer* input_buffer = (SnLinkBuffer*)userdata;
+	SnString* str = snow_create_string_from_linkbuffer(input_buffer);
+	VALUE result = snow_eval(str->str);
+	printf("=> %s\n", snow_value_to_string(snow_call_method(result, snow_symbol("inspect"), 0)));
+}
+
+static void catch_display_exception(VALUE exception, void* userdata)
+{
+	fprintf(stderr, "UNHANDLED EXCEPTION: %s\n\n", snow_value_to_string(exception));
+}
+
+static void ensure_clear_input_buffer(void* userdata)
+{
+	SnLinkBuffer* input_buffer = (SnLinkBuffer*)userdata;
+	snow_linkbuffer_clear(input_buffer);
+}
+
 static void interactive_prompt()
 {
 	const char* global_prompt = "snow> ";
@@ -45,10 +64,7 @@ static void interactive_prompt()
 
 		//unfinished_expr = is_expr_unfinished(buffer.str());
 		if (!unfinished_expr) {
-			SnString* str = snow_create_string_from_linkbuffer(input_buffer);
-			VALUE result = snow_eval(str->str);
-			printf("=> %s\n", snow_value_to_string(snow_call_method(result, snow_symbol("inspect"), 0)));
-			snow_linkbuffer_clear(input_buffer);
+			snow_try_catch_ensure(try_execute_line, catch_display_exception, ensure_clear_input_buffer, input_buffer);
 		}
 	}
 }

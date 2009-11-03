@@ -9,9 +9,10 @@
 typedef struct SnContinuation {
 	SnObjectBase base;
 	SnFunctionPtr function;
-	SnRegisters reg;	// saved registers
+	SnExecutionState state;	// saved execution state (registers)
 	byte* stack_hi;
 	byte* stack_lo;
+	uintx task_id;
 	bool running;
 	bool interruptible;
 	struct SnContinuation* return_to;

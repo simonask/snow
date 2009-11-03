@@ -3,24 +3,17 @@
 
 #include "snow/basic.h"
 
-struct SnContext;
+CAPI void snow_init_parallel();
+
+typedef void(*SnParallelForEachCallback)(void* data, size_t element_size, size_t index, void* userdata);
+CAPI void snow_parallel_for_each(void* data, size_t element_size, size_t num_elements, SnParallelForEachCallback func, void* userdata);
+
+typedef void(*SnParallelCallback)(size_t index, void* userdata);
+CAPI void snow_parallel_call_each(SnParallelCallback* funcs, size_t num, void* userdata);
+
+CAPI uintx snow_get_current_task_id();
+
 struct SnContinuation;
-
-// XXX: Not an object! Should not be heap-allocated.
-typedef struct SnTask
-{
-	struct SnContext* context;
-	VALUE return_val;
-	volatile bool finished;
-} SnTask;
-
-CAPI void snow_init_task_manager(uintx max_num_tasks);
-CAPI void snow_task_queue(SnTask* task, struct SnContext* context);
-CAPI VALUE snow_task_finish(SnTask* task);
-
 CAPI struct SnContinuation* snow_get_current_continuation();
-CAPI void snow_set_current_continuation(struct SnContinuation* cc);
-
-
 
 #endif /* end of include guard: TASK_H_EVOMPGLT */

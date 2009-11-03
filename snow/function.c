@@ -110,7 +110,8 @@ SNOW_FUNC(function_local_missing) {
 		VALUE member = snow_get_member(self, sym);
 		if (member) return member;
 	}
-	TRAP(); // LOCAL MISSING. TODO: Exception.
+	
+	snow_throw_exception_with_description("Local missing: `%s'", snow_value_to_string(ARGS[1]));
 	return SN_NIL;
 }
 

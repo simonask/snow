@@ -12,6 +12,7 @@ $o.puts "noinst_PROGRAMS = #{targets.join(' ')}"
 targets.each do |target|
   $o.puts "#{target}_SOURCES = #{target}.c #{all_sources.join(' ')}"
   $o.puts "#{target}_LDADD = ../snow/libsnow.la"
+  $o.puts "#{target}_LDFLAGS = -static"
 end
 $o.puts
 $o.puts "all: #{targets.join(' ')}"

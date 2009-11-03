@@ -1,15 +1,22 @@
 SUBDIRS = ../snow
-noinst_PROGRAMS = codegen parser symbol task
+noinst_PROGRAMS = arch codegen parallel parser symbol
+arch_SOURCES = arch.c test.c
+arch_LDADD = ../snow/libsnow.la
+arch_LDFLAGS = -static
 codegen_SOURCES = codegen.c test.c
 codegen_LDADD = ../snow/libsnow.la
+codegen_LDFLAGS = -static
+parallel_SOURCES = parallel.c test.c
+parallel_LDADD = ../snow/libsnow.la
+parallel_LDFLAGS = -static
 parser_SOURCES = parser.c test.c
 parser_LDADD = ../snow/libsnow.la
+parser_LDFLAGS = -static
 symbol_SOURCES = symbol.c test.c
 symbol_LDADD = ../snow/libsnow.la
-task_SOURCES = task.c test.c
-task_LDADD = ../snow/libsnow.la
+symbol_LDFLAGS = -static
 
-all: codegen parser symbol task
+all: arch codegen parallel parser symbol
 
 test: all
-	exec ./runner.rb codegen parser symbol task
+	exec ./runner.rb arch codegen parallel parser symbol

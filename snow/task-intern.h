@@ -1,19 +1,15 @@
-#ifndef TASK_INTERN_H_TV0H2ZC1
-#define TASK_INTERN_H_TV0H2ZC1
+#ifndef TASK_INTERN_H_VG31U3ZY
+#define TASK_INTERN_H_VG31U3ZY
 
-#include "snow/basic.h"
 #include "snow/task.h"
 
-/*
-	These functions must be implemented by any task-intern-*.c implementation.
-	(task-intern-pthreads.c, task-intern-dispatch.c, etc.)
-*/
+struct SnExceptionHandler;
 
-HIDDEN void _init_task_manager();
-HIDDEN void _task_queue(SnTask* task, struct SnContext* context);
-HIDDEN void _task_finish(SnTask* task);
+CAPI struct SnExecutionState* snow_get_current_task_base();
+CAPI void snow_set_current_continuation(struct SnContinuation* cc);
+CAPI void snow_abort_current_task(VALUE exception);
+CAPI VALUE snow_get_current_task_exception();
+CAPI struct SnExceptionHandler* snow_get_current_exception_handler();
+CAPI void snow_set_current_exception_handler(struct SnExceptionHandler* handler);
 
-HIDDEN struct SnContinuation* _get_current_continuation();
-HIDDEN void _set_current_continuation(struct SnContinuation*);
-
-#endif /* end of include guard: TASK_INTERN_H_TV0H2ZC1 */
+#endif /* end of include guard: TASK_INTERN_H_VG31U3ZY */

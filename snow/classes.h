@@ -14,6 +14,7 @@ HIDDEN void init_string_class(SnClass* klass);
 HIDDEN void init_array_class(SnClass* klass);
 HIDDEN void init_map_class(SnClass* klass);
 HIDDEN void init_wrapper_class(SnClass* klass);
+HIDDEN void init_exception_class(SnClass* klass);
 HIDDEN void init_codegen_class(SnClass* klass);
 HIDDEN void init_ast_class(SnClass* klass);
 HIDDEN void init_integer_class(SnClass* klass);

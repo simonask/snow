@@ -102,4 +102,7 @@ static inline SnObjectType snow_typeof(VALUE val)
 // place this with large stack allocations
 #define ASSERT_STACK_SPACE(n) ASSERT(snow_current_continuation_available_stack_space() >= n);
 
+// Implementations that may depend on the definitions above
+#include "snow/lock-impl.h"
+
 #endif /* end of include guard: INTERN_H_WXDJG2OI */

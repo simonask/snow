@@ -22,6 +22,15 @@ SnArray* snow_create_array_with_size(uintx size) {
 	return array;
 }
 
+SnArray* snow_copy_array(VALUE* data, uintx size) {
+	SnArray* array = snow_create_array_with_size(size);
+	for (uintx i = 0; i < size; ++i) {
+		INTERN->data[i] = data[i];
+	}
+	INTERN->size = size;
+	return array;
+}
+
 SnArray* snow_ref_array(VALUE* data, uintx size) {
 	SnArray* array = snow_create_array();
 	array_init(INTERN);
@@ -144,6 +153,56 @@ SNOW_FUNC(_array_each) {
 	return array;
 }
 
+static void _array_each_parallel_callback(void* _data, size_t element_size, size_t i, void* userdata) {
+	VALUE closure = userdata;
+	ASSERT(closure);
+	ASSERT(element_size == sizeof(VALUE));
+	VALUE* data = (VALUE*)_data;
+	snow_call(NULL, closure, 2, data[i], int_to_value(i));
+}
+
+SNOW_FUNC(_array_each_parallel) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(1);
+	SnArray* array = (SnArray*)SELF;
+	VALUE closure = ARGS[0];
+	
+	// TODO: Freeze array
+	snow_parallel_for_each(INTERN->data, sizeof(VALUE), array_size(INTERN), _array_each_parallel_callback, closure);
+	
+	return array;
+}
+
+struct ParallelMapUserdata {
+	VALUE closure;
+	SnArray* new_array;
+};
+
+static void _array_map_parallel_callback(void* _data, size_t element_size, size_t i, void* _userdata) {
+	ASSERT(_userdata);
+	ASSERT(element_size == sizeof(VALUE));
+	VALUE* data = (VALUE*)_data;
+	struct ParallelMapUserdata* userdata = (struct ParallelMapUserdata*)_userdata;
+	snow_array_set(userdata->new_array, i, snow_call(NULL, userdata->closure, 2, data[i], int_to_value(i)));
+}
+
+SNOW_FUNC(_array_map_parallel) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(1);
+	SnArray* array = (SnArray*)SELF;
+	VALUE closure = ARGS[0];
+	SnArray* new_array = snow_create_array_with_size(snow_array_size(array));
+	
+	struct ParallelMapUserdata userdata;
+	userdata.closure = closure;
+	userdata.new_array = new_array;
+
+	// TODO: Freeze array
+	snow_parallel_for_each(INTERN->data, sizeof(VALUE), array_size(INTERN), _array_map_parallel_callback, &userdata);
+	
+	return new_array;
+}
+
 void init_array_class(SnClass* klass)
 {
 	snow_define_class_method(klass, "__call__", _array_new);
@@ -153,7 +212,10 @@ void init_array_class(SnClass* klass)
 	snow_define_method(klass, "<<", _array_push);
 	snow_define_method(klass, "pop", _array_pop);
 	snow_define_method(klass, "inspect", _array_inspect);
+	snow_define_method(klass, "to_string", _array_inspect);
 	snow_define_method(klass, "each", _array_each);
+	snow_define_method(klass, "each_parallel", _array_each_parallel);
+	snow_define_method(klass, "map_parallel", _array_map_parallel);
 	
 	snow_define_property(klass, "length", _array_length, NULL);
 }

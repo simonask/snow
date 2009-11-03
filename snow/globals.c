@@ -25,6 +25,12 @@ SNOW_FUNC(_require) {
 	return snow_require(file->str);
 }
 
+SNOW_FUNC(_throw) {
+	REQUIRE_ARGS(1);
+	snow_throw_exception(ARGS[0]);
+	return SN_NIL;
+}
+
 void snow_init_globals(SnContext* ctx)
 {
 	// base classes
@@ -53,4 +59,5 @@ void snow_init_globals(SnContext* ctx)
 	set_global(ctx, snow_symbol("LOAD_PATHS"), snow_get_load_paths());
 	set_global(ctx, snow_symbol("require"), snow_create_function_with_name(_require, "require"));
 	set_global(ctx, snow_symbol("puts"), snow_create_function_with_name(_puts, "puts"));
+	set_global(ctx, snow_symbol("throw"), snow_create_function_with_name(_throw, "throw"));
 }

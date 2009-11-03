@@ -10,8 +10,9 @@
 #include "snow/parser.h"
 #include "snow/debug.h"
 #include "snow/linkbuffer.h"
-#include "snow/lock.h"
 #include "snow/task.h"
+#include "snow/task-intern.h"
+#include "snow/exception-intern.h"
 #include "snow/library.h"
 #include "config.h"
 
@@ -30,8 +31,26 @@ void snow_init()
 	void* stack_top;
 	GET_BASE_PTR(stack_top);
 	snow_gc_stack_top(stack_top);
-	snow_init_task_manager(4); // default 4 threads
+	snow_init_parallel();
 	
+	// base emergency exception handler
+	SnExecutionState* main_task_base = snow_get_current_task_base();
+	if (snow_save_execution_state(main_task_base)) {
+		// UNHANDLED EXCEPTION ALERT!
+		VALUE exception = snow_get_current_task_exception();
+		if (exception)
+		{
+			const char* str = snow_value_to_string(exception);
+			fprintf(stderr, "UNHANDLED EXCEPTION: %s\nAborting.\n", str);
+		}
+		else
+		{
+			fprintf(stderr, "UNHANDLED UNKNOWN EXCEPTION! Aborting.\n");
+		}
+		exit(1);
+	}
+	
+	// create all base classes
 	basic_classes[SN_OBJECT_TYPE] = snow_create_class("Object");
 	basic_classes[SN_CLASS_TYPE] = snow_create_class("Class");
 	basic_classes[SN_CONTINUATION_TYPE] = snow_create_class("Continuation");
@@ -43,6 +62,7 @@ void snow_init()
 	basic_classes[SN_ARRAY_TYPE] = snow_create_class("Array");
 	basic_classes[SN_MAP_TYPE] = snow_create_class("Map");
 	basic_classes[SN_WRAPPER_TYPE] = snow_create_class("Wrapper");
+	basic_classes[SN_EXCEPTION_TYPE] = snow_create_class("Exception");
 	basic_classes[SN_CODEGEN_TYPE] = snow_create_class("Codegen");
 	basic_classes[SN_AST_TYPE] = snow_create_class("AstNode");
 	basic_classes[SN_INTEGER_TYPE] = snow_create_class("Integer");
@@ -51,7 +71,7 @@ void snow_init()
 	basic_classes[SN_SYMBOL_TYPE] = snow_create_class("Symbol");
 	basic_classes[SN_FLOAT_TYPE] = snow_create_class("Float");
 	
-	
+	// initialize all base classes
 	init_object_class(basic_classes[SN_OBJECT_TYPE]);
 	init_class_class(basic_classes[SN_CLASS_TYPE]);
 	init_continuation_class(basic_classes[SN_CONTINUATION_TYPE]);
@@ -63,6 +83,7 @@ void snow_init()
 	init_array_class(basic_classes[SN_ARRAY_TYPE]);
 	init_map_class(basic_classes[SN_MAP_TYPE]);
 	init_wrapper_class(basic_classes[SN_WRAPPER_TYPE]);
+	init_exception_class(basic_classes[SN_EXCEPTION_TYPE]);
 	init_codegen_class(basic_classes[SN_CODEGEN_TYPE]);
 	init_ast_class(basic_classes[SN_AST_TYPE]);
 	init_integer_class(basic_classes[SN_INTEGER_TYPE]);
@@ -156,13 +177,11 @@ VALUE snow_load(const char* file)
 			loaded_files_key = snow_store_add(snow_create_map_with_deep_comparison());
 		SnMap* loaded_files = snow_store_get(loaded_files_key);
 
-		snow_lock(loaded_files);
 		SnString* file_str = snow_create_string(file);
 		VALUE found = snow_map_get(loaded_files, file_str);
 		if (found)
 			return SN_FALSE;
 		snow_map_set(loaded_files, file_str, SN_TRUE);
-		snow_unlock(loaded_files);
 		// TODO: check timestamps in required_files
 		
 		// XXX: come up with a better way to distinguish Snow files and dynaminc libraries
@@ -374,19 +393,15 @@ HIDDEN SnArray** _snow_store_ptr() {
 
 VALUE snow_store_add(VALUE val) {
 	SnArray* store = *_snow_store_ptr();
-	snow_lock(store);
 	intx key = snow_array_size(store);
 	snow_array_push(store, val);
-	snow_unlock(store);
 	return int_to_value(key);
 }
 
 VALUE snow_store_get(VALUE key) {
 	ASSERT(is_integer(key));
 	SnArray* store = *_snow_store_ptr();
-	snow_lock(store);
 	intx nkey = value_to_int(key);
 	VALUE val = snow_array_get(store, nkey);
-	snow_unlock(store);
 	return val;
 }
