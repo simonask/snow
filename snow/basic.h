@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <limits.h>
 
 
 #ifdef DMALLOC
@@ -22,6 +23,7 @@
 #define NOINLINE __attribute__((noinline))
 #define HIDDEN __attribute__((visibility ("hidden")))
 #define USED __attribute__((used))
+#define PACKED __attribute__((packed))
 
 #if GCC_VERSION >= MAKE_VERSION(4, 4, 0)
 #define ATTR_HOT __attribute__((hot))
@@ -43,11 +45,23 @@ typedef int64_t intx;
 typedef uint64_t uintx;
 typedef int32_t inth;
 typedef uint32_t uinth;
+#define INTX_MIN LLONG_MIN
+#define INTX_MAX LLONG_MAX
+#define UINTX_MAX ULLONG_MAX
+#define INTH_MIN INT_MIN
+#define INTH_MAX INT_MAX
+#define UINTH_MAX UINT_MAX
 #else
 typedef int32_t intx;
 typedef uint32_t uintx;
 typedef int16_t inth;
 typedef uint16_t uinth;
+#define INTX_MIN INT_MIN
+#define INTX_MAX INT_MAX
+#define UINTX_MAX UINT_MAX
+#define INTH_MIN SHRT_MIN
+#define INTH_MAX SHRT_MAX
+#define UINTH_MAX USHRT_MAX
 #endif
 
 #ifndef byte

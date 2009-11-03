@@ -61,10 +61,6 @@ static void continuation_cleanup(VALUE vcc)
 	ASSERT_TYPE(cc, SN_CONTINUATION_TYPE);
 	ASSERT(!cc->running);
 	
-	#ifdef DEBUG
-	memset(&cc->reg, 0xef, sizeof(SnRegisters));
-	#endif
-	
 	fixed_free(&stack_alloc, cc->stack_lo);
 	cc->stack_lo = NULL;
 	cc->stack_hi = NULL;
@@ -93,10 +89,15 @@ VALUE snow_continuation_call(SnContinuation* cc, SnContinuation* return_to)
 	return NULL; // suppress warning
 }
 
+bool snow_continuation_save_execution_state(SnContinuation* cc)
+{
+	return _continuation_save(cc);
+}
+
 void snow_continuation_yield(SnContinuation* cc, VALUE val)
 {
 	ASSERT(cc->interruptible);
-	if (_continuation_save(cc)) {
+	if (snow_continuation_save_execution_state(cc)) {
 		TRAP();
 		// was restarted after yield
 		return;
@@ -140,7 +141,7 @@ void snow_continuation_get_stack_bounds(SnContinuation* cc, byte** lo, byte** hi
 {
 	*hi = cc->stack_hi;
 	// TODO: Specialise per arch
-	*lo = cc->reg.rsp;
+	*lo = cc->state.rsp;
 }
 
 void init_continuation_class(SnClass* klass)

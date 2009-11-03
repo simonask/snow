@@ -1,7 +1,8 @@
 lib_LTLIBRARIES = libsnow.la
 
 if ARCH_x86_64
-SOURCES_x86_64 = codegen-x86_64.c asm-x86_64.h continuation-intern-x86_64.c
+SOURCES_x86_64 = arch-x86_64.c codegen-x86_64.c asm-x86_64.h continuation-intern-x86_64.c
+HEADERS_x86_64 = arch-x86_64.h
 endif
 
 libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
@@ -14,6 +15,7 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	context.c \
 	continuation.c \
 	debug.c \
+	exception.c \
 	fixed-alloc.c \
 	function.c \
 	gc.c \
@@ -29,12 +31,11 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	snow.c \
 	str.c \
 	symbol.c \
-	task.c \
-	task-intern-dummy.c \
+	task-openmp.c \
 	wrapper.c
 
 include_snowdir = $(includedir)/snow
-include_snow_HEADERS = \
+include_snow_HEADERS = $(HEADERS_x86_64) \
 	arch.h \
 	arguments.h \
 	array.h \
@@ -69,8 +70,8 @@ noinst_HEADERS = \
 	continuation-intern.h \
 	fixed-alloc.h \
 	debug.h \
-	intern.h \
-	task-intern.h
+	task-intern.h \
+	intern.h
 
 CLEANFILES = parser.c parser.tab.h scanner.c
 

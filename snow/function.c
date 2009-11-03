@@ -74,15 +74,22 @@ VALUE snow_function_call(SnFunction* func, SnContext* context)
 	
 	SnContinuation* here = snow_get_current_continuation();
 	VALUE ret = NULL;
-	if (!func->desc->interruptible)
+	if (here != NULL && !func->desc->interruptible)
 	{
+		// call without continuation, but set proper flags on current continuation
 		bool old_interruptible = here->interruptible;
 		here->interruptible = false;
-		ret = func->desc->func(context);	// call without creating a continuation
+		ret = func->desc->func(context);
 		here->interruptible = old_interruptible;
+	}
+	else if (here == NULL)
+	{
+		// call without continuation, and there is no current continuation, so screw it
+		ret = func->desc->func(context);
 	}
 	else
 	{
+		// call with continuation
 		SnContinuation* continuation = snow_create_continuation(func->desc->func, context);
 		ret = snow_continuation_call(continuation, here);
 	}
