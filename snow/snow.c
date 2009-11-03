@@ -313,7 +313,9 @@ VALUE snow_call_method(VALUE self, SnSymbol member, uintx num_args, ...)
 VALUE snow_get_member(VALUE self, SnSymbol sym)
 {
 	SnObject* closest_object = get_closest_object(self);
-	return snow_object_get_member(closest_object, self, sym);
+	VALUE member = snow_object_get_member(closest_object, self, sym);
+	if (!member) snow_throw_exception_with_description("Missing member: `%s'", snow_value_to_string(symbol_to_value(sym)));
+	return member;
 }
 
 VALUE snow_set_member(VALUE self, SnSymbol sym, VALUE val)
