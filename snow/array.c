@@ -173,6 +173,19 @@ SNOW_FUNC(_array_each_parallel) {
 	return array;
 }
 
+SNOW_FUNC(_array_map) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(1);
+	SnArray* array = (SnArray*)SELF;
+	VALUE closure = ARGS[0];
+	SnArray* new_array = snow_create_array_with_size(snow_array_size(array));
+	for (intx i = 0; i < array_size(INTERN); ++i)
+	{
+		snow_array_set(new_array, i, snow_call(NULL, closure, 1, array_get(INTERN, i)));
+	}
+	return new_array;
+}
+
 struct ParallelMapUserdata {
 	VALUE closure;
 	SnArray* new_array;
@@ -215,6 +228,7 @@ void init_array_class(SnClass* klass)
 	snow_define_method(klass, "to_string", _array_inspect);
 	snow_define_method(klass, "each", _array_each);
 	snow_define_method(klass, "each_parallel", _array_each_parallel);
+	snow_define_method(klass, "map", _array_map);
 	snow_define_method(klass, "map_parallel", _array_map_parallel);
 	
 	snow_define_property(klass, "length", _array_length, NULL);
