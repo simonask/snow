@@ -3,8 +3,8 @@
 
 #include "snow/basic.h"
 
-#define GET_STACK_PTR(var) __asm__("mov %%rsp, %0\n" : "=r"(var))
-#define GET_BASE_PTR(var) __asm__("mov %%rbp, %0\n" : "=r"(var))
+#define GET_STACK_PTR(var) __asm__("mov %%rsp, %0\n" : "=g"(var))
+#define GET_BASE_PTR(var) __asm__("mov %%rbp, %0\n" : "=g"(var))
 #define GET_RETURN_PTR(var) __asm__("mov 8(%%rbp), %0\n" : "=r"(var))
 #define TRAP() __asm__("int3\nnop\n")
 
@@ -34,6 +34,7 @@ typedef struct SnVolatileRegisters {
 CAPI bool snow_save_execution_state(SnExecutionState* state); // false = saved, true = returned from restoration
 CAPI void snow_restore_execution_state(SnExecutionState* state);
 CAPI void snow_restore_execution_state_with_volatile_registers(SnExecutionState* state, SnVolatileRegisters* volatile_regs);
+static inline void* snow_execution_state_get_stack_pointer(SnExecutionState* state) { return state->rsp; }
 
 static inline bool snow_bit_test(void* field, uintx bit_index) {
 	bool already_set = false;
