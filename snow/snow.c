@@ -28,10 +28,10 @@ static SnClass* basic_classes[SN_TYPE_MAX];
 
 void snow_init()
 {
-	void* stack_top;
-	GET_BASE_PTR(stack_top);
-	snow_gc_stack_top(stack_top);
 	snow_init_parallel();
+	void* base;
+	GET_BASE_PTR(base);
+	snow_task_set_current_stack_top(base);
 	
 	// base emergency exception handler
 	SnExecutionState* main_task_base = snow_get_current_task_base();
