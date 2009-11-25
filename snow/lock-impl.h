@@ -29,10 +29,9 @@ static inline void snow_lock(SnLock* lock) {
 
 static inline void snow_unlock(SnLock* lock) {
 	ASSERT(lock->locked_by_task_id == snow_get_current_task_id()); // unlocking lock from another task. very illegal!
+	lock->locked_by_task_id = 0;
 	if (!snow_bit_test_and_clear(&lock->locked, 0)) {
 		TRAP(); // trying to unlock unlocked lock. most likely a lock inconsistency somewhere.
-	} else {
-		lock->locked_by_task_id = 0;
 	}
 }
 
