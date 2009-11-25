@@ -154,11 +154,9 @@ SNOW_FUNC(_array_each) {
 }
 
 static void _array_each_parallel_callback(void* _data, size_t element_size, size_t i, void* userdata) {
-	VALUE closure = userdata;
-	ASSERT(closure);
 	ASSERT(element_size == sizeof(VALUE));
 	VALUE* data = (VALUE*)_data;
-	snow_call(NULL, closure, 2, data[i], int_to_value(i));
+	snow_call(NULL, *(void**)userdata, 2, data[i], int_to_value(i));
 }
 
 SNOW_FUNC(_array_each_parallel) {
@@ -168,7 +166,7 @@ SNOW_FUNC(_array_each_parallel) {
 	VALUE closure = ARGS[0];
 	
 	// TODO: Freeze array
-	snow_parallel_for_each(INTERN->data, sizeof(VALUE), array_size(INTERN), _array_each_parallel_callback, closure);
+	snow_parallel_for_each(INTERN->data, sizeof(VALUE), array_size(INTERN), _array_each_parallel_callback, &closure);
 	
 	return array;
 }
