@@ -1,6 +1,7 @@
 #include "snow/function.h"
 #include "snow/continuation.h"
 #include "snow/intern.h"
+#include "snow/task-intern.h"
 
 SnFunctionDescription* snow_create_function_description(SnFunctionPtr func)
 {
@@ -9,7 +10,6 @@ SnFunctionDescription* snow_create_function_description(SnFunctionPtr func)
 	desc->name = snow_symbol("<unnamed>");
 	desc->argument_names = NULL;
 	desc->local_names = snow_create_array();
-	desc->interruptible = false;
 	return desc;
 }
 
@@ -47,7 +47,7 @@ SnFunction* snow_create_function_from_description(SnFunctionDescription* desc)
 
 static VALUE sym_it = NULL;
 
-VALUE snow_function_call(SnFunction* func, SnContext* context)
+static void function_setup_context(SnFunction* func, SnContext* context)
 {
 	ASSERT(context);
 	
@@ -71,32 +71,38 @@ VALUE snow_function_call(SnFunction* func, SnContext* context)
 			snow_context_set_local_local(context, sym, arg ? arg : SN_NIL);
 		}
 	}
+}
+
+VALUE snow_function_call(SnFunction* func, SnContext* context)
+{
+	function_setup_context(func, context);
+	
+	VALUE ret = func->desc->func(context);
+	return ret ? ret : SN_NIL;
+}
+
+VALUE snow_function_callcc(SnFunction* func, SnContext* context)
+{
+	function_setup_context(func, context);
 	
 	SnContinuation* here = snow_get_current_continuation();
-	VALUE ret = NULL;
-	if (here != NULL && !func->desc->interruptible)
+	SnContinuation base_cc;
+	if (!here)
 	{
-		// call without continuation, but set proper flags on current continuation
-		bool old_interruptible = here->interruptible;
-		here->interruptible = false;
-		ret = func->desc->func(context);
-		here->interruptible = old_interruptible;
+		snow_continuation_init(&base_cc, NULL, NULL);
+		here = &base_cc;
+		snow_task_departing_from_system_stack();
 	}
-	else if (here == NULL)
+	
+	SnContinuation* cc = snow_create_continuation(func->desc->func, context);
+	VALUE ret = snow_continuation_call(cc, here);
+	
+	if (here == &base_cc)
 	{
-		// call without continuation, and there is no current continuation, so screw it
-		ret = func->desc->func(context);
+		snow_task_returning_to_system_stack();
 	}
-	else
-	{
-		// call with continuation
-		SnContinuation* continuation = snow_create_continuation(func->desc->func, context);
-		ret = snow_continuation_call(continuation, here);
-	}
-
-	if (!ret)
-		ret = SN_NIL;
-	return ret;
+	
+	return ret ? ret : SN_NIL;
 }
 
 

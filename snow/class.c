@@ -14,7 +14,7 @@ SnClass* snow_create_class(const char* name)
 	return kl;
 }
 
-VALUE _snow_define_method(SnClass* klass, const char* name, SnFunctionPtr function, const char* function_name, bool interruptible)
+VALUE _snow_define_method(SnClass* klass, const char* name, SnFunctionPtr function, const char* function_name)
 {
 	ASSERT_TYPE(klass, SN_CLASS_TYPE);
 	ASSERT(klass->instance_prototype);
@@ -22,20 +22,18 @@ VALUE _snow_define_method(SnClass* klass, const char* name, SnFunctionPtr functi
 	ASSERT(function);
 	SnSymbol sym = snow_symbol(name);
 	SnFunction* func = snow_create_function_with_name(function, function_name);
-	func->desc->interruptible = interruptible;
 	// TODO: mark as leaf scope
 	snow_set_member(klass->instance_prototype, sym, func);
 	return func;
 }
 
-VALUE _snow_define_class_method(SnClass* klass, const char* name, SnFunctionPtr function, const char* function_name, bool interruptible)
+VALUE _snow_define_class_method(SnClass* klass, const char* name, SnFunctionPtr function, const char* function_name)
 {
 	ASSERT_TYPE(klass, SN_CLASS_TYPE);
 	ASSERT(name);
 	ASSERT(function);
 	SnSymbol sym = snow_symbol(name);
 	SnFunction* func = snow_create_function_with_name(function, function_name);
-	func->desc->interruptible = interruptible;
 	snow_set_member(klass, sym, func);
 	return func;
 }
@@ -49,13 +47,11 @@ void _snow_define_property(SnClass* klass, const char* name, SnFunctionPtr gette
 	if (getter)
 	{
 		SnFunction* getter_func = snow_create_function_with_name(getter, getter_name);
-		getter_func->desc->interruptible = false;
 		snow_object_set_property_getter(klass->instance_prototype, sym, getter_func);
 	}
 	if (setter)
 	{
 		SnFunction* setter_func = snow_create_function_with_name(setter, setter_name);
-		setter_func->desc->interruptible = false;
 		snow_object_set_property_setter(klass->instance_prototype, sym, setter_func);
 	}
 }

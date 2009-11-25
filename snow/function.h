@@ -11,7 +11,6 @@ typedef struct SnFunctionDescription {
 	SnSymbol name;
 	SnArray* argument_names;
 	SnArray* local_names;
-	bool interruptible;
 } SnFunctionDescription;
 
 CAPI SnFunctionDescription* snow_create_function_description(SnFunctionPtr func);
@@ -27,5 +26,6 @@ CAPI SnFunction* snow_create_function(SnFunctionPtr func);
 CAPI SnFunction* snow_create_function_with_name(SnFunctionPtr func, const char* name);
 CAPI SnFunction* snow_create_function_from_description(SnFunctionDescription*);
 CAPI VALUE snow_function_call(SnFunction* func, SnContext*)                                  ATTR_HOT;
+CAPI VALUE snow_function_callcc(SnFunction* func, SnContext*);
 
 #endif /* end of include guard: FUNCTION_H_CKWRVD6K */
