@@ -14,8 +14,6 @@ SnObjectBase* snow_alloc_any_object(SnObjectType type, uintx size)
 	ASSERT(size > sizeof(SnObjectBase) && "You probably don't want to allocate an SnObjectBase.");
 	SnObjectBase* base = (SnObjectBase*)snow_gc_alloc_object(size);
 	base->type = type;
-	base->flags = 0;
-	base->locked_by_thread = (uint16_t)0xffff;
 	return base;
 }
 
@@ -37,8 +35,6 @@ void snow_object_init(SnObject* obj, SnObject* prototype)
 
 VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol member)
 {
-	STACK_GUARD;
-	
 	intx property_idx = array_find(&obj->property_names, symbol_to_value(member));
 	if (property_idx >= 0)
 	{
@@ -135,8 +131,14 @@ SNOW_FUNC(object_eval) {
 	return snow_call(SELF, ARGS[0], 0);
 }
 
+SNOW_FUNC(object_equals) {
+	REQUIRE_ARGS(1);
+	return boolean_to_value(SELF == ARGS[0]);
+}
+
 void init_object_class(SnClass* klass)
 {
 	snow_define_method(klass, "inspect", object_inspect);
 	snow_define_method(klass, "object_eval", object_eval);
+	snow_define_method(klass, "=", object_equals);
 }
