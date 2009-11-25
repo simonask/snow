@@ -2,6 +2,7 @@
 #include "snow/arch.h"
 #include "snow/intern.h"
 #include "snow/continuation.h"
+#include "snow/task-intern.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <malloc/malloc.h>
@@ -14,19 +15,16 @@
 // necessary for accessing global stuff
 HIDDEN SnArray** _snow_store_ptr();
 
-static void* gc_stack_top = NULL;
 static bool gc_collecting = false;
 
 struct heap_t {
 	byte* data;
 	uintx offset;
 	uintx size;
-	pthread_mutex_t mutex;
+	SnLock lock;
 };
 
 static struct heap_t gc_nursery = {.data = NULL, .offset = 0, .size = 0};
-
-static SnContinuation gc_cc;
 
 typedef enum GCFlag {
 	GC_FLAG_MARK = 1,
@@ -66,7 +64,7 @@ static const uint16_t MAGIC_BEAD = 0xbead;
 
 static bool gc_contains(void*);
 static void* gc_alloc(uintx size, GCHeader**) __attribute__((alloc_size(1)));
-static VALUE gc_intern(SnContext*);
+static void gc_intern();
 static inline void gc_scan_memory(byte* mem_start, size_t mem_size, GCOperation op);
 
 static inline uintx gc_aligned_size(uintx size)
@@ -80,7 +78,7 @@ static void gc_heap_init(struct heap_t* heap, uintx size)
 	heap->data = (byte*)snow_malloc(heap->size);
 	debug("gc: nursery is at %p\n", heap->data);
 	heap->offset = 0;
-	pthread_mutex_init(&heap->mutex, NULL);
+	snow_init_lock(&heap->lock);
 	#ifdef DEBUG
 	memset(heap->data, 0xcd, heap->size);
 	#endif
@@ -88,7 +86,7 @@ static void gc_heap_init(struct heap_t* heap, uintx size)
 
 static void* gc_heap_alloc(struct heap_t* heap, uintx size, GCHeader** header)
 {
-	pthread_mutex_lock(&heap->mutex);
+	snow_lock(&heap->lock);
 	ASSERT(heap->data && heap->size);
 	ASSERT(size < heap->size);
 	uintx padded_size = gc_aligned_size(size);
@@ -111,13 +109,13 @@ static void* gc_heap_alloc(struct heap_t* heap, uintx size, GCHeader** header)
 	ASSERT(((uintx)data % ALIGNMENT) == 0);
 	
 	out:
-	pthread_mutex_unlock(&heap->mutex);
+	snow_unlock(&heap->lock);
 	return data;
 }
 
 static void* gc_alloc(uintx size, GCHeader** header)
 {
-	ASSERT(!gc_collecting);
+	snow_gc_barrier();
 	ASSERT(size > 0);
 	ASSERT(sizeof(GCHeader) == ALIGNMENT);
 	
@@ -216,15 +214,36 @@ void snow_gc()
 {
 	gc_collecting = true;
 	
-	snow_continuation_init(&gc_cc, gc_intern, NULL);
-	gc_cc.base.type = SN_CONTINUATION_TYPE;
-	uintx stack_size = 1 << 20; // 1Mb stack!
-	gc_cc.stack_lo = (byte*)snow_malloc(stack_size);
-	gc_cc.stack_hi = gc_cc.stack_lo + stack_size;
-	snow_continuation_call(&gc_cc, snow_get_current_continuation());
-	snow_free(gc_cc.stack_lo);
+	// save current registers to stack, so they will be considered by the GC as well
+	SnExecutionState state;
+	if (!snow_save_execution_state(&state))
+	{
+		void* stack_ptr = snow_execution_state_get_stack_pointer(&state);
+		snow_task_at_gc_barrier(stack_ptr);
+		gc_intern();
+		snow_task_reset_gc_barrier(stack_ptr);
+		snow_restore_execution_state(&state);
+	}
 	
 	gc_collecting = false;
+}
+
+void snow_gc_barrier()
+{
+	SnTask* current_task = snow_get_current_task();
+	if (gc_collecting)
+	{
+		// dump registers on the stack, so they can be changed by the gc, then restore the values
+		SnExecutionState state;
+		if (snow_save_execution_state(&state))
+			return; // all done
+		void* bottom = snow_execution_state_get_stack_pointer(&state);
+		snow_task_at_gc_barrier(bottom);
+		while (gc_collecting) { usleep(100); }
+		ASSERT(!current_task->gc_barrier);
+		snow_task_reset_gc_barrier(bottom);
+		snow_restore_execution_state(&state); // restore possibly modifier registers
+	}
 }
 
 static inline void gc_unmark_heap(const struct heap_t* heap)
@@ -324,13 +343,52 @@ static void* gc_heap_transplant(struct heap_t* from, struct heap_t* to, void* da
 	return new_data;
 }
 
-static VALUE gc_intern(SnContext* ctx)
+static void gc_intern()
 {
-	ASSERT(snow_get_current_continuation() == &gc_cc);
+	SnTask** all_tasks; // XXX: is this feasible for all implementations, besides OpenMP?
+	size_t num_tasks;
+	bool any_not_at_gc_barrier = true;
+	while (any_not_at_gc_barrier)
+	{
+		snow_get_current_tasks(&all_tasks, &num_tasks);
+		ASSERT(num_tasks > 0);
+		
+		for (size_t i = 0; i < num_tasks; ++i)
+		{
+			if (!all_tasks[i]) continue;
+			any_not_at_gc_barrier = !all_tasks[i]->gc_barrier;
+			if (any_not_at_gc_barrier) break;
+		}
+	}
 	
 	gc_unmark_heap(&gc_nursery);
 	
-	gc_scan_memory((byte*)&gc_cc, sizeof(SnContinuation), GC_OP_MARK);
+	
+	// find system stack extents
+	struct SnStackExtents stacks[SNOW_MAX_CONCURRENT_TASKS];
+	snow_get_stack_extents(stacks);
+	
+	// scan stacks
+	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i)
+	{
+		byte* top = (byte*)stacks[i].top;
+		byte* bottom = (byte*)stacks[i].bottom;
+		if (top)
+		{
+			ASSERT(bottom);
+			ASSERT(bottom < top);
+			gc_scan_memory(bottom, top - bottom, GC_OP_MARK);
+		}
+	}
+	// scan tasks
+	for (size_t i = 0; i < num_tasks; ++i)
+	{
+		if (all_tasks[i])
+		{
+			gc_scan_memory((byte*)all_tasks[i], sizeof(SnTask), GC_OP_MARK);
+		}
+	}
+	// scan auxillary roots
 	gc_scan_memory((byte*)_snow_store_ptr(), sizeof(SnArray*), GC_OP_MARK);
 	gc_scan_memory((byte*)snow_get_basic_types(), SN_TYPE_MAX*sizeof(VALUE), GC_OP_MARK);
 	
@@ -341,11 +399,11 @@ static VALUE gc_intern(SnContext* ctx)
 	gc_heap_init(&new_nursery, gc_nursery.size);
 	
 	byte* end = gc_nursery.data + gc_nursery.offset;
-	byte* i = gc_nursery.data;
-	while (i < end)
+	byte* iter = gc_nursery.data;
+	while (iter < end)
 	{
-		GCHeader* header = (GCHeader*)i;
-		SnObjectBase* base = ((SnObjectBase*)(i + sizeof(GCHeader)));
+		GCHeader* header = (GCHeader*)iter;
+		SnObjectBase* base = ((SnObjectBase*)(iter + sizeof(GCHeader)));
 		ASSERT(gc_ptr_valid(base));
 		if (!(header->flags & GC_FLAG_MARK))
 		{
@@ -358,13 +416,32 @@ static VALUE gc_intern(SnContext* ctx)
 			gc_heap_transplant(&gc_nursery, &new_nursery, base);
 			++reachable;
 		}
-		i += sizeof(GCHeader) + header->size;
+		iter += sizeof(GCHeader) + header->size;
 	}
 	
 	debug("%llu reachable, %llu unreachable\n", reachable, unreachable);
 	
-	// move all pointers
-	gc_scan_memory((byte*)&gc_cc, sizeof(SnContinuation), GC_OP_UPDATE);
+	// fix up all pointers
+
+	// fix up roots on the stacks
+	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i)
+	{
+		byte* top = (byte*)stacks[i].top;
+		byte* bottom = (byte*)stacks[i].bottom;
+		if (top)
+		{
+			gc_scan_memory(bottom, top - bottom, GC_OP_UPDATE);
+		}
+	}
+	// scan tasks
+	for (size_t i = 0; i < num_tasks; ++i)
+	{
+		if (all_tasks[i])
+		{
+			gc_scan_memory((byte*)all_tasks[i], sizeof(SnTask), GC_OP_UPDATE);
+		}
+	}
+	// fix up auxillary roots
 	gc_scan_memory((byte*)_snow_store_ptr(), sizeof(SnArray*), GC_OP_UPDATE);
 	gc_scan_memory((byte*)snow_get_basic_types(), SN_TYPE_MAX*sizeof(VALUE), GC_OP_UPDATE);
 	
@@ -377,12 +454,16 @@ static VALUE gc_intern(SnContext* ctx)
 	snow_free(gc_nursery.data);
 	memcpy(&gc_nursery, &new_nursery, sizeof(struct heap_t));
 	
+	// unset gc barriers
+	for (size_t i = 0; i < num_tasks; ++i)
+	{
+		if (all_tasks[i])
+		{
+			all_tasks[i]->gc_barrier = false;
+		}
+	}
+	
 	return NULL;
-}
-
-void snow_gc_stack_top(void* top)
-{
-	gc_stack_top = top;
 }
 
 #if DEBUG_MALLOC

@@ -18,7 +18,7 @@ CAPI SnObjectBase* snow_gc_alloc_object(uintx size)           ATTR_ALLOC_SIZE(1)
 CAPI void* snow_gc_alloc(uintx size)                          ATTR_ALLOC_SIZE(1) ATTR_MALLOC;
 CAPI void snow_gc_set_free_func(void* data, SnGCFreeFunc);
 CAPI void snow_gc();
-CAPI void snow_gc_stack_top(void*);
+CAPI void snow_gc_barrier();
 
 CAPI void* snow_malloc(uintx size);
 CAPI void* snow_calloc(uintx count, uintx size);
