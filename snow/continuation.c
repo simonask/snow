@@ -8,7 +8,7 @@
 
 #include <string.h>
 
-static void continuation_cleanup(VALUE vcc);
+static void continuation_gc_cleanup(VALUE vcc);
 static void continuation_init_stack(SnContinuation*);
 
 #define CONTINUATION_STACK_SIZE  (1 << 16) // 64K
@@ -25,6 +25,7 @@ void snow_init_main_continuation() {
 	cc->please_clean = NULL;
 	cc->context = NULL;
 	cc->return_val = NULL;
+	cc->task_id = snow_get_current_task_id();
 	snow_set_current_continuation(cc);
 }
 
@@ -32,7 +33,7 @@ SnContinuation* snow_create_continuation(SnFunctionPtr func, SnContext* context)
 {
 	SnContinuation* cc = (SnContinuation*)snow_alloc_any_object(SN_CONTINUATION_TYPE, sizeof(SnContinuation));
 	snow_continuation_init(cc, func, context);
-	snow_gc_set_free_func(cc, continuation_cleanup);
+	snow_gc_set_free_func(cc, continuation_gc_cleanup);
 	return cc;
 }
 
@@ -50,6 +51,15 @@ void snow_continuation_init(SnContinuation* cc, SnFunctionPtr func, SnContext* c
 	cc->task_id = snow_get_current_task_id();
 }
 
+void snow_continuation_cleanup(SnContinuation* cc)
+{
+	ASSERT(!cc->running);
+	
+	fixed_free(&stack_alloc, cc->stack_lo);
+	cc->stack_lo = NULL;
+	cc->stack_hi = NULL;
+}
+
 static void continuation_init_stack(SnContinuation* cc)
 {
 	ASSERT(!cc->stack_lo);
@@ -57,15 +67,11 @@ static void continuation_init_stack(SnContinuation* cc)
 	cc->stack_hi = cc->stack_lo + CONTINUATION_STACK_SIZE;
 }
 
-static void continuation_cleanup(VALUE vcc)
+static void continuation_gc_cleanup(VALUE vcc)
 {
 	SnContinuation* cc = (SnContinuation*)vcc;
 	ASSERT_TYPE(cc, SN_CONTINUATION_TYPE);
-	ASSERT(!cc->running);
-	
-	fixed_free(&stack_alloc, cc->stack_lo);
-	cc->stack_lo = NULL;
-	cc->stack_hi = NULL;
+	snow_continuation_cleanup(cc);
 }
 
 VALUE snow_continuation_call(SnContinuation* cc, SnContinuation* return_to)
@@ -81,7 +87,7 @@ VALUE snow_continuation_call(SnContinuation* cc, SnContinuation* return_to)
 		// came back
 		if (return_to->please_clean)
 		{
-			continuation_cleanup(return_to->please_clean);
+			snow_continuation_cleanup(return_to->please_clean);
 			return_to->please_clean = NULL;
 		}
 		return cc->return_val;
@@ -133,7 +139,7 @@ void snow_continuation_resume(SnContinuation* cc)
 	
 	if (!cc->running)
 	{
-		continuation_cleanup(cc);
+		snow_continuation_cleanup(cc);
 		continuation_init_stack(cc);
 		_continuation_reset(cc);
 		cc->running = true;
