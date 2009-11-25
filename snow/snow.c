@@ -155,12 +155,16 @@ static void load_dynamic_library(const char* file)
 	if (!handle)
 	{
 		const char* err = dlerror();
-		TRAP(); // dlopen failed. inspect 'err' to see the error message.
+		SnString* str = snow_create_string(err);
+		snow_throw_exception(str);
 	}
 	
 	SnLibraryInfo* info = (SnLibraryInfo*)dlsym(handle, "library_info");
+	
 	if (!info)
-		TRAP(); // no library_info symbol in dynamic library
+	{
+		snow_throw_exception_with_description("Could not find the symbol `library_info', needed to initialize Snow structures.");
+	}
 	debug("loading dynamic library: %s version %u\n", info->name, info->version);
 	info->initialize(snow_global_context());
 }
@@ -252,7 +256,7 @@ VALUE snow_require(const char* _file)
 			return result;
 	}
 	
-	TRAP(); // required file not found!
+	snow_throw_exception_with_description("Required file not found!");
 }
 
 VALUE snow_call(VALUE self, VALUE closure, uintx num_args, ...)
