@@ -2,22 +2,48 @@
 #include "snow/continuation.h"
 #include "snow/intern.h"
 #include "snow/task-intern.h"
+#include "snow/array-intern.h"
 
 SnFunctionDescription* snow_create_function_description(SnFunctionPtr func)
 {
 	SnFunctionDescription* desc = (SnFunctionDescription*)snow_alloc_any_object(SN_FUNCTION_DESCRIPTION_TYPE, sizeof(SnFunctionDescription));
 	desc->func = func;
 	desc->name = snow_symbol("<unnamed>");
+	desc->defined_locals = snow_create_array();
 	desc->argument_names = NULL;
-	desc->local_names = snow_create_array();
+	desc->num_variable_reference_descriptions = 0;
+	desc->variable_reference_descriptions = NULL;
 	return desc;
 }
 
-intx snow_function_description_add_local(SnFunctionDescription* desc, SnSymbol sym)
+CAPI uintx snow_function_description_define_local(SnFunctionDescription* desc, SnSymbol name)
 {
-	ASSERT(desc->local_names);
+	VALUE vsym = symbol_to_value(name);
 	
-	return snow_array_find_or_add(desc->local_names, symbol_to_value(sym));
+	intx idx = snow_array_find(desc->defined_locals, vsym);
+	if (idx < 0)
+	{
+		idx = snow_array_size(desc->defined_locals);
+		snow_array_push(desc->defined_locals, vsym);
+	}
+	return (uintx)idx;
+}
+
+CAPI intx snow_function_description_get_local_index(SnFunctionDescription* desc, SnSymbol name)
+{
+	VALUE vsym = symbol_to_value(name);
+	return snow_array_find(desc->defined_locals, vsym);
+}
+
+CAPI uintx snow_function_description_add_variable_reference(SnFunctionDescription* desc, uint32_t context_level, uint32_t variable_index)
+{
+	// TODO: Something more efficient than realloc... perhaps a linked list?
+	uintx idx = desc->num_variable_reference_descriptions;
+	desc->variable_reference_descriptions = (struct SnVariableReferenceDescription*)snow_realloc(desc->variable_reference_descriptions, (++desc->num_variable_reference_descriptions) * sizeof(struct SnVariableReferenceDescription));
+	struct SnVariableReferenceDescription* varref = desc->variable_reference_descriptions + idx;
+	varref->context_level = context_level;
+	varref->variable_index = variable_index;
+	return idx;
 }
 
 SnFunction* snow_create_function(SnFunctionPtr func)
@@ -38,12 +64,62 @@ SnFunction* snow_create_function_from_description(SnFunctionDescription* desc)
 	ASSERT(desc);
 	ASSERT_TYPE(desc, SN_FUNCTION_DESCRIPTION_TYPE);
 	ASSERT(desc->func);
-	SnFunction* func = (SnFunction*)snow_alloc_any_object(SN_FUNCTION_TYPE, sizeof(SnFunction));
+	SnFunction* func = (SnFunction*)snow_alloc_any_object(SN_FUNCTION_TYPE, sizeof(SnFunction) + sizeof(struct SnVariableReference)*desc->num_variable_reference_descriptions);
 	snow_object_init((SnObject*)func, snow_get_prototype(SN_FUNCTION_TYPE));
 	func->desc = desc;
 	func->declaration_context = NULL;
+	func->num_variable_references = desc->num_variable_reference_descriptions;
+	memset(func->variable_references, 0, sizeof(struct SnVariableReference)*func->num_variable_references);
 	return func;
 }
+
+static inline SnContext* context_at_level(SnContext* level1, uint32_t level)
+{
+	SnContext* ctx = level1;
+	while (level > 1)
+	{
+		ASSERT(ctx); // wtf? trying to get a context deeper than the static tree of contexts?
+		ctx = ctx->static_parent;
+		--level;
+	}
+	return ctx;
+}
+
+void snow_function_declared_in_context(SnFunction* func, SnContext* context)
+{
+	// This function sets up the function object after creation in a context.
+	// The most important thing it does, is to set up the references to parent static scopes (contexts).
+	// Unfortunately, this cannot be known before runtime, but the codegen must provide the information
+	// about how to find the contexts.
+	
+	func->declaration_context = context;
+	
+	// TODO: This is terribly slow. Must be improved!
+	for (uint16_t i = 0; i < func->desc->num_variable_reference_descriptions; ++i)
+	{
+		uint32_t level = func->desc->variable_reference_descriptions[i].context_level;
+		if (level != 0) // ignore references to own context
+		{
+			func->variable_references[i].context = context_at_level(context, level);
+			func->variable_references[i].variable_index = func->desc->variable_reference_descriptions[i].variable_index;
+		}
+	}
+}
+
+VALUE snow_function_get_referenced_variable(SnFunction* func, uint32_t idx)
+{
+	ASSERT(index < func->num_variable_references);
+	SnArray* ar = func->variable_references[idx].context->locals;
+	return snow_array_get(ar, func->variable_references[idx].variable_index);
+}
+
+VALUE snow_function_set_referenced_variable(SnFunction* func, uint32_t idx, VALUE val)
+{
+	ASSERT(index < func->num_variable_references);
+	SnArray* ar = func->variable_references[idx].context->locals;
+	return snow_array_set(ar, func->variable_references[idx].variable_index, val);
+}
+
 
 static VALUE sym_it = NULL;
 

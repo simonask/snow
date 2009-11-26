@@ -40,5 +40,6 @@ CAPI VALUE snow_context_get_local_local(SnContext*, SnSymbol)                ATT
 CAPI VALUE snow_context_set_local(SnContext*, SnSymbol, VALUE val)           ATTR_HOT;
 CAPI VALUE snow_context_set_local_local(SnContext*, SnSymbol, VALUE val)     ATTR_HOT;
 CAPI VALUE snow_context_get_it(SnContext*)                                   ATTR_HOT;
+CAPI VALUE snow_context_local_missing(SnContext* ctx, SnSymbol name);
 
 #endif /* end of include guard: CONTEXT_H_ZSI0OCOV */

@@ -2,6 +2,7 @@
 #include "snow/codegen-intern.h"
 #include "snow/linkbuffer.h"
 #include "snow/intern.h"
+#include "snow/array-intern.h"
 #include <limits.h>
 #ifndef PAGESIZE
 #define PAGESIZE 4096
@@ -9,9 +10,13 @@
 
 #include <sys/mman.h>
 
-SnCodegen* snow_create_codegen(SnAstNode* root)
+void codegen_init(SnCodegen* cg, SnAstNode* root, SnCodegen* parent)
 {
-	return create_codegen(root);
+	cg->result = NULL;
+	array_init(&cg->variable_reference_names);
+	cg->parent = parent;
+	cg->root = root;
+	cg->buffer = snow_create_linkbuffer(1024);
 }
 
 SnFunction* snow_codegen_compile(SnCodegen* cg)
@@ -23,7 +28,7 @@ SnFunction* snow_codegen_compile(SnCodegen* cg)
 SnFunctionDescription* snow_codegen_compile_description(SnCodegen* cg)
 {
 	cg->result = snow_create_function_description(NULL);
-	snow_array_push(cg->result->local_names, snow_vsymbol("it"));
+	snow_function_description_define_local(cg->result, snow_symbol("it"));
 	
 	codegen_compile_root(cg);
 	
@@ -41,6 +46,42 @@ SnFunctionDescription* snow_codegen_compile_description(SnCodegen* cg)
 	cg->result->func = (SnFunctionPtr)compiled_code;
 	
 	return cg->result;
+}
+
+bool codegen_variable_reference(SnCodegen* codegen, SnSymbol variable_name, uint32_t* out_reference_index)
+{
+	// check if we've already found the name, and reuse if so
+	VALUE vsym = symbol_to_value(variable_name);
+	intx idx = array_find(&codegen->variable_reference_names, vsym);
+	if (idx >= 0)
+	{
+		*out_reference_index = idx;
+		return true;
+	}
+	
+	// check parent codegens' lists of locals, and find the index
+	intx context_level = 1;
+	intx variable_index = -1; // -1 at the end means not found!
+	SnCodegen* cg = codegen;
+	while (cg)
+	{
+		variable_index = snow_function_description_get_local_index(cg->result, variable_name);
+		if (variable_index >= 0)
+			break;
+		cg = cg->parent;
+		++context_level;
+	}
+	
+	if (variable_index < 0)
+	{
+		return false;
+	}
+	
+	// .. then add it to the list, and set the out_reference_index to the index of the index (!)
+	*out_reference_index = snow_function_description_add_variable_reference(codegen->result, context_level, variable_index);
+	ASSERT(array_size(&codegen->variable_reference_names) == *out_reference_index);
+	array_push(&codegen->variable_reference_names, vsym);
+	return true;
 }
 
 void init_codegen_class(SnClass* klass)

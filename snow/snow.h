@@ -24,6 +24,10 @@ CAPI VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)    
 CAPI VALUE snow_call_method(VALUE self, SnSymbol method, uintx num_args, ...)            ATTR_HOT;
 CAPI VALUE snow_get_member(VALUE self, SnSymbol member)                                  ATTR_HOT;
 CAPI VALUE snow_set_member(VALUE self, SnSymbol member, VALUE value)                     ATTR_HOT;
+CAPI VALUE snow_get_global(SnSymbol name)                                                ATTR_HOT;
+CAPI VALUE snow_get_global_from_context(SnSymbol name, struct SnContext*)                ATTR_HOT;
+CAPI VALUE snow_set_global(SnSymbol name, VALUE val)                                     ATTR_HOT;
+CAPI VALUE snow_set_global_from_context(SnSymbol name, VALUE val, struct SnContext*)     ATTR_HOT;
 CAPI SnClass* snow_get_class(SnObjectType);
 CAPI SnClass** snow_get_basic_types();
 CAPI SnObject* snow_get_prototype(SnObjectType);

@@ -24,8 +24,7 @@ SnContext* snow_create_context_for_function(SnFunction* func)
 	ctx->static_parent = func->declaration_context;
 	ctx->function = func;
 	ctx->self = NULL;
-	ctx->local_names = func->desc->local_names;
-	ASSERT(ctx->local_names);
+	ctx->local_names = func->desc->defined_locals;
 	ctx->locals = snow_create_array_with_size(snow_array_size(ctx->local_names));
 	ctx->args = NULL;
 	return ctx;
@@ -75,9 +74,7 @@ VALUE snow_context_get_local(SnContext* ctx, SnSymbol sym)
 		return snow_context_get_local(global, sym);
 	}
 	
-	SnObject* func = top_ctx->function;
-	if (!func) func = snow_get_prototype(SN_FUNCTION_TYPE);
-	return snow_call_method(func, snow_symbol("local_missing"), 2, top_ctx->self, symbol_to_value(sym));
+	return snow_context_local_missing(top_ctx, sym);
 }
 
 VALUE snow_context_get_local_local(SnContext* ctx, SnSymbol sym)
@@ -128,6 +125,13 @@ VALUE snow_context_set_local_local(SnContext* ctx, SnSymbol sym, VALUE val)
 	
 	intx idx = snow_array_find_or_add(ctx->local_names, vsym);
 	return snow_array_set(ctx->locals, idx, val);
+}
+
+VALUE snow_context_local_missing(SnContext* ctx, SnSymbol name)
+{
+	SnObject* func = ctx->function;
+	if (!func) func = snow_get_prototype(SN_FUNCTION_TYPE);
+	return snow_call_method(func, snow_symbol("local_missing"), 2, ctx->self, symbol_to_value(name));
 }
 
 void init_context_class(SnClass* klass)

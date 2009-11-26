@@ -24,16 +24,18 @@ static intx codegen_reserve_tmp(SnCodegenX* cgx);
 static void codegen_free_tmp(SnCodegenX* cgx, intx tmp);
 static bool codegen_is_local_from_parent(SnCodegenX* cgx, VALUE vsym);
 
-SnCodegen* create_codegen(SnAstNode* root)
+SnCodegen* snow_create_codegen(SnAstNode* root, SnCodegen* parent)
 {
 	ASSERT(root->type == SN_AST_FUNCTION && "Only function definitions can be used as root nodes in Snow ASTs.");
 	SnCodegenX* codegen = (SnCodegenX*)snow_alloc_any_object(SN_CODEGEN_TYPE, sizeof(SnCodegenX));
 	snow_gc_set_free_func(codegen, codegen_free);
-	codegen->base.root = root;
-	codegen->base.buffer = snow_create_linkbuffer(1024);
+	
+	codegen_init(&codegen->base, root, parent);
+	
 	codegen->returns = NULL;
 	codegen->num_temporaries = 0;
 	codegen->tmp_freelist = NULL;
+	
 	return (SnCodegen*)codegen;
 }
 
@@ -124,7 +126,7 @@ void codegen_compile_root(SnCodegen* cg)
 			VALUE vsym = snow_array_get(args_array, i);
 			ASSERT(is_symbol(vsym));
 			SnSymbol sym = value_to_symbol(vsym);
-			snow_function_description_add_local(cgx->base.result, sym);
+			snow_function_description_define_local(cgx->base.result, sym);
 		}
 	}
 	
@@ -205,14 +207,18 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		
 		case SN_AST_FUNCTION:
 		{
-			SnCodegen* cg2 = snow_create_codegen(node);
+			SnCodegen* cg2 = snow_create_codegen(node, (SnCodegen*)cgx);
 			SnFunctionDescription* desc = snow_codegen_compile_description(cg2);
 			VALUE key = snow_store_add(desc);
 			ASM(mov_id, IMMEDIATE(key), RDI);
 			CALL(snow_store_get);
 			ASM(mov, RAX, RDI);
 			CALL(snow_create_function_from_description);
-			ASM(mov, R13, ADDRESS(RAX, offsetof(SnFunction, declaration_context)));
+			ASM(mov, RAX, RBX); // preserve
+			ASM(mov, RAX, RDI);
+			ASM(mov, R13, RSI);
+			CALL(snow_function_declared_in_context);
+			ASM(mov, RBX, RAX);
 			break;
 		}
 			
@@ -258,12 +264,9 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		{
 			VALUE vsym = node->children[0];
 			ASSERT(is_symbol(vsym));
+			SnSymbol sym = value_to_symbol(vsym);
 			
-			intx idx = -1;
-			if (cgx->base.result->local_names)
-			{
-				idx = snow_array_find(cgx->base.result->local_names, vsym);
-			}
+			intx idx = snow_function_description_get_local_index(cgx->base.result, sym);
 			
 			if (idx >= 0)
 			{
@@ -274,11 +277,83 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			}
 			else
 			{
-				// local to parent or injected scope
-				ASM(mov, R13, RDI);
-				ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
-				CALL(snow_context_get_local);
+				// check static scopes
+				uint32_t reference_index;
+				if (codegen_variable_reference((SnCodegen*)cgx, sym, &reference_index))
+				{
+					// yes, it's in static scope
+					ASM(mov_rev, RDI, ADDRESS(R13, offsetof(SnContext, function)));
+					ASM(mov_id, reference_index, RSI);
+					CALL(snow_function_get_referenced_variable);
+				}
+				else
+				{
+					// not in static scopes, defer to globals
+					ASM(mov_id, IMMEDIATE(sym), RDI);
+					ASM(mov, R13, RSI);
+					CALL(snow_get_global_from_context);
+				}
 			}
+			
+			break;
+		}
+		
+		case SN_AST_LOCAL_ASSIGNMENT:
+		{
+			VALUE vsym = node->children[0];
+			ASSERT(is_symbol(vsym));
+			SnSymbol sym = value_to_symbol(vsym);
+			
+			SnAstNode* val = (SnAstNode*)node->children[1];
+			codegen_compile_node(cgx, val);
+			// result is in RAX now
+			
+			intx idx = snow_function_description_get_local_index(cgx->base.result, sym);
+			
+			if (idx >= 0)
+			{
+				// local already exists in scope
+				ASM(mov, R14, RDI);
+				ASM(mov_id, IMMEDIATE(idx), RSI);
+				ASM(mov, RAX, RDX);
+				CALL(snow_array_set);
+			}
+			else
+			{
+				// check static scopes
+				uint32_t reference_index;
+				if (codegen_variable_reference((SnCodegen*)cgx, sym, &reference_index))
+				{
+					// yea, it's in static scope
+					ASM(mov_rev, RDI, ADDRESS(R13, offsetof(SnContext, function)));
+					ASM(mov_id, reference_index, RSI);
+					ASM(mov, RAX, RDX);
+					CALL(snow_function_set_referenced_variable);
+				}
+				else
+				{
+					// not in static scope, so either
+					if (cgx->base.parent)
+					{
+						// we have parents, so this isn't global scope, so create it
+						idx = snow_function_description_define_local(cgx->base.result, sym);
+						ASSERT(idx >= 0);
+						ASM(mov, R14, RDI);
+						ASM(mov_id, IMMEDIATE(idx), RSI);
+						ASM(mov, RAX, RDX);
+						CALL(snow_array_set);
+					}
+					else
+					{
+						// we have no parents, so we are in global scope, so set that
+						ASM(mov_id, IMMEDIATE(sym), RDI);
+						ASM(mov, RAX, RSI);
+						ASM(mov, R13, RDX);
+						CALL(snow_set_global_from_context);
+					}
+				}
+			}
+			
 			break;
 		}
 		
@@ -292,39 +367,6 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			ASM(mov, RAX, RDI);
 			ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
 			CALL(snow_get_member);
-			break;
-		}
-		
-		case SN_AST_LOCAL_ASSIGNMENT:
-		{
-			VALUE vsym = node->children[0];
-			ASSERT(is_symbol(vsym));
-			SnAstNode* val = (SnAstNode*)node->children[1];
-			
-			codegen_compile_node(cgx, val);
-			
-			intx idx = -1;
-			if (cgx->base.result->local_names)
-			{
-				idx = snow_array_find(cgx->base.result->local_names, vsym);
-			}
-			
-			if (idx >= 0)
-			{
-				// local to this scope
-				ASM(mov, R14, RDI);
-				ASM(mov_id, IMMEDIATE(idx), RSI);
-				ASM(mov, RAX, RDX);
-				CALL(snow_array_set);
-			}
-			else
-			{
-				// local to a parent or injected scope
-				ASM(mov, R13, RDI);
-				ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
-				ASM(mov, RAX, RDX);
-				CALL(snow_context_set_local);
-			}
 			break;
 		}
 		

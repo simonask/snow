@@ -11,7 +11,7 @@ TEST_CASE(simple_add) {
 			snow_ast_call(snow_ast_member(snow_ast_local(snow_symbol("a")), snow_symbol("+")), snow_ast_sequence(1, snow_ast_local(snow_symbol("b"))))
 		)
 	);
-	SnCodegen* cg = snow_create_codegen(def);
+	SnCodegen* cg = snow_create_codegen(def, NULL);
 	SnFunction* func = snow_codegen_compile(cg);
 	VALUE ret = snow_call(NULL, func, 0);
 	
@@ -34,7 +34,7 @@ TEST_CASE(simple_closure) {
 		)
 	);
 	
-	SnCodegen* cg = snow_create_codegen(def);
+	SnCodegen* cg = snow_create_codegen(def, NULL);
 	SnFunction* f = snow_codegen_compile(cg);
 	VALUE ret = snow_call(NULL, f, 0);
 	TEST(is_integer(ret));

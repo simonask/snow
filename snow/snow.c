@@ -103,7 +103,7 @@ VALUE snow_eval(const char* str)
 VALUE snow_eval_in_context(const char* str, SnContext* context)
 {
 	SnAstNode* ast = snow_parse(str);
-	SnCodegen* cg = snow_create_codegen(ast);
+	SnCodegen* cg = snow_create_codegen(ast, NULL); // parent is global scope
 	SnFunction* func = snow_codegen_compile(cg);
 	return snow_function_call(func, context);
 }
@@ -330,6 +330,35 @@ VALUE snow_set_member(VALUE self, SnSymbol sym, VALUE val)
 	//ASSERT(object->base.type == SN_OBJECT_TYPE);	// TODO: A predictable way to discern if an object type is derived from SnObject or SnObjectBase directly.
 	return snow_object_set_member(object, self, sym, val);
 }
+
+
+VALUE snow_get_global(SnSymbol name)
+{
+	SnContext* global = snow_global_context();
+	return snow_context_get_local_local(global, name);
+}
+
+VALUE snow_get_global_from_context(SnSymbol name, SnContext* from)
+{
+	VALUE val = snow_get_global(name);
+	if (!val)
+	{
+		val = snow_context_local_missing(from, name);
+	}
+	return val;
+}
+
+VALUE snow_set_global(SnSymbol name, VALUE val)
+{
+	SnContext* global = snow_global_context();
+	return snow_context_set_local_local(global, name, val);
+}
+
+VALUE snow_set_global_from_context(SnSymbol name, VALUE val, SnContext* from)
+{
+	return snow_set_global(name, val);
+}
+
 
 inline SnObject* get_closest_object(VALUE self)
 {
