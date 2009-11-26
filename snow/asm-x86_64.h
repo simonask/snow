@@ -62,7 +62,7 @@ typedef struct SnOp {
 
 typedef int64_t SnImm;
 
-static const inline SnOp make_op(unsigned reg, bool ext, bool address, signed imm)
+static inline SnOp make_op(unsigned reg, bool ext, bool address, signed imm)
 {
 	SnOp op;
 	op.reg = reg;
@@ -73,7 +73,7 @@ static const inline SnOp make_op(unsigned reg, bool ext, bool address, signed im
 	return op;
 }
 
-static const inline SnOp make_address(SnOp reg, signed disp)
+static inline SnOp make_address(SnOp reg, signed disp)
 {
 	reg.address = true;
 	reg.disp = disp;
@@ -84,7 +84,7 @@ static const inline SnOp make_address(SnOp reg, signed disp)
 	return reg;
 }
 
-static const inline SnOp make_opcode_ext(byte ext)
+static inline SnOp make_opcode_ext(byte ext)
 {
 	return make_op(ext, false, false, 0);
 }
@@ -115,19 +115,19 @@ static inline void emit(SnLinkBuffer* lb, byte b) {
 	snow_linkbuffer_push(lb, b);
 }
 
-static const inline byte rex_for_rm(SnOp rm) {
+static inline byte rex_for_rm(SnOp rm) {
 	return rm.ext * REX_EXTEND_RM;
 }
 
-static const inline byte rex_for_reg(SnOp reg) {
+static inline byte rex_for_reg(SnOp reg) {
 	return reg.ext * REX_EXTEND_REG;
 }
 
-static const inline byte rex_for_operands(SnOp reg, SnOp rm) {
+static inline byte rex_for_operands(SnOp reg, SnOp rm) {
 	return rex_for_reg(reg) | rex_for_rm(rm);
 }
 
-static const inline RM_MODE mod_for_operand(SnOp addr) {
+static inline RM_MODE mod_for_operand(SnOp addr) {
 	if (!addr.address)
 		return RM_REGISTER;
 		
