@@ -3,9 +3,12 @@
 #include "snow/snow.h"
 #include "snow/str.h"
 #include "snow/array.h"
+#include "snow/lock.h"
 #include <string.h>
 
 static VALUE symbol_storage_key = NULL;
+static SnLock symbol_table_lock;
+static bool symbol_table_lock_init = false;
 
 static SnArray* symbol_storage() {
 	if (!symbol_storage_key)
@@ -15,7 +18,13 @@ static SnArray* symbol_storage() {
 
 SnSymbol snow_symbol(const char* cstr)
 {
-	// FIXME: Mutex lock
+	if (!symbol_table_lock_init)
+	{
+		snow_init_lock(&symbol_table_lock);
+		symbol_table_lock_init = true;
+	}
+	
+	snow_lock(&symbol_table_lock);
 	
 	SnArray* storage = symbol_storage();
 	ASSERT(storage);
@@ -23,18 +32,24 @@ SnSymbol snow_symbol(const char* cstr)
 	
 	SnString* str = snow_create_string(cstr);
 	
+	SnSymbol retval;
+	
 	for (uintx i = 0; i < snow_array_size(storage); ++i) {
 		SnString* existing = (SnString*)snow_array_get(storage, i);
 		ASSERT_TYPE(existing, SN_STRING_TYPE);
 		
 		if (snow_string_compare(str, existing) == 0) {
-			return i;
+			retval = i;
+			goto out;
 		}
 	}
 	
-	SnSymbol new_symbol = snow_array_size(storage);
+	retval = snow_array_size(storage);
 	snow_array_push(storage, str);
-	return new_symbol;
+	
+	out:
+	snow_unlock(&symbol_table_lock);
+	return retval;
 }
 
 SnSymbol snow_symbol_from_string(SnString* str)
@@ -55,11 +70,13 @@ const char* snow_symbol_to_cstr(SnSymbol sym)
 
 SnString* snow_symbol_to_string(SnSymbol sym)
 {
+	snow_lock(&symbol_table_lock);
 	SnArray* storage = symbol_storage();
 	ASSERT(storage);
 	ASSERT(sym < snow_array_size(storage));
 	SnString* str = snow_array_get(storage, sym);
 	ASSERT(str);
+	snow_unlock(&symbol_table_lock);
 	return str;
 }
 
