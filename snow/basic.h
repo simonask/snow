@@ -74,8 +74,8 @@ struct array_t {
 	// implement array-like data structures without allocating an SnArray, which would
 	// pointer indirection. See array-intern.h for functions manipulating this struct.
 	VALUE* data;
-	uinth size;
-	uinth alloc_size;
+	uint32_t size;
+	uint32_t alloc_size;
 };
 
 #endif /* end of include guard: BASIC_H_N5K8EFY5 */
