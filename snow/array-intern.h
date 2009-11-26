@@ -75,7 +75,11 @@ static inline VALUE array_push(struct array_t* array, VALUE val)
 static inline VALUE array_pop(struct array_t* array)
 {
 	if (array->size)
-		return array->data[--array->size];
+	{
+		VALUE val = array->data[--array->size];
+		array->data[array->size] = SN_NIL; // for gc
+		return val;
+	}
 	else
 		return NULL;
 }
