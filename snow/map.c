@@ -45,7 +45,7 @@ VALUE snow_map_get(SnMap* map, VALUE key)
 
 VALUE snow_map_set(SnMap* map, VALUE key, VALUE value)
 {
-	ASSERT(key && value && "Cannot use NULL as keys/values in Snow maps!");
+	ASSERT(key && "Cannot use NULL as key in Snow maps!");
 	uintx i;
 	MapTuple* tuples = (MapTuple*)map->data;
 	for (i = 0; i < map->size; ++i) {
