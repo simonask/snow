@@ -387,6 +387,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			ASM(mov_rev, RDI, TEMPORARY(tmp_self));
 			ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
 			CALL(snow_set_member);
+			FREE_TMP(tmp_self);
 			break;
 		}
 		
