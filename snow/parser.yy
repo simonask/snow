@@ -70,8 +70,7 @@ SnAstNode* snow_parse(const char* buf)
 }
 
 void yyerror(struct YYLTYPE* yylocp, YY_EXTRA_TYPE state, void* scanner, const char* yymsg) {
-	error("%s\n", yymsg);
-	TRAP(); // PARSER ERROR!
+	snow_throw_exception_with_description("Parser error: %s", yymsg);
 }
 
 %}
