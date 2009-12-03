@@ -213,7 +213,7 @@ atomic_expr: literal
            ;
 
 expression: assignment %dprec 9999
-          | log_operation
+          | log_operation %dprec 1
           | operation %dprec 1
           | atomic_expr %dprec 1
           ;
