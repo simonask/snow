@@ -15,6 +15,7 @@ typedef struct SnParserState {
 
 typedef union SnTokenValue {
 	SnAstNode* node;
+	SnAstNode* sequence;
 	VALUE value;
 	SnSymbol symbol;
 } SnTokenValue;

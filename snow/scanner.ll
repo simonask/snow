@@ -60,6 +60,7 @@ SnLinkBuffer* string_buffer = NULL;
 		string_buffer = snow_create_linkbuffer(1024);
 %}
 
+\.                                     { return TOK_DOT; }
 \"                                     { BEGIN(STRING_DOUBLE); STR_CLEAR(); } /* " */
 <STRING_DOUBLE>\"                      { BEGIN(INITIAL); yylval->value = snow_create_string_from_linkbuffer(string_buffer); STR_CLEAR(); return TOK_STRING; } /* " */
 <STRING_DOUBLE>\\n                     { STR_CHAR('\n'); }
