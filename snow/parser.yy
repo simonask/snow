@@ -31,7 +31,7 @@
 %token '.' ',' '[' ']' '{' '}' '(' ')' ':' '#'
 %token TOK_EOL TOK_DO TOK_UNLESS TOK_ELSE TOK_IF TOK_ELSEIF TOK_WHILE TOK_UNTIL
 
-%type <node> statement conditional conditional_tail function control
+%type <node> statement conditional conditional_tail control loop
              function_call assignment operation variable log_operation member
              naked_closure closure local literal expression atomic_expr
 %type <sequence> sequence program parameters parameter_list arguments argument_list index_arguments scope
@@ -89,24 +89,11 @@ eol: TOK_EOL
 program:    sequence TOK_EOF                                { state->result = $$ = snow_ast_function("<noname>", state->streamname, NULL, $1); }
             ;
 
-statement: function
-         | conditional
-         | TOK_WHILE expression eol sequence TOK_END { $$ = snow_ast_loop($2, $4); }
-         | TOK_UNTIL expression eol sequence TOK_END { $$ = snow_ast_loop(snow_ast_not($2), $4); }
-         | function TOK_WHILE expression                 { $$ = snow_ast_loop($3, $1); }
-         | function TOK_UNTIL expression                 { $$ = snow_ast_loop(snow_ast_not($3), $1); }
+statement: expression    %dprec 1
+         | control       %dprec 1
+         | conditional   %dprec 2
+         | loop          %dprec 2
          ;
-
-conditional: TOK_IF expression eol sequence eol conditional_tail                { $$ = snow_ast_if_else($2, $4, $6); }
-             | TOK_UNLESS expression eol sequence eol conditional_tail          { $$ = snow_ast_if_else(snow_ast_not($2), $4, $6); }
-             | function TOK_IF expression                                               { $$ = snow_ast_if_else($3, $1, snow_ast_literal(SN_NIL)); }
-             | function TOK_UNLESS expression                                           { $$ = snow_ast_if_else(snow_ast_not($3), $1, snow_ast_literal(SN_NIL)); }
-             ;
-
-conditional_tail: TOK_END                                                       { $$ = NULL; }
-                  | TOK_ELSE eol sequence eol TOK_END                   { $$ = $3; }
-                  | TOK_ELSEIF expression eol sequence eol conditional_tail     { $$ = snow_ast_if_else($2, $4, $6); }
-                  ;
 
 
 sequence: /* Nothing */                                     { $$ = snow_ast_sequence(0); }
@@ -114,7 +101,23 @@ sequence: /* Nothing */                                     { $$ = snow_ast_sequ
         | sequence eol statement ignore_eol                 { $$ = $1; snow_ast_sequence_push($1, $3); }
         ;
 
-function: expression | control;
+loop: TOK_WHILE expression eol sequence eol TOK_END             { $$ = snow_ast_loop($2, $4); }
+    | TOK_UNTIL expression eol sequence eol TOK_END             { $$ = snow_ast_loop(snow_ast_not($2), $4); }
+    | statement TOK_WHILE expression                         { $$ = snow_ast_loop($3, $1); }
+    | statement TOK_UNTIL expression                         { $$ = snow_ast_loop(snow_ast_not($3), $1); }
+    ;
+
+conditional: TOK_IF expression eol sequence eol conditional_tail                { $$ = snow_ast_if_else($2, $4, $6); }
+             | TOK_UNLESS expression eol sequence eol conditional_tail          { $$ = snow_ast_if_else(snow_ast_not($2), $4, $6); }
+             | statement TOK_IF expression                                               { $$ = snow_ast_if_else($3, $1, snow_ast_literal(SN_NIL)); }
+             | statement TOK_UNLESS expression                                           { $$ = snow_ast_if_else(snow_ast_not($3), $1, snow_ast_literal(SN_NIL)); }
+             ;
+
+conditional_tail: TOK_END                                                       { $$ = NULL; }
+                  | TOK_ELSE eol sequence eol TOK_END                   { $$ = $3; }
+                  | TOK_ELSEIF expression eol sequence eol conditional_tail     { $$ = snow_ast_if_else($2, $4, $6); }
+                  ;
+
 
 control: TOK_RETURN                                         { $$ = snow_ast_return(NULL); }
        | TOK_RETURN expression                              { $$ = snow_ast_return($2); }
