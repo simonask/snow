@@ -1,7 +1,7 @@
 #include "snow/snow.h"
 #include "snow/library.h"
 #include "snow/intern.h"
-#include "snow/wrapper.h"
+#include "snow/pointer.h"
 
 #include <regex.h>
 
@@ -23,7 +23,7 @@ SNOW_FUNC(regex_initialize)
 		snow_throw_exception_with_description("STUB ERROR MESSAGE -- failed to compile regex.");
 	}
 	
-	SnWrapper* pointer = snow_create_wrapper(intern, regex_free);
+	SnPointer* pointer = snow_create_pointer(intern, regex_free);
 	snow_set_member(SELF, snow_symbol("_pointer"), pointer);
 	return SELF;
 }
@@ -34,7 +34,7 @@ static void regex_init(SnContext* global_context)
 	SnClass* RegEx = snow_create_class("RegEx");
 	snow_define_method(RegEx, "initialize", regex_initialize);
 	
-	snow_context_set_local(global_context, snow_symbol("RegEx"), RegEx);
+	snow_set_global(snow_symbol("RegEx"), RegEx);
 }
 
 SnLibraryInfo library_info = {

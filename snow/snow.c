@@ -61,7 +61,7 @@ void snow_init()
 	basic_classes[SN_STRING_TYPE] = snow_create_class("String");
 	basic_classes[SN_ARRAY_TYPE] = snow_create_class("Array");
 	basic_classes[SN_MAP_TYPE] = snow_create_class("Map");
-	basic_classes[SN_WRAPPER_TYPE] = snow_create_class("Wrapper");
+	basic_classes[SN_POINTER_TYPE] = snow_create_class("Pointer");
 	basic_classes[SN_EXCEPTION_TYPE] = snow_create_class("Exception");
 	basic_classes[SN_CODEGEN_TYPE] = snow_create_class("Codegen");
 	basic_classes[SN_AST_TYPE] = snow_create_class("AstNode");
@@ -82,7 +82,7 @@ void snow_init()
 	init_string_class(basic_classes[SN_STRING_TYPE]);
 	init_array_class(basic_classes[SN_ARRAY_TYPE]);
 	init_map_class(basic_classes[SN_MAP_TYPE]);
-	init_wrapper_class(basic_classes[SN_WRAPPER_TYPE]);
+	init_pointer_class(basic_classes[SN_POINTER_TYPE]);
 	init_exception_class(basic_classes[SN_EXCEPTION_TYPE]);
 	init_codegen_class(basic_classes[SN_CODEGEN_TYPE]);
 	init_ast_class(basic_classes[SN_AST_TYPE]);

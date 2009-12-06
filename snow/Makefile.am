@@ -32,7 +32,7 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	str.c \
 	symbol.c \
 	task-openmp.c \
-	wrapper.c
+	pointer.c
 
 include_snowdir = $(includedir)/snow
 include_snow_HEADERS = $(HEADERS_x86_64) \
@@ -60,7 +60,7 @@ include_snow_HEADERS = $(HEADERS_x86_64) \
 	str.h \
 	symbol.h \
 	task.h \
-	wrapper.h
+	pointer.h
 
 include_HEADERS = snow.h
 	
