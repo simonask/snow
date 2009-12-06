@@ -1,8 +1,9 @@
 data_snow_libdir = $(datadir)/snow/lib
 dist_data_snow_lib_DATA = class.sn
 
-data_snow_lib_LTLIBRARIES = regex.la
+data_snow_lib_LTLIBRARIES = regex.la file.la
 
 regex_la_LDFLAGS = -module
+file_la_LDFLAGS = -module
 
 INCLUDES = -I..
