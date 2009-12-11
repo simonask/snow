@@ -33,7 +33,8 @@
 
 %type <node> statement conditional conditional_tail control loop
              function_call assignment operation variable log_operation member
-             naked_closure closure local literal expression atomic_expr
+             naked_closure closure local literal expression atomic_expr atomic_non_index_expr
+             index_variable non_index_variable
 %type <sequence> sequence program parameters parameter_list arguments argument_list index_arguments scope
 %type <symbol> identifier
 %type <value> literal_value string_literal string_data symbol
@@ -134,10 +135,13 @@ identifier: TOK_IDENTIFIER                                  { /* TODO: register 
 
 local: identifier                                           { $$ = snow_ast_local($1); }
      ;
-            
-variable: local | member | TOK_SELF
-        | atomic_expr index_arguments                    { $$ = snow_ast_call(snow_ast_member($1, snow_symbol("[]")), $2); }
-        ;
+
+non_index_variable: local | member | TOK_SELF;
+
+index_variable: atomic_expr index_arguments              { $$ = snow_ast_call(snow_ast_member($1, snow_symbol("[]")), $2); }
+              ;
+
+variable: non_index_variable | index_variable;
 
 argument_list: expression                                   { $$ = snow_ast_sequence(1, $1); }
              | argument_list ',' expression                 { $$ = $1; snow_ast_sequence_push($$, $3); }
@@ -183,8 +187,8 @@ string_literal: string_data
             ;
 
 function_call: atomic_expr arguments                        { $$ = snow_ast_call($1, $2); }
-             | atomic_expr arguments naked_closure          { snow_ast_sequence_push($2, $3); $$ = snow_ast_call($1, $2); }
-             | atomic_expr naked_closure                    { $$ = snow_ast_call($1, snow_ast_sequence(1, $2)); }
+             | atomic_expr arguments closure                { snow_ast_sequence_push($2, $3); $$ = snow_ast_call($1, $2); }
+             | atomic_non_index_expr closure                          { $$ = snow_ast_call($1, snow_ast_sequence(1, $2)); }
              ;
 
 assignment: identifier ':' expression                       { $$ = snow_ast_local_assign($1, $3); }
@@ -208,17 +212,19 @@ operation:  TOK_OPERATOR_FIRST expression                       { $$ = snow_ast_
             | expression TOK_OPERATOR_FOURTH expression         { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
             ;
 
-atomic_expr: literal
-           | variable
-           | closure
-           | '(' expression ')'                                 { $$ = $2; }
-           | function_call
-           ;
+atomic_non_index_expr: literal
+                     | non_index_variable
+                     | closure
+                     | '(' expression ')'                       { $$ = $2; }
+                     | function_call
+                     ;
+
+atomic_expr: atomic_non_index_expr | index_variable;
 
 expression: assignment %dprec 9999
           | log_operation %dprec 1
-          | operation %dprec 1
           | atomic_expr %dprec 1
+          | operation %dprec 1
           ;
 
 %%
