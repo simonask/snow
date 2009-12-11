@@ -136,9 +136,15 @@ SNOW_FUNC(object_equals) {
 	return boolean_to_value(SELF == ARGS[0]);
 }
 
+SNOW_FUNC(object_not_equals) {
+	REQUIRE_ARGS(1);
+	return boolean_to_value(SELF != ARGS[0]);
+}
+
 void init_object_class(SnClass* klass)
 {
 	snow_define_method(klass, "inspect", object_inspect);
 	snow_define_method(klass, "object_eval", object_eval);
 	snow_define_method(klass, "=", object_equals);
+	snow_define_method(klass, "!=", object_not_equals);
 }

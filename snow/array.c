@@ -118,7 +118,7 @@ SNOW_FUNC(_array_inspect) {
 	{
 		char* old_result = result;
 		
-		const char* converted = snow_value_to_cstr(snow_call_method(array_get(INTERN, i), inspect, 0));
+		const char* converted = snow_value_to_string(snow_call_method(array_get(INTERN, i), inspect, 0));
 		
 		if (!old_result)
 		{
