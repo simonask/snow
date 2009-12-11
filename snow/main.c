@@ -9,6 +9,7 @@
 #include "snow/parser.h"
 #include "snow/linkbuffer.h"
 #include "snow/str.h"
+#include "snow/exception.h"
 #include <stdlib.h>
 
 #include <stdio.h>
@@ -32,13 +33,13 @@ static void try_execute_line(void* userdata)
 {
 	SnLinkBuffer* input_buffer = (SnLinkBuffer*)userdata;
 	SnString* str = snow_create_string_from_linkbuffer(input_buffer);
-	VALUE result = snow_eval(str->str);
-	printf("=> %s\n", snow_value_to_string(snow_call_method(result, snow_symbol("inspect"), 0)));
+	VALUE result = snow_eval(snow_string_cstr(str));
+	printf("=> %s\n", snow_value_to_cstr(snow_call_method(result, snow_symbol("inspect"), 0)));
 }
 
 static void catch_display_exception(VALUE exception, void* userdata)
 {
-	fprintf(stderr, "UNHANDLED EXCEPTION: %s\n\n", snow_value_to_string(exception));
+	fprintf(stderr, "UNHANDLED EXCEPTION: %s\n\n", snow_value_to_cstr(exception));
 }
 
 static void ensure_clear_input_buffer(void* userdata)
@@ -131,7 +132,7 @@ int main(int argc, char* const* argv)
 	}
 	
 	for (uintx i = 0; i < snow_array_size(require_files); ++i) {
-		snow_require(((SnString*)snow_array_get(require_files, i))->str);
+		snow_require(snow_string_cstr(((SnString*)snow_array_get(require_files, i))));
 	}
 	
 	if (interactive_mode) {

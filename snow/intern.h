@@ -74,7 +74,7 @@ static inline bool value_to_boolean(VALUE val) { return snow_eval_truth(val); }
 static inline VALUE symbol_to_value(SnSymbol sym) { return (VALUE)((sym << 4) | kSymbolType); }
 static inline SnSymbol value_to_symbol(VALUE val) { return (SnSymbol)val >> 4; }
 
-const char* value_to_string(VALUE val);
+const char* value_to_cstr(VALUE val);
 
 static inline SnObjectType snow_typeof(VALUE val)
 {

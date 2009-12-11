@@ -28,9 +28,9 @@ void debug(const char* fmt, ...)
 	va_end(ap);
 }
 
-const char* value_to_string(VALUE val) {
+const char* value_to_cstr(VALUE val) {
 	VALUE converted = snow_call_method(val, snow_symbol("to_string"), 0);
 	SnString* str = (SnString*)converted;
 	ASSERT(str->base.type == SN_STRING_TYPE);
-	return str->str;
+	return snow_string_cstr(str);
 }

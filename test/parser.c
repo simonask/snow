@@ -151,31 +151,31 @@ TEST_CASE(named_arguments) {
 /*TEST_CASE(string_interpolation) {
 	std::string correct = std::string("hej 7 dav 2");
 	VALUE v = snow_eval("\"hej ${3+4} dav ${5-3}\"");
-	TEST_EQ(value_to_string(v), correct);
+	TEST_EQ(value_to_cstr(v), correct);
 	
 	correct = std::string("Hello World!");
 	v = snow_eval("hello: [who] { \"Hello ${who}!\"}; hello(\"World\")");
-	TEST_EQ(value_to_string(v), correct);
+	TEST_EQ(value_to_cstr(v), correct);
 	
 	correct = std::string("Hello, this is TestObject.to_string()");
 	v = snow_eval("TestObject: Object.new(); TestObject.to_string: { \"this is TestObject.to_string()\"}; \"Hello, ${TestObject}\"");
-	TEST_EQ(value_to_string(v), correct);
+	TEST_EQ(value_to_cstr(v), correct);
 	
 	correct = std::string("8 * 3 = 24");
 	v = snow_eval("mul: [a,b] {a * b}; \"8 * 3 = ${mul(8,3)}\"");
-	TEST_EQ(value_to_string(v), correct);
+	TEST_EQ(value_to_cstr(v), correct);
 }
 
 TEST_CASE(octal_string_escapes) {
 	std::string correct = std::string("$");
 	VALUE v = snow_eval("\"\\044\""); // (char)044 == '$'
-	TEST_EQ(value_to_string(v), correct);
+	TEST_EQ(value_to_cstr(v), correct);
 	
 	correct = std::string("0");
 	v = snow_eval("\"\\060\""); // (char)060 == '0'
-	TEST_EQ(value_to_string(v), correct);
+	TEST_EQ(value_to_cstr(v), correct);
 	
 	correct = std::string("\n");
 	v = snow_eval("\"\\012\""); // (char)012 == '\n'
-	TEST_EQ(value_to_string(v), correct);
+	TEST_EQ(value_to_cstr(v), correct);
 }*/

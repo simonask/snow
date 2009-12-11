@@ -31,7 +31,7 @@ CAPI VALUE snow_set_global_from_context(SnSymbol name, VALUE val, struct SnConte
 CAPI SnClass* snow_get_class(SnObjectType);
 CAPI SnClass** snow_get_basic_types();
 CAPI SnObject* snow_get_prototype(SnObjectType);
-CAPI const char* snow_value_to_string(VALUE val);
+CAPI const char* snow_value_to_cstr(VALUE val);
 CAPI bool snow_eval_truth(VALUE val)                                                     ATTR_HOT;
 CAPI int snow_compare_objects(VALUE a, VALUE b)                                          ATTR_HOT;
 

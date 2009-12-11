@@ -55,7 +55,7 @@ SnSymbol snow_symbol(const char* cstr)
 SnSymbol snow_symbol_from_string(SnString* str)
 {
 	ASSERT_TYPE(str, SN_STRING_TYPE);
-	return snow_symbol(str->str);
+	return snow_symbol(snow_string_cstr(str));
 }
 
 VALUE snow_vsymbol(const char* cstr)
@@ -65,7 +65,7 @@ VALUE snow_vsymbol(const char* cstr)
 
 const char* snow_symbol_to_cstr(SnSymbol sym)
 {
-	return snow_symbol_to_string(sym)->str;
+	return snow_string_cstr(snow_symbol_to_string(sym));
 }
 
 SnString* snow_symbol_to_string(SnSymbol sym)

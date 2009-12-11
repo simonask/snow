@@ -10,7 +10,7 @@ static inline void set_global(SnContext* ctx, SnSymbol name, VALUE val) {
 SNOW_FUNC(_puts) {
 	for (intx i = 0; i < NUM_ARGS; ++i)
 	{
-		const char* str = snow_value_to_string(ARGS[i]);
+		const char* str = snow_value_to_cstr(ARGS[i]);
 		puts(str);
 	}
 	if (!NUM_ARGS)
@@ -22,7 +22,7 @@ SNOW_FUNC(_require) {
 	REQUIRE_ARGS(1);
 	ASSERT_TYPE(ARGS[0], SN_STRING_TYPE);
 	SnString* file = (SnString*)ARGS[0];
-	return snow_require(file->str);
+	return snow_require(snow_string_cstr(file));
 }
 
 SNOW_FUNC(_throw) {

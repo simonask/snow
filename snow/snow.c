@@ -40,7 +40,7 @@ void snow_init()
 		VALUE exception = snow_get_current_task_exception();
 		if (exception)
 		{
-			const char* str = snow_value_to_string(exception);
+			const char* str = snow_value_to_cstr(exception);
 			fprintf(stderr, "UNHANDLED EXCEPTION: %s\nAborting.\n", str);
 		}
 		else
@@ -219,7 +219,7 @@ VALUE snow_require(const char* _file)
 		snow_string_concatenate(file_dot, snow_create_string("dylib")),
 	};
 	
-	if (file->str[0] != '/')
+	if (snow_string_byte_at(file, 0) != '/')
 	{
 		SnString* slash = snow_create_string("/");
 		// first, check wd
@@ -230,7 +230,7 @@ VALUE snow_require(const char* _file)
 		for (size_t i = 0; i < NUM_CANDIDATES; ++i)
 		{
 			SnString* candidate = snow_string_concatenate(cwd, candidates[i]);
-			VALUE result = snow_load(candidate->str);
+			VALUE result = snow_load(snow_string_cstr(candidate));
 			if (result)
 				return result;
 		}
@@ -243,7 +243,7 @@ VALUE snow_require(const char* _file)
 			for (size_t j = 0; j < NUM_CANDIDATES; ++j)
 			{
 				SnString* candidate = snow_string_concatenate(path, candidates[j]);
-				VALUE result = snow_load(candidate->str);
+				VALUE result = snow_load(snow_string_cstr(candidate));
 				if (result)
 					return result;
 			}
@@ -251,7 +251,7 @@ VALUE snow_require(const char* _file)
 	}
 	else
 	{
-		VALUE result = snow_load(file->str);
+		VALUE result = snow_load(snow_string_cstr(file));
 		if (result)
 			return result;
 	}
@@ -318,7 +318,7 @@ VALUE snow_get_member(VALUE self, SnSymbol sym)
 {
 	SnObject* closest_object = get_closest_object(self);
 	VALUE member = snow_object_get_member(closest_object, self, sym);
-	if (!member) snow_throw_exception_with_description("Missing member: `%s'", snow_value_to_string(symbol_to_value(sym)));
+	if (!member) snow_throw_exception_with_description("Missing member: `%s'", snow_value_to_cstr(symbol_to_value(sym)));
 	return member;
 }
 
@@ -393,7 +393,7 @@ SnObject* snow_get_prototype(SnObjectType type) {
 	return basic_classes[type]->instance_prototype;
 }
 
-const char* snow_value_to_string(VALUE val)
+const char* snow_value_to_cstr(VALUE val)
 {
 	static bool got_sym = false;
 	static SnSymbol to_string;
@@ -405,7 +405,7 @@ const char* snow_value_to_string(VALUE val)
 	
 	SnString* str = (SnString*)snow_call_method(val, to_string, 0);
 	ASSERT_TYPE(str, SN_STRING_TYPE);
-	return str->str;
+	return snow_string_cstr(str);
 }
 
 bool snow_eval_truth(VALUE val) {
