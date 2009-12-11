@@ -118,7 +118,7 @@ SNOW_FUNC(_array_inspect) {
 	{
 		char* old_result = result;
 		
-		const char* converted = snow_value_to_string(snow_call_method(array_get(INTERN, i), inspect, 0));
+		const char* converted = snow_value_to_cstr(snow_call_method(array_get(INTERN, i), inspect, 0));
 		
 		if (!old_result)
 		{
@@ -214,6 +214,56 @@ SNOW_FUNC(_array_map_parallel) {
 	return new_array;
 }
 
+SNOW_FUNC(_array_select) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(1);
+	SnArray* array = (SnArray*)SELF;
+	VALUE closure = ARGS[0];
+	SnArray* new_array = snow_create_array_with_size(snow_array_size(array));
+	
+	for (intx i = 0; i < snow_array_size(array); ++i) {
+		if (snow_eval_truth(snow_call(NULL, closure, 2, INTERN->data[i], int_to_value(i)))) {
+			snow_array_push(new_array, INTERN->data[i]);
+		}
+	}
+	
+	return new_array;
+}
+
+SNOW_FUNC(_array_reject) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(1);
+	SnArray* array = (SnArray*)SELF;
+	VALUE closure = ARGS[0];
+	SnArray* new_array = snow_create_array_with_size(snow_array_size(array));
+	
+	for (intx i = 0; i < snow_array_size(array); ++i) {
+		if (!snow_eval_truth(snow_call(NULL, closure, 2, INTERN->data[i], int_to_value(i)))) {
+			snow_array_push(new_array, INTERN->data[i]);
+		}
+	}
+	
+	return new_array;
+}
+
+SNOW_FUNC(_array_inject) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(1);
+	SnArray* array = (SnArray*)SELF;
+	VALUE closure = ARGS[0];
+	
+	intx len = snow_array_size(array);
+	if (len > 0)
+	{
+		VALUE carry = INTERN->data[0];
+		for (intx i = 1; i < len; ++i) {
+			carry = snow_call(NULL, closure, 3, carry, INTERN->data[i], int_to_value(i));
+		}
+		return carry;
+	}
+	return SN_NIL;
+}
+
 void init_array_class(SnClass* klass)
 {
 	snow_define_class_method(klass, "__call__", _array_new);
@@ -230,6 +280,9 @@ void init_array_class(SnClass* klass)
 	snow_define_method(klass, "each_parallel", _array_each_parallel);
 	snow_define_method(klass, "map", _array_map);
 	snow_define_method(klass, "map_parallel", _array_map_parallel);
+	snow_define_method(klass, "select", _array_select);
+	snow_define_method(klass, "reject", _array_reject);
+	snow_define_method(klass, "inject", _array_inject);
 	
 	snow_define_property(klass, "length", _array_length, NULL);
 }
