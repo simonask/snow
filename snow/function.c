@@ -187,14 +187,19 @@ SNOW_FUNC(function_local_missing) {
 	ASSERT_TYPE(ARGS[1], SN_SYMBOL_TYPE);
 	VALUE self = ARGS[0];
 	SnSymbol sym = value_to_symbol(ARGS[1]);
-	if (ARGS[0])
+	VALUE member = NULL;
+	
+	if (self)
 	{
-		VALUE member = snow_get_member(self, sym);
+		member = snow_get_member_harmless(self, sym);
 		if (member) return member;
 	}
 	
+	member = snow_get_global(sym);
+	if (member) return member;
+	
 	snow_throw_exception_with_description("Local missing: `%s'", snow_value_to_cstr(ARGS[1]));
-	return SN_NIL;
+	return NULL;
 }
 
 

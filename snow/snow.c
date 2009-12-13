@@ -314,10 +314,15 @@ VALUE snow_call_method(VALUE self, SnSymbol member, uintx num_args, ...)
 	return ret;
 }
 
-VALUE snow_get_member(VALUE self, SnSymbol sym)
+VALUE snow_get_member_harmless(VALUE self, SnSymbol sym)
 {
 	SnObject* closest_object = get_closest_object(self);
-	VALUE member = snow_object_get_member(closest_object, self, sym);
+	return snow_object_get_member(closest_object, self, sym);
+}
+
+VALUE snow_get_member(VALUE self, SnSymbol sym)
+{
+	VALUE member = snow_get_member_harmless(self, sym);
 	if (!member) snow_throw_exception_with_description("Missing member: `%s'", snow_value_to_cstr(symbol_to_value(sym)));
 	return member;
 }
@@ -359,6 +364,14 @@ VALUE snow_set_global_from_context(SnSymbol name, VALUE val, SnContext* from)
 	return snow_set_global(name, val);
 }
 
+VALUE snow_get_unspecified_local_from_context(SnSymbol name, SnContext* from)
+{
+	if (from->self) {
+		VALUE member = snow_get_member_harmless(from->self, name);
+		if (member) return member;
+	}
+	return snow_context_local_missing(from, name);
+}
 
 inline SnObject* get_closest_object(VALUE self)
 {

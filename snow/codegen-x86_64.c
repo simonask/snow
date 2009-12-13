@@ -291,7 +291,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 					// not in static scopes, defer to globals
 					ASM(mov_id, IMMEDIATE(sym), RDI);
 					ASM(mov, R13, RSI);
-					CALL(snow_get_global_from_context);
+					CALL(snow_get_unspecified_local_from_context);
 				}
 			}
 			
