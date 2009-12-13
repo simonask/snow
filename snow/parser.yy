@@ -90,7 +90,6 @@ eol: TOK_EOL
    ;
 
 program: sequence TOK_EOF   %dprec 3                       { state->result = $$ = snow_ast_function("<noname>", state->streamname, NULL, $1); }
-       | ignore_eol TOK_EOF %dprec 2
        ;
 
 statement: expression    %dprec 1
@@ -100,7 +99,7 @@ statement: expression    %dprec 1
          ;
 
 
-sequence: /* Nothing */                                     { $$ = snow_ast_sequence(0); }
+sequence: ignore_eol /* Nothing */                          { $$ = snow_ast_sequence(0); }
         | statement ignore_eol                              { $$ = snow_ast_sequence(1, $1); }
         | sequence eol statement ignore_eol                 { $$ = $1; snow_ast_sequence_push($1, $3); }
         ;
