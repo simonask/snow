@@ -80,12 +80,32 @@ SNOW_FUNC(class_new_class) {
 	ASSERT_TYPE(self, SN_CLASS_TYPE);
 	SnClass* new_class = snow_create_class("<Anonymous Class>");
 	
-	if (NUM_ARGS > 0)
-	{
-		// inheritance
-		ASSERT(is_object(ARGS[0]));
-		ASSERT_TYPE(ARGS[0], SN_CLASS_TYPE); // TODO: exception
+	SnFunction *yield = NULL;
+	SnClass* superclass = NULL;
+	
+	if (NUM_ARGS == 0);
+	else if (NUM_ARGS == 1) {
+		if (snow_typeof(ARGS[0]) == SN_FUNCTION_TYPE)
+			yield = ARGS[0];
+		else if (snow_typeof(ARGS[0]) == SN_CLASS_TYPE)
+			superclass = ARGS[0];
+		else
+			TRAP(); // single argument must be class or function
+	} else {
+		yield = ARGS[1];
+		superclass = ARGS[0];
+	}
+	
+	if (superclass) {
+		ASSERT(is_object(superclass));
+		ASSERT_TYPE(superclass, SN_CLASS_TYPE);
 		new_class->instance_prototype->prototype = ((SnClass*)ARGS[0])->instance_prototype;
+	}
+	
+	if (yield) {
+		ASSERT(is_object(yield));
+		ASSERT_TYPE(yield, SN_FUNCTION_TYPE);
+		snow_call(new_class->instance_prototype, yield, 0);
 	}
 	
 	return new_class;
