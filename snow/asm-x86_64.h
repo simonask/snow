@@ -254,6 +254,16 @@ static inline void asm_link(SnLinkBuffer* lb, LabelRef* ref) {
 
 // Special instructions
 
+static inline void asm_shr(SnLinkBuffer* lb, SnOp rm, byte amount) {
+	emit_instr(lb, 0xc1, make_opcode_ext(5), rm);
+	emit_imm(lb, IMMEDIATE(amount), 1);
+}
+
+static inline void asm_imul_i(SnLinkBuffer* lb, SnOp reg, SnOp rm, int32_t imm) {
+	emit_instr(lb, 0x69, reg, rm);
+	emit_imm(lb, imm, 4);
+}
+
 static inline void asm_call(SnLinkBuffer* lb, SnOp rm) {
 	ASSERT(!rm.address);
 	emit_rex(lb, rex_for_rm(rm));

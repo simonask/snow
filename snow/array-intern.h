@@ -46,6 +46,7 @@ static inline void array_grow(struct array_t* array, intx new_size)
 
 static inline VALUE array_get(struct array_t* array, intx idx)
 {
+	// WARNING: This is explicitly inlined in codegens. If you change this, you must also change each codegen that inlines this.
 	if (idx >= array->size)
 		return NULL;
 	if (idx < 0)

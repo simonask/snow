@@ -422,6 +422,7 @@ const char* snow_value_to_cstr(VALUE val)
 }
 
 bool snow_eval_truth(VALUE val) {
+	// WARNING: This is explicitly inlined in codegens. If you change this, you must also change each codegen that inlines this.
 	return !(!val || val == SN_NIL || val == SN_FALSE);
 }
 

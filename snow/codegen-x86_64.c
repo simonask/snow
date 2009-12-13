@@ -90,6 +90,37 @@ static void codegen_compile_call_with_inlining(SnCodegenX* cgx, void(*func)())
 		ASM(link, &was_true_jmp1);
 		ASM(link, &was_true_jmp2);
 	}
+	else if (func == (void(*)())snow_array_get)
+	{
+		// &array.a => %rdi
+		// index => %rsi
+		// %rdi->data => %r8
+		ASM(lea, RDI, ADDRESS(RDI, offsetof(SnArray, a)));
+		
+		#ifdef DEBUG
+		// Only do bounds checking in debug
+		ASM(xor, RAX, RAX);
+		Label out_of_bounds = ASM(label); // predeclaration
+		ASM(mov_rev, R8, ADDRESS(RDI, offsetof(struct array_t, size)));
+		// we're loading quadwords (because of limited asm support), so mask the results
+		ASM(mov_id, IMMEDIATE(0x00000000ffffffff), R9);
+		ASM(and, R9, R8);
+		ASM(cmp, R8, RSI);
+		LabelRef out_of_bounds_jmp = ASM(j, CC_GREATER_EQUAL, &out_of_bounds);
+		#endif // DEBUG
+		
+		// not out of bounds, go ahead
+		ASM(mov_rev, RAX, ADDRESS(RDI, offsetof(struct array_t, data)));
+		// TODO: If we get SIB addressing one day, this is a good candidate
+		ASM(imul_i, RSI, RSI, IMMEDIATE(sizeof(VALUE)));
+		ASM(add, RSI, RAX);
+		ASM(mov_rev, RAX, ADDRESS(RAX, 0));
+		
+		#ifdef DEBUG
+		ASM(bind, &out_of_bounds);
+		ASM(link, &out_of_bounds_jmp);
+		#endif // DEBUG
+	}
 	else
 	{
 		// no inline version for this codegen
