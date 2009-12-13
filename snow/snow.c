@@ -144,6 +144,12 @@ static void load_source(const char* file)
 	snow_linkbuffer_copy_data(buffer, source, len);
 	source[len] = '\0';
 	
+	const char* ps = source;
+	if (ps[0] == '#' && ps[1] == '!') {
+		// if there is a shebang line, ignore until first newline
+		while (*ps != '\n') ++ps;
+	}
+	
 	snow_eval(source);
 	
 	snow_free_linkbuffer(buffer);
