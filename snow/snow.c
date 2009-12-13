@@ -103,6 +103,7 @@ VALUE snow_eval(const char* str)
 VALUE snow_eval_in_context(const char* str, SnContext* context)
 {
 	SnAstNode* ast = snow_parse(str);
+	if (!ast) return NULL;
 	SnCodegen* cg = snow_create_codegen(ast, NULL); // parent is global scope
 	SnFunction* func = snow_codegen_compile(cg);
 	return snow_function_call(func, context);

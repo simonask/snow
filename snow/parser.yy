@@ -68,8 +68,10 @@ SnAstNode* snow_parse(const char* buf)
 	SnAstNode* root = state.result;
 	yylex_destroy(state.yyscanner);
 	
-	ASSERT(root->base.type == SN_AST_TYPE && root->type == SN_AST_FUNCTION);
-	return root;
+	if (root) {
+		ASSERT(root->base.type == SN_AST_TYPE && root->type == SN_AST_FUNCTION);
+		return root;
+	}
 }
 
 void yyerror(struct YYLTYPE* yylocp, YY_EXTRA_TYPE state, void* scanner, const char* yymsg) {
@@ -87,8 +89,9 @@ ignore_eol:
 eol: TOK_EOL
    ;
 
-program:    sequence TOK_EOF                                { state->result = $$ = snow_ast_function("<noname>", state->streamname, NULL, $1); }
-            ;
+program: sequence TOK_EOF   %dprec 3                       { state->result = $$ = snow_ast_function("<noname>", state->streamname, NULL, $1); }
+       | ignore_eol TOK_EOF %dprec 2
+       ;
 
 statement: expression    %dprec 1
          | control       %dprec 1
@@ -98,7 +101,7 @@ statement: expression    %dprec 1
 
 
 sequence: /* Nothing */                                     { $$ = snow_ast_sequence(0); }
-        | statement                                         { $$ = snow_ast_sequence(1, $1); }
+        | statement ignore_eol                              { $$ = snow_ast_sequence(1, $1); }
         | sequence eol statement ignore_eol                 { $$ = $1; snow_ast_sequence_push($1, $3); }
         ;
 
