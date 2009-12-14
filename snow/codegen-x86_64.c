@@ -344,6 +344,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			if (idx >= 0)
 			{
 				// local already exists in scope
+				// assign
 				ASM(mov, R14, RDI);
 				ASM(mov_id, IMMEDIATE(idx), RSI);
 				ASM(mov, RAX, RDX);
@@ -385,6 +386,12 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				}
 			}
 			
+			// notify object of assignment
+			ASM(mov, RAX, RDI);
+			ASM(mov_id, IMMEDIATE(sym), RSI);
+			ASM(xor, RDX, RDX);
+			CALL(snow_set_object_assigned);
+			
 			break;
 		}
 		
@@ -418,6 +425,13 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			ASM(mov_rev, RDI, TEMPORARY(tmp_self));
 			ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
 			CALL(snow_set_member);
+			
+			// notify object of assignment
+			ASM(mov, RAX, RDI);
+			ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
+			ASM(mov_rev, RDX, TEMPORARY(tmp_self));
+			CALL(snow_set_object_assigned);
+			
 			FREE_TMP(tmp_self);
 			break;
 		}
@@ -465,7 +479,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				ASSERT(is_symbol(vsym));
 				ASM(mov, RAX, RDI);
 				ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
-				CALL(snow_get_member);
+				CALL(snow_get_member_for_method_call);
 				ASM(mov, RAX, TEMPORARY(tmp_function));
 			}
 			else

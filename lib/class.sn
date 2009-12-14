@@ -8,5 +8,5 @@ class: [closure_or_base, closure] {
 	
 	new: Class(base)
 	new.instance_prototype.object_eval(closure)
-	new
+	new.__reset_assigned_name__()
 }

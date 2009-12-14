@@ -70,7 +70,7 @@ SnFunction* snow_create_function_from_description(SnFunctionDescription* desc)
 	func->declaration_context = NULL;
 	func->num_variable_references = desc->num_variable_reference_descriptions;
 	memset(func->variable_references, 0, sizeof(struct SnVariableReference)*func->num_variable_references);
-	return func;
+	return (SnFunction*)snow_reset_object_assigned(func);
 }
 
 static inline SnContext* context_at_level(SnContext* level1, uint32_t level)
@@ -108,7 +108,7 @@ void snow_function_declared_in_context(SnFunction* func, SnContext* context)
 
 VALUE snow_function_get_referenced_variable(SnFunction* func, uint32_t idx)
 {
-	ASSERT(index < func->num_variable_references);
+	ASSERT(idx < func->num_variable_references);
 	SnArray* ar = func->variable_references[idx].context->locals;
 	return snow_array_get(ar, func->variable_references[idx].variable_index);
 }
@@ -191,7 +191,7 @@ SNOW_FUNC(function_local_missing) {
 	
 	if (self)
 	{
-		member = snow_get_member_harmless(self, sym);
+		member = snow_get_member(self, sym);
 		if (member) return member;
 	}
 	

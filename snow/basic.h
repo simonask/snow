@@ -73,7 +73,8 @@ struct array_t {
 	// this array type is supposed to be used by more advanced structures wishing to 
 	// implement array-like data structures without allocating an SnArray, which would
 	// pointer indirection. See array-intern.h for functions manipulating this struct.
-	VALUE* data;
+	
+	VALUE* data; // must be first element!
 	uint32_t size;
 	uint32_t alloc_size;
 };

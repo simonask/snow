@@ -52,12 +52,17 @@ typedef struct SnObjectBase
 typedef struct SnObject
 {
 	SnObjectBase base;
-	
+	uint32_t flags;
 	struct SnObject* prototype;
 	void* members;
 	struct array_t property_names;
 	struct array_t property_data;
 } SnObject;
+
+typedef enum SnObjectFlags
+{
+	SN_FLAG_ASSIGNED = 1,
+} SnObjectFlags;
 
 CAPI SnObjectBase* snow_alloc_any_object(SnObjectType type, uintx size);
 CAPI SnObject* snow_create_object(SnObject* prototype);
