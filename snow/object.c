@@ -26,6 +26,7 @@ SnObject* snow_create_object(SnObject* prototype)
 
 void snow_object_init(SnObject* obj, SnObject* prototype)
 {
+	obj->flags = SN_FLAG_ASSIGNED; // new objects are "assigned" by default, so they will only get a name assigned if asked for by calling object.__reset_assigned_name__().
 	obj->prototype = prototype;
 	obj->members = NULL;
 	obj->prototype = prototype;
@@ -122,7 +123,9 @@ SNOW_FUNC(object_inspect) {
 	VALUE vsym_classname = snow_get_member(snow_get_member(SELF, snow_symbol("class")), snow_symbol("name"));
 	ASSERT(is_symbol(vsym_classname));
 	uint64_t ptr = (uint64_t)SELF;
-	snprintf(cstr, 64, "<%s:0x%llx>", snow_symbol_to_cstr(value_to_symbol(vsym_classname)), ptr);
+	VALUE name = snow_get_member(SELF, snow_symbol("__name__"));
+	const char* name_to_string = name ? snow_value_to_cstr(name) : NULL;
+	snprintf(cstr, 64, "<%s%s%s@0x%llx>", name_to_string ? name_to_string : "", name_to_string ? ":" : "", snow_symbol_to_cstr(value_to_symbol(vsym_classname)), ptr);
 	return snow_create_string(cstr);
 }
 
@@ -141,10 +144,39 @@ SNOW_FUNC(object_not_equals) {
 	return boolean_to_value(SELF != ARGS[0]);
 }
 
+SNOW_FUNC(object_name) {
+	return snow_get_member(SELF, snow_symbol("__name__"));
+}
+
+SNOW_FUNC(object_reset_assigned_name) {
+	/*
+		This function resets the SN_FLAG_ASSIGNED flag on the object,
+		causing it to get a new name the next time it is assigned to a named member or local.
+	*/
+	
+	ASSERT(snow_is_normal_object(SELF));
+	SnObject* self = (SnObject*)SELF;
+	self->flags &= ~SN_FLAG_ASSIGNED;
+	return SELF;
+}
+
+SNOW_FUNC(object_on_assign) {
+	ASSERT(snow_is_normal_object(SELF));
+	SnObject* self = (SnObject*)SELF;
+	VALUE vname = ARGS[0];
+	ASSERT(is_symbol(vname));
+	VALUE member_of = ARGS[1]; // TODO: Use this for something?
+	snow_object_set_member(self, self, snow_symbol("__name__"), vname);
+	return SELF;
+}
+
 void init_object_class(SnClass* klass)
 {
 	snow_define_method(klass, "inspect", object_inspect);
 	snow_define_method(klass, "object_eval", object_eval);
 	snow_define_method(klass, "=", object_equals);
 	snow_define_method(klass, "!=", object_not_equals);
+	snow_define_property(klass, "name", object_name, NULL);
+	snow_define_method(klass, "__reset_assigned_name__", object_reset_assigned_name);
+	snow_define_method(klass, "__on_assign__", object_on_assign);
 }

@@ -4,12 +4,24 @@
 #include "snow/function.h"
 #include "snow/intern.h"
 
-SnClass* snow_create_class(const char* name)
+
+void snow_init_class_class(SnClass** class_class)
 {
 	SnClass* kl = (SnClass*)snow_alloc_any_object(SN_CLASS_TYPE, sizeof(SnClass));
 	snow_object_init((SnObject*)kl, NULL);
-	kl->name = snow_symbol(name);
+	kl->name = snow_symbol("Class");
 	kl->instance_prototype = snow_create_object(NULL);
+	kl->base.prototype = kl->instance_prototype; // Class is the prototype of Class
+	snow_set_member(kl->instance_prototype, snow_symbol("class"), kl);
+	*class_class = kl;
+}
+
+SnClass* snow_create_class(const char* name)
+{
+	SnClass* kl = (SnClass*)snow_alloc_any_object(SN_CLASS_TYPE, sizeof(SnClass));
+	snow_object_init((SnObject*)kl, snow_get_prototype(SN_CLASS_TYPE));
+	kl->name = snow_symbol(name);
+	kl->instance_prototype = snow_create_object(NULL); // NULL => Object is prototype
 	snow_set_member(kl->instance_prototype, snow_symbol("class"), kl);
 	return kl;
 }
@@ -69,10 +81,19 @@ SNOW_FUNC(class_new) {
 	return new_object;
 }
 
-SNOW_FUNC(class_name) {
+SNOW_FUNC(class_get_name) {
+	ASSERT_TYPE(SELF, SN_CLASS_TYPE);
 	SnClass* self = SELF;
-	ASSERT_TYPE(self, SN_CLASS_TYPE);
 	return symbol_to_value(self->name);
+}
+
+SNOW_FUNC(class_set_name) {
+	ASSERT_TYPE(SELF, SN_CLASS_TYPE);
+	REQUIRE_ARGS(1);
+	SnClass* self = SELF;
+	ASSERT_TYPE(ARGS[0], SN_SYMBOL_TYPE);
+	self->name = value_to_symbol(ARGS[0]);
+	return ARGS[0];
 }
 
 SNOW_FUNC(class_new_class) {
@@ -101,6 +122,6 @@ void init_class_class(SnClass* klass)
 {
 	snow_define_class_method(klass, "__call__", class_new_class);
 	snow_define_method(klass, "__call__", class_new);
-	snow_define_property(klass, "name", class_name, NULL);
+	snow_define_property(klass, "__name__", class_get_name, class_set_name);
 	snow_define_property(klass, "instance_prototype", class_instance_prototype, NULL);
 }

@@ -11,6 +11,7 @@ typedef struct SnClass {
 	SnObject* instance_prototype;
 } SnClass;
 
+CAPI void snow_init_class_class(SnClass** class_class);
 CAPI SnClass* snow_create_class(const char* name);
 // convenience
 CAPI VALUE _snow_define_method(SnClass* klass, const char* name, SnFunctionPtr method, const char* function_name);

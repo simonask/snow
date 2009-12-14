@@ -51,8 +51,11 @@ void snow_init()
 	}
 	
 	// create all base classes
+	SnClass* class_class;
+	snow_init_class_class(&class_class);
+	basic_classes[SN_CLASS_TYPE] = class_class;
+	
 	basic_classes[SN_OBJECT_TYPE] = snow_create_class("Object");
-	basic_classes[SN_CLASS_TYPE] = snow_create_class("Class");
 	basic_classes[SN_CONTINUATION_TYPE] = snow_create_class("Continuation");
 	basic_classes[SN_CONTEXT_TYPE] = snow_create_class("Context");
 	basic_classes[SN_ARGUMENTS_TYPE] = snow_create_class("Arguments");
@@ -288,18 +291,20 @@ VALUE snow_call_va(VALUE self, VALUE closure, uintx num_args, va_list* ap)
 
 VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
 {
-	STACK_GUARD;
-	ASSERT(closure != NULL)
+	if (!snow_eval_truth(closure))
+	{
+		snow_throw_exception_with_description("Attempted to call nil.");
+	}
 	
 	SnSymbol call_sym = snow_symbol("__call__");
 	while (snow_typeof(closure) != SN_FUNCTION_TYPE)
 	{
 		self = closure;
 		closure = snow_get_member(closure, call_sym);
+		if (!closure) snow_throw_exception_with_description("Attempted to call nil.");
 	}
 	
 	SnFunction* func = (SnFunction*)closure;
-	ASSERT_TYPE(func, SN_FUNCTION_TYPE);
 	
 	// TODO: Proper context setup
 	SnContext* context = snow_create_context_for_function(func);
@@ -321,16 +326,16 @@ VALUE snow_call_method(VALUE self, SnSymbol member, uintx num_args, ...)
 	return ret;
 }
 
-VALUE snow_get_member_harmless(VALUE self, SnSymbol sym)
+VALUE snow_get_member(VALUE self, SnSymbol sym)
 {
 	SnObject* closest_object = get_closest_object(self);
 	return snow_object_get_member(closest_object, self, sym);
 }
 
-VALUE snow_get_member(VALUE self, SnSymbol sym)
+VALUE snow_get_member_for_method_call(VALUE self, SnSymbol sym)
 {
-	VALUE member = snow_get_member_harmless(self, sym);
-	if (!member) snow_throw_exception_with_description("Missing member: `%s'", snow_value_to_cstr(symbol_to_value(sym)));
+	VALUE member = snow_get_member(self, sym);
+	if (!member) snow_throw_exception_with_description("Cannot call missing member: %s on %s", snow_symbol_to_cstr(sym), snow_inspect_value(self));
 	return member;
 }
 
@@ -374,7 +379,7 @@ VALUE snow_set_global_from_context(SnSymbol name, VALUE val, SnContext* from)
 VALUE snow_get_unspecified_local_from_context(SnSymbol name, SnContext* from)
 {
 	if (from->self) {
-		VALUE member = snow_get_member_harmless(from->self, name);
+		VALUE member = snow_get_member(from->self, name);
 		if (member) return member;
 	}
 	return snow_context_local_missing(from, name);
@@ -428,9 +433,32 @@ const char* snow_value_to_cstr(VALUE val)
 	return snow_string_cstr(str);
 }
 
+const char* snow_inspect_value(VALUE val)
+{
+	static bool got_sym = false;
+	static SnSymbol inspect;
+	if (!got_sym)
+	{
+		inspect = snow_symbol("inspect");
+		got_sym = true;
+	}
+	
+	SnString* str = (SnString*)snow_call_method(val, inspect, 0);
+	ASSERT_TYPE(str, SN_STRING_TYPE);
+	return snow_string_cstr(str);
+}
+
 bool snow_eval_truth(VALUE val) {
 	// WARNING: This is explicitly inlined in codegens. If you change this, you must also change each codegen that inlines this.
 	return !(!val || val == SN_NIL || val == SN_FALSE);
+}
+
+bool snow_is_normal_object(VALUE val) {
+	if (is_object(val)) {
+		SnObjectType type = snow_typeof(val);
+		return type >= SN_NORMAL_OBJECT_TYPE_BASE && type < SN_NORMAL_OBJECT_TYPE_MAX;
+	}
+	return false;
 }
 
 int snow_compare_objects(VALUE a, VALUE b)
@@ -438,6 +466,34 @@ int snow_compare_objects(VALUE a, VALUE b)
 	VALUE n = snow_call_method(a, snow_symbol("<=>"), 1, b);
 	ASSERT(is_integer(n));
 	return value_to_int(n);
+}
+
+bool snow_is_object_assigned(VALUE val)
+{
+	if (snow_is_normal_object(val)) {
+		SnObject* object = (SnObject*)val;
+		return (object->flags & SN_FLAG_ASSIGNED) != 0;
+	}
+	return true;
+}
+
+VALUE snow_set_object_assigned(VALUE val, SnSymbol sym, VALUE member_of)
+{
+	if (!snow_is_object_assigned(val)) {
+		SnObject* object = (SnObject*)val;
+		object->flags |= SN_FLAG_ASSIGNED;
+		snow_call_method(object, snow_symbol("__on_assign__"), 2, symbol_to_value(sym), member_of);
+	}
+	return val;
+}
+
+VALUE snow_reset_object_assigned(VALUE val)
+{
+	if (snow_is_normal_object(val)) {
+		SnObject* object = (SnObject*)val;
+		object->flags &= ~SN_FLAG_ASSIGNED;
+	}
+	return val;
 }
 
 HIDDEN SnArray** _snow_store_ptr() {
