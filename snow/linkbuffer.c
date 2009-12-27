@@ -5,10 +5,14 @@
 
 SnLinkBuffer* snow_create_linkbuffer(uintx page_size) {
 	SnLinkBuffer* buf = (SnLinkBuffer*)snow_malloc(sizeof(SnLinkBuffer));
+	snow_init_linkbuffer(buf, page_size);
+	return buf;
+}
+
+void snow_init_linkbuffer(SnLinkBuffer* buf, uintx page_size) {
 	buf->page_size = page_size;
 	buf->head = NULL;
 	buf->tail = NULL;
-	return buf;
 }
 
 void snow_free_linkbuffer(SnLinkBuffer* buf) {
