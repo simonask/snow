@@ -336,8 +336,6 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			SnSymbol sym = value_to_symbol(vsym);
 			
 			SnAstNode* val = (SnAstNode*)node->children[1];
-			codegen_compile_node(cgx, val);
-			// result is in RAX now
 			
 			intx idx = snow_function_description_get_local_index(cgx->base.result, sym);
 			
@@ -345,6 +343,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			{
 				// local already exists in scope
 				// assign
+				codegen_compile_node(cgx, val);
+				// result is in RAX now
 				ASM(mov, R14, RDI);
 				ASM(mov_id, IMMEDIATE(idx), RSI);
 				ASM(mov, RAX, RDX);
@@ -357,6 +357,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				if (codegen_variable_reference((SnCodegen*)cgx, sym, &reference_index))
 				{
 					// yea, it's in static scope
+					codegen_compile_node(cgx, val);
+					// result is in RAX now
 					ASM(mov_rev, RDI, ADDRESS(R13, offsetof(SnContext, function)));
 					ASM(mov_id, reference_index, RSI);
 					ASM(mov, RAX, RDX);
@@ -368,7 +370,11 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 					if (cgx->base.parent)
 					{
 						// we have parents, so this isn't global scope, so create it
+						// It is important that snow_function_description_define_local is called before codegen_compile_node,
+						// in the case where what's being assigned references itself.
 						idx = snow_function_description_define_local(cgx->base.result, sym);
+						codegen_compile_node(cgx, val);
+						// result is in RAX now
 						ASSERT(idx >= 0);
 						ASM(mov, R14, RDI);
 						ASM(mov_id, IMMEDIATE(idx), RSI);
@@ -378,6 +384,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 					else
 					{
 						// we have no parents, so we are in global scope, so set that
+						codegen_compile_node(cgx, val);
+						// result is in RAX now
 						ASM(mov_id, IMMEDIATE(sym), RDI);
 						ASM(mov, RAX, RSI);
 						ASM(mov, R13, RDX);
