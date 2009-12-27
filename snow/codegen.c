@@ -60,14 +60,13 @@ bool codegen_variable_reference(SnCodegen* codegen, SnSymbol variable_name, uint
 	}
 	
 	// check parent codegens' lists of locals, and find the index
-	intx context_level = 1;
+	intx context_level = 0;
 	intx variable_index = -1; // -1 at the end means not found!
 	SnCodegen* cg = codegen;
 	while (cg)
 	{
 		variable_index = snow_function_description_get_local_index(cg->result, variable_name);
-		if (variable_index >= 0)
-			break;
+		if (variable_index >= 0) break;
 		cg = cg->parent;
 		++context_level;
 	}
@@ -81,6 +80,7 @@ bool codegen_variable_reference(SnCodegen* codegen, SnSymbol variable_name, uint
 	*out_reference_index = snow_function_description_add_variable_reference(codegen->result, context_level, variable_index);
 	ASSERT(array_size(&codegen->variable_reference_names) == *out_reference_index);
 	array_push(&codegen->variable_reference_names, vsym);
+	
 	return true;
 }
 

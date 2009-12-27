@@ -16,6 +16,7 @@ typedef struct SnLinkBuffer {
 } SnLinkBuffer;
 
 CAPI SnLinkBuffer* snow_create_linkbuffer(uintx page_size);
+CAPI void snow_init_linkbuffer(SnLinkBuffer*, uintx page_size);
 CAPI void snow_free_linkbuffer(SnLinkBuffer*);
 CAPI uintx snow_linkbuffer_size(SnLinkBuffer*);
 CAPI uintx snow_linkbuffer_push(SnLinkBuffer*, byte);

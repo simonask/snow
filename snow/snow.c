@@ -105,7 +105,8 @@ VALUE snow_eval(const char* str)
 
 VALUE snow_eval_in_context(const char* str, SnContext* context)
 {
-	SnAstNode* ast = snow_parse(str);
+	struct SnParserInfo info;
+	SnAstNode* ast = snow_parse(str, &info);
 	if (!ast) return NULL;
 	SnCodegen* cg = snow_create_codegen(ast, NULL); // parent is global scope
 	SnFunction* func = snow_codegen_compile(cg);
@@ -138,7 +139,7 @@ static void load_source(const char* file)
 	while (!feof(f))
 	{
 		n = fread(tmp, 1, 1024, f);
-		ASSERT(n < 1024);
+		ASSERT(n <= 1024);
 		snow_linkbuffer_push_data(buffer, tmp, n);
 	}
 	fclose(f);

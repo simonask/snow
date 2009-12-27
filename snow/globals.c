@@ -1,6 +1,7 @@
 #include "snow/globals.h"
 #include "snow/intern.h"
 #include "snow/snow.h"
+#include "snow/exception.h"
 #include <stdio.h>
 
 static inline void set_global(SnContext* ctx, SnSymbol name, VALUE val) {

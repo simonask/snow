@@ -3,13 +3,11 @@
 
 SNOW_FUNC(nil_to_string)
 {
-	ASSERT(SELF == SN_NIL);
 	return snow_create_string("");
 }
 
 SNOW_FUNC(nil_inspect)
 {
-	ASSERT(SELF == SN_NIL);
 	return snow_create_string("nil");
 }
 

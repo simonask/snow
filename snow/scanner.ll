@@ -37,9 +37,6 @@ do {                                                  \
 %x COMMENT
 
 %{
-//#define YY_USER_ACTION  yylloc->columns(yyleng);
-//%option prefix="snow_flex_"
-
 #include "snow/intern.h"
 
 SnLinkBuffer* string_buffer = NULL;
@@ -50,12 +47,22 @@ SnLinkBuffer* string_buffer = NULL;
 #define malloc snow_malloc
 #define free snow_free
 #define realloc snow_realloc
+
+#define YY_USER_ACTION \
+	do { \
+		yylloc->first_line = yylloc->last_line = yylineno; \
+		yylloc->first_column = yycolumn; \
+		yylloc->last_column = yycolumn + yyleng - 1; \
+		yycolumn += yyleng; \
+	} while (0);
 %}
 
 %% 
 
 %{
-//	yylloc->step();
+	yylloc = yylloc_param;
+	yylloc->first_line = yylloc->last_line = 1;
+	yylloc->first_column = yylloc->last_column = 1;
 	if (!string_buffer)
 		string_buffer = snow_create_linkbuffer(1024);
 %}
@@ -92,7 +99,7 @@ SnLinkBuffer* string_buffer = NULL;
 "/*"                                   { BEGIN(COMMENT); }
 <COMMENT>"*/"                          { BEGIN(INITIAL); }
 <COMMENT>[^\n\/\*]+                    { /* Do absolutely nothing. */ }
-<COMMENT>\n                            { /*yylloc.lines = yyleng; yylloc.lines++;*/ }
+<COMMENT>\n                            { yycolumn = 1; ++yylineno; }
 <COMMENT>.                             { /* Do absolutely nothing. */ }
 
                                        
@@ -121,8 +128,8 @@ xor                                    { return TOK_LOG_XOR; }
 not                                    { return TOK_LOG_NOT; }
 [_$@a-zA-Z][_$@a-zA-Z0-9]*\??          { yylval->symbol = snow_symbol(yytext); return TOK_IDENTIFIER; }
 ;                                      { return TOK_EOL; }
-\n                                     { /*yylloc->lines(yyleng); yylloc->step();*/ return TOK_EOL; }
-[ \t\r]                                { /*yylloc->step();  Eat whitespaces */ }
+\n                                     { yycolumn = 1; ++yylineno; return TOK_EOL; }
+[ \t\r]                                { /* Eat whitespaces */ }
 [.,\[\]{}():#]                         { return (int)(*yytext); }
 \|\||&&                                { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_FOURTH; }
 =|~=|>|<|>=|<=|==                      { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_THIRD; }

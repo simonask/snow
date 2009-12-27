@@ -336,8 +336,6 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			SnSymbol sym = value_to_symbol(vsym);
 			
 			SnAstNode* val = (SnAstNode*)node->children[1];
-			codegen_compile_node(cgx, val);
-			// result is in RAX now
 			
 			intx idx = snow_function_description_get_local_index(cgx->base.result, sym);
 			
@@ -345,6 +343,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			{
 				// local already exists in scope
 				// assign
+				codegen_compile_node(cgx, val);
+				// result is in RAX now
 				ASM(mov, R14, RDI);
 				ASM(mov_id, IMMEDIATE(idx), RSI);
 				ASM(mov, RAX, RDX);
@@ -357,6 +357,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				if (codegen_variable_reference((SnCodegen*)cgx, sym, &reference_index))
 				{
 					// yea, it's in static scope
+					codegen_compile_node(cgx, val);
+					// result is in RAX now
 					ASM(mov_rev, RDI, ADDRESS(R13, offsetof(SnContext, function)));
 					ASM(mov_id, reference_index, RSI);
 					ASM(mov, RAX, RDX);
@@ -368,7 +370,11 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 					if (cgx->base.parent)
 					{
 						// we have parents, so this isn't global scope, so create it
+						// It is important that snow_function_description_define_local is called before codegen_compile_node,
+						// in the case where what's being assigned references itself.
 						idx = snow_function_description_define_local(cgx->base.result, sym);
+						codegen_compile_node(cgx, val);
+						// result is in RAX now
 						ASSERT(idx >= 0);
 						ASM(mov, R14, RDI);
 						ASM(mov_id, IMMEDIATE(idx), RSI);
@@ -378,6 +384,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 					else
 					{
 						// we have no parents, so we are in global scope, so set that
+						codegen_compile_node(cgx, val);
+						// result is in RAX now
 						ASM(mov_id, IMMEDIATE(sym), RDI);
 						ASM(mov, RAX, RSI);
 						ASM(mov, R13, RDX);
@@ -570,10 +578,97 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			break;
 		}
 		case SN_AST_AND:
-		case SN_AST_OR:
-		case SN_AST_XOR:
-			TRAP(); // logical expressions not implemented yet
+		{
+			SnAstNode* left = (SnAstNode*)node->children[0];
+			SnAstNode* right = (SnAstNode*)node->children[1];
+			
+			intx left_save = RESERVE_TMP();
+			Label was_false = ASM(label);
+			
+			codegen_compile_node(cgx, left);
+			ASM(mov, RAX, TEMPORARY(left_save));
+			ASM(mov, RAX, RDI);
+			CALL(snow_eval_truth);
+			ASM(cmp_id, IMMEDIATE(0), RAX);
+			ASM(mov_rev, RAX, TEMPORARY(left_save));
+			FREE_TMP(left_save);
+			LabelRef jump_false = ASM(j, CC_EQUAL, &was_false);
+			codegen_compile_node(cgx, right);
+			ASM(bind, &was_false);
+			
+			ASM(link, &jump_false);
 			break;
+		}
+		case SN_AST_OR:
+		{
+			SnAstNode* left = (SnAstNode*)node->children[0];
+			SnAstNode* right = (SnAstNode*)node->children[1];
+			
+			intx left_save = RESERVE_TMP();
+			Label was_true = ASM(label);
+			
+			codegen_compile_node(cgx, left);
+			ASM(mov, RAX, TEMPORARY(left_save));
+			ASM(mov, RAX, RDI);
+			CALL(snow_eval_truth);
+			ASM(cmp_id, IMMEDIATE(0), RAX);
+			ASM(mov_rev, RAX, TEMPORARY(left_save));
+			FREE_TMP(left_save);
+			LabelRef jump_true = ASM(j, CC_NOT_EQUAL, &was_true);
+			codegen_compile_node(cgx, right);
+			ASM(bind, &was_true);
+			
+			ASM(link, &jump_true);
+			break;
+		}
+		case SN_AST_XOR:
+		{
+			SnAstNode* left = (SnAstNode*)node->children[0];
+			SnAstNode* right = (SnAstNode*)node->children[1];
+			
+			// TODO: Optimize this.
+			Label both_true_or_false = ASM(label);
+			Label left_true = ASM(label);
+			Label done = ASM(label);
+			intx left_save = RESERVE_TMP();
+			intx right_save = RESERVE_TMP();
+			intx right_truth_save = RESERVE_TMP();
+			codegen_compile_node(cgx, left);
+			ASM(mov, RAX, TEMPORARY(left_save));
+			codegen_compile_node(cgx, right);
+			ASM(mov, RAX, TEMPORARY(right_save));
+			ASM(mov, RAX, RDI);
+			CALL(snow_eval_truth);
+			ASM(mov, RAX, RBX); // RBX is preserved
+			ASM(mov_rev, RDI, TEMPORARY(left_save));
+			CALL(snow_eval_truth);
+			
+			// compare truthiness in RAX and RBX
+			ASM(cmp, RAX, RBX);
+			LabelRef both_ref = ASM(j, CC_EQUAL, &both_true_or_false);
+			
+			// find out which was true
+			ASM(cmp_id, IMMEDIATE(0), RAX);
+			LabelRef left_ref = ASM(j, CC_NOT_EQUAL, &left_true);
+			ASM(mov_rev, RAX, TEMPORARY(right_save));
+			LabelRef done_ref1 = ASM(jmp, &done);
+			
+			ASM(bind, &left_true);
+			ASM(mov_rev, RAX, TEMPORARY(left_save));
+			LabelRef done_ref2 = ASM(jmp, &done);
+			
+			ASM(bind, &both_true_or_false);
+			ASM(mov_id, IMMEDIATE(SN_FALSE), RAX);
+			
+			ASM(bind, &done);
+			
+			// link references
+			ASM(link, &both_ref);
+			ASM(link, &left_ref);
+			ASM(link, &done_ref1);
+			ASM(link, &done_ref2);
+			break;
+		}
 		case SN_AST_NOT:
 		{
 			Label if_false = ASM(label);

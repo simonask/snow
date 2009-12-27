@@ -131,7 +131,7 @@ VALUE snow_context_local_missing(SnContext* ctx, SnSymbol name)
 {
 	SnObject* func = ctx->function;
 	if (!func) func = snow_get_prototype(SN_FUNCTION_TYPE);
-	return snow_call_method(func, snow_symbol("local_missing"), 2, ctx->self, symbol_to_value(name));
+	return snow_call_method(func, snow_symbol("local_missing"), 2, symbol_to_value(name), ctx->self);
 }
 
 void init_context_class(SnClass* klass)

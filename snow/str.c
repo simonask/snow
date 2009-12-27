@@ -160,9 +160,10 @@ SNOW_FUNC(string_concatenate)
 	ASSERT_TYPE(SELF, SN_STRING_TYPE);
 	REQUIRE_ARGS(1);
 	SnString* self = (SnString*)SELF;
-	SnString* other = (SnString*)ARGS[0];
-	ASSERT_TYPE(other, SN_STRING_TYPE);
-	return snow_string_concatenate(self, other);
+	VALUE other = (SnString*)ARGS[0];
+	SnString* other_str = (SnString*)(snow_typeof(other) == SN_STRING_TYPE ? other : snow_call_method(other, snow_symbol("to_string"), 0));
+	ASSERT_TYPE(other_str, SN_STRING_TYPE);
+	return snow_string_concatenate(self, other_str);
 }
 
 void init_string_class(SnClass* klass)

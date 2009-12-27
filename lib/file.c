@@ -22,6 +22,15 @@ static void file_free(void* _ptr)
 	if (ptr) fclose(ptr);
 }
 
+static VALUE create_object_for_global_file_pointer(FILE* fp, SnClass* file_class)
+{
+	VALUE object = snow_create_object(file_class->instance_prototype);
+	// will not attempt to close this file!
+	SnPointer* pointer = snow_create_pointer(fp, NULL);
+	snow_set_member(object, snow_symbol("_fp"), pointer);
+	return object;
+}
+
 SNOW_FUNC(file_initialize) {
 	REQUIRE_ARGS(1);
 	SnString* mode = NULL;
@@ -103,19 +112,40 @@ SNOW_FUNC(file_read_bytes) {
 	return SN_NIL;
 }
 
-SNOW_FUNC(file_write) {
-	// TODO: Expand with support for byte arrays
-	REQUIRE_ARGS(1);
-	ASSERT_TYPE(ARGS[0], SN_STRING_TYPE);
-	SnPointer* pointer = GET_FP(SELF);
-	FILE* fp = snow_pointer_get_pointer(pointer);
-	if (fp) {
-		SnString* str = (SnString*)ARGS[0];
-		size_t len = snow_string_length(str);
+static inline size_t file_write_string(FILE* fp, SnString* str) {
+	size_t len = snow_string_length(str);
+	if (len) {
 		const char* data = snow_string_cstr(str);
 		size_t n = fwrite(data, 1, len, fp);
 		if (!n) throw_errno();
+		return n;
+	}
+	return 0;
+}
+
+SNOW_FUNC(file_write) {
+	// TODO: Expand with support for byte arrays
+	REQUIRE_ARGS(1);
+	SnString* str = (SnString*)snow_call_method(ARGS[0], snow_symbol("to_string"), 0);
+	ASSERT_TYPE(str, SN_STRING_TYPE);
+	SnPointer* pointer = GET_FP(SELF);
+	FILE* fp = snow_pointer_get_pointer(pointer);
+	if (fp) {
+		size_t n = file_write_string(fp, str);
 		return int_to_value(n);
+	}
+	return SN_NIL;
+}
+
+SNOW_FUNC(file_stream_write) {
+	REQUIRE_ARGS(1);
+	SnString* str = (SnString*)snow_call_method(ARGS[0], snow_symbol("to_string"), 0);
+	ASSERT_TYPE(str, SN_STRING_TYPE);
+	SnPointer* pointer = GET_FP(SELF);
+	FILE* fp = snow_pointer_get_pointer(pointer);
+	if (fp) {
+		size_t n = file_write_string(fp, str);
+		return SELF;
 	}
 	return SN_NIL;
 }
@@ -141,7 +171,12 @@ static void file_init(SnContext* global_context)
 	snow_define_method(File, "read", file_read);
 	snow_define_method(File, "read_bytes", file_read_bytes);
 	snow_define_method(File, "write", file_write);
+	snow_define_method(File, "<<", file_stream_write);
 	snow_define_method(File, "flush", file_flush);
+	
+	snow_set_member(File, snow_symbol("stdout"), create_object_for_global_file_pointer(stdout, File));
+	snow_set_member(File, snow_symbol("stderr"), create_object_for_global_file_pointer(stderr, File));
+	snow_set_member(File, snow_symbol("stdin"), create_object_for_global_file_pointer(stdin, File));
 	
 	snow_set_global(snow_symbol("File"), File);
 }
