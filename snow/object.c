@@ -165,7 +165,7 @@ SNOW_FUNC(object_on_assign) {
 	SnObject* self = (SnObject*)SELF;
 	VALUE vname = ARGS[0];
 	ASSERT(is_symbol(vname));
-	VALUE member_of = ARGS[1]; // TODO: Use this for something?
+	VALUE member_of = NUM_ARGS > 1 ? ARGS[1] : NULL; // TODO: Use this for something?
 	snow_object_set_member(self, self, snow_symbol("__name__"), vname);
 	return SELF;
 }
@@ -173,6 +173,7 @@ SNOW_FUNC(object_on_assign) {
 void init_object_class(SnClass* klass)
 {
 	snow_define_method(klass, "inspect", object_inspect);
+	snow_define_method(klass, "to_string", object_inspect);
 	snow_define_method(klass, "object_eval", object_eval);
 	snow_define_method(klass, "=", object_equals);
 	snow_define_method(klass, "!=", object_not_equals);

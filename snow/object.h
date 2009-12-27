@@ -61,7 +61,7 @@ typedef struct SnObject
 
 typedef enum SnObjectFlags
 {
-	SN_FLAG_ASSIGNED = 1,
+	SN_FLAG_ASSIGNED = 1
 } SnObjectFlags;
 
 CAPI SnObjectBase* snow_alloc_any_object(SnObjectType type, uintx size);
