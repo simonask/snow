@@ -51,9 +51,7 @@
 #define YYERROR_VERBOSE
 #endif
 
-#define YYASSERT ASSERT
-
-SnAstNode* snow_parse(const char* buf)
+SnAstNode* snow_parse(const char* buf, struct SnParserInfo* out_info)
 {
 	SnParserState state;
 	state.buf = buf;
@@ -61,6 +59,7 @@ SnAstNode* snow_parse(const char* buf)
 	state.len = strlen(buf);
 	state.streamname = "<TODO>";
 	state.result = NULL;
+	state.info = out_info;
 	
 	yylex_init(&state.yyscanner);
 	yyset_extra(&state, state.yyscanner);
@@ -70,12 +69,12 @@ SnAstNode* snow_parse(const char* buf)
 	
 	if (root) {
 		ASSERT(root->base.type == SN_AST_TYPE && root->type == SN_AST_FUNCTION);
-		return root;
 	}
+	return root;
 }
 
 void yyerror(struct YYLTYPE* yylocp, YY_EXTRA_TYPE state, void* scanner, const char* yymsg) {
-	snow_throw_exception_with_description("Parser error: %s", yymsg);
+	snow_throw_exception_with_description("Parser error in '%s' at line %d:%d: %s", state->streamname, yylocp->first_line, yylocp->first_column, yymsg);
 }
 
 %}
@@ -167,11 +166,11 @@ parameters: '[' ']'                                        { $$ = NULL; }
           | '[' parameter_list ']'                         { $$ = $2; }
           ;
 
-naked_closure: scope                                       { $$ = snow_ast_function("<unnamed>", state->streamname, NULL, $1); }
+naked_closure: scope                                       { ++state->info->num_functions; $$ = snow_ast_function("<unnamed>", state->streamname, NULL, $1); }
              ;
 
 closure: naked_closure
-       | parameters scope                                  { $$ = snow_ast_function("<unnamed>", state->streamname, $1, $2); }
+       | parameters scope                                  { ++state->info->num_functions; $$ = snow_ast_function("<unnamed>", state->streamname, $1, $2); }
        ;
 
 symbol:     '#' identifier                                 { $$ = symbol_to_value($2); }
@@ -189,8 +188,8 @@ string_literal: string_data
             ;
 
 function_call: atomic_expr arguments                        { $$ = snow_ast_call($1, $2); }
-             | atomic_expr arguments closure                { snow_ast_sequence_push($2, $3); $$ = snow_ast_call($1, $2); }
-             | atomic_non_index_expr closure                          { $$ = snow_ast_call($1, snow_ast_sequence(1, $2)); }
+             | atomic_expr arguments closure %dprec 2       { snow_ast_sequence_push($2, $3); $$ = snow_ast_call($1, $2); }
+             | atomic_non_index_expr closure %dprec 1       { $$ = snow_ast_call($1, snow_ast_sequence(1, $2)); }
              ;
 
 assignment: identifier ':' expression                       { $$ = snow_ast_local_assign($1, $3); }

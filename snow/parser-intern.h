@@ -11,6 +11,7 @@ typedef struct SnParserState {
 	int len;
 	SnAstNode* result;
 	const char* streamname;
+	SnParserInfo* info;
 } SnParserState;
 
 typedef union SnTokenValue {
@@ -22,9 +23,33 @@ typedef union SnTokenValue {
 
 #define YYSTYPE SnTokenValue
 #define YY_EXTRA_TYPE SnParserState*
-struct YYLTYPE;
 #define YYMALLOC snow_malloc
 #define YYFREE snow_free
+#define YYASSERT ASSERT
+
+typedef struct YYLTYPE {
+  int first_line;
+  int first_column;
+  int last_line;
+  int last_column;
+  char *filename;
+} YYLTYPE;
+# define YYLTYPE_IS_DECLARED 1
+
+#define YYLOC_DEFAULT(CURRENT, RHS, N) \
+	do { \
+		if (N) { \
+			(CURRENT).first_line = YYRHSLOC(RHS, 1).first_line; \
+			(CURRENT).first_column = YYRHSLOC(RHS, 1).first_column; \
+			(CURRENT).last_line = YYRHSLOC(RHS, N).last_line; \
+			(CURRENT).last_column = YYRHSLOC(RHS, N).last_column; \
+			(CURRENT).filename = YYRHSLOC(RHS, 1).filename; \
+		} else { \
+			(CURRENT).first_line = (CURRENT).last_line = YYRHSLOC(RHS, 0).last_line; \
+			(CURRENT).first_column = (CURRENT).last_column = YYRHSLOC(RHS, 0).last_column; \
+			(CURRENT).filename = NULL; \
+		} \
+	} while (0)
 
 HIDDEN int yylex(YYSTYPE*, struct YYLTYPE*, void*);
 HIDDEN int yylex_init(void**);

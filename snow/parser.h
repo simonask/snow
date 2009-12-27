@@ -4,6 +4,10 @@
 #include "snow/basic.h"
 #include "snow/ast.h"
 
-CAPI SnAstNode* snow_parse(const char* buffer);
+typedef struct SnParserInfo {
+	uintx num_functions;
+} SnParserInfo;
+
+CAPI SnAstNode* snow_parse(const char* buffer, struct SnParserInfo* out_info);
 
 #endif /* end of include guard: PARSER_H_R3XQLOW1 */
