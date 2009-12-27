@@ -80,7 +80,7 @@ static inline SnObjectType snow_typeof(VALUE val)
 {
 	if (is_object(val)) return ((SnObjectBase*)val)->type;
 	if (is_integer(val)) return SN_INTEGER_TYPE;
-	if (is_nil(val)) return SN_NIL_TYPE;
+	if (is_nil(val) || !val) return SN_NIL_TYPE;
 	if (is_boolean(val)) return SN_BOOLEAN_TYPE;
 	if (is_symbol(val)) return SN_SYMBOL_TYPE;
 	if (is_float(val)) return SN_FLOAT_TYPE;
