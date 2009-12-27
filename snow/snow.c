@@ -139,7 +139,7 @@ static void load_source(const char* file)
 	while (!feof(f))
 	{
 		n = fread(tmp, 1, 1024, f);
-		ASSERT(n < 1024);
+		ASSERT(n <= 1024);
 		snow_linkbuffer_push_data(buffer, tmp, n);
 	}
 	fclose(f);
