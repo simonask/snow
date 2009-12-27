@@ -76,11 +76,9 @@ SnFunction* snow_create_function_from_description(SnFunctionDescription* desc)
 static inline SnContext* context_at_level(SnContext* level1, uint32_t level)
 {
 	SnContext* ctx = level1;
-	while (level > 1)
-	{
+	for (uint32_t i = 1; i < level; ++i) {
 		ASSERT(ctx); // wtf? trying to get a context deeper than the static tree of contexts?
-		ctx = ctx->static_parent;
-		--level;
+		ctx = ctx->function->declaration_context;
 	}
 	return ctx;
 }
@@ -98,11 +96,9 @@ void snow_function_declared_in_context(SnFunction* func, SnContext* context)
 	for (uint16_t i = 0; i < func->desc->num_variable_reference_descriptions; ++i)
 	{
 		uint32_t level = func->desc->variable_reference_descriptions[i].context_level;
-		if (level != 0) // ignore references to own context
-		{
-			func->variable_references[i].context = context_at_level(context, level);
-			func->variable_references[i].variable_index = func->desc->variable_reference_descriptions[i].variable_index;
-		}
+		ASSERT(level != 0); // cannot deal with references to own context, since that context doesn't exist yet.
+		func->variable_references[i].context = context_at_level(context, level);
+		func->variable_references[i].variable_index = func->desc->variable_reference_descriptions[i].variable_index;
 	}
 }
 
@@ -110,7 +106,9 @@ VALUE snow_function_get_referenced_variable(SnFunction* func, uint32_t idx)
 {
 	ASSERT(idx < func->num_variable_references);
 	SnArray* ar = func->variable_references[idx].context->locals;
-	return snow_array_get(ar, func->variable_references[idx].variable_index);
+	VALUE var = snow_array_get(ar, func->variable_references[idx].variable_index);
+	ASSERT(var != NULL);
+	return var;
 }
 
 VALUE snow_function_set_referenced_variable(SnFunction* func, uint32_t idx, VALUE val)
