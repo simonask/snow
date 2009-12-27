@@ -182,9 +182,9 @@ VALUE snow_function_callcc(SnFunction* func, SnContext* context)
 
 SNOW_FUNC(function_local_missing) {
 	REQUIRE_ARGS(2);
-	ASSERT_TYPE(ARGS[1], SN_SYMBOL_TYPE);
-	VALUE self = ARGS[0];
-	SnSymbol sym = value_to_symbol(ARGS[1]);
+	ASSERT_TYPE(ARGS[0], SN_SYMBOL_TYPE);
+	VALUE self = ARGS[1];
+	SnSymbol sym = value_to_symbol(ARGS[0]);
 	VALUE member = NULL;
 	
 	if (self)
@@ -200,10 +200,18 @@ SNOW_FUNC(function_local_missing) {
 	return NULL;
 }
 
+SNOW_FUNC(function_call_with_self) {
+	REQUIRE_ARGS(1);
+	VALUE self = ARGS[0];
+	VALUE closure = SELF;
+	
+}
+
 
 void init_function_class(SnClass* klass)
 {
 	snow_define_method(klass, "local_missing", function_local_missing);
+	snow_define_method(klass, "call_with_self", function_call_with_self);
 }
 
 void init_function_description_class(SnClass* klass)
