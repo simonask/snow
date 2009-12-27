@@ -5,7 +5,6 @@
 #include "snow/lock.h"
 
 struct fixed_alloc_t {
-	// TODO: Mutex lock
 	uintx page_size;
 	void* free_element;
 	SnLock lock;
