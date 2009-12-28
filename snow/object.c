@@ -170,11 +170,21 @@ SNOW_FUNC(object_on_assign) {
 	return SELF;
 }
 
+SNOW_FUNC(object_is_a) {
+	REQUIRE_ARGS(1);
+	SnClass* klass = (SnClass*)ARGS[0];
+	ASSERT_TYPE(klass, SN_CLASS_TYPE); // must specify a class object
+	SnObject* proto = klass->instance_prototype;
+	return boolean_to_value(snow_prototype_chain_contains(SELF, proto));
+}
+
 void init_object_class(SnClass* klass)
 {
 	snow_define_method(klass, "inspect", object_inspect);
 	snow_define_method(klass, "to_string", object_inspect);
 	snow_define_method(klass, "object_eval", object_eval);
+	snow_define_method(klass, "is_a?", object_is_a);
+	snow_define_method(klass, "is_an?", object_is_a);
 	snow_define_method(klass, "=", object_equals);
 	snow_define_method(klass, "!=", object_not_equals);
 	snow_define_property(klass, "name", object_name, NULL);

@@ -67,7 +67,61 @@ VALUE snow_arguments_get_by_name(SnArguments* args, SnSymbol name)
 	return SN_NIL;
 }
 
+SNOW_FUNC(arguments_any) {
+	ASSERT_TYPE(SELF, SN_ARGUMENTS_TYPE);
+	SnArguments* args = (SnArguments*)SELF;
+	return boolean_to_value(array_size(DATA) > 0);
+}
+
+SNOW_FUNC(arguments_unnamed) {
+	ASSERT_TYPE(SELF, SN_ARGUMENTS_TYPE);
+	SnArguments* args = (SnArguments*)SELF;
+	SnArray* result = snow_create_array_with_size(array_size(DATA));
+	for (size_t i = 0; i < array_size(DATA); ++i) {
+		VALUE name = array_get(NAMES, i);
+		VALUE val = array_get(DATA, i);
+		if (name == SN_NIL) {
+			snow_array_push(result, val);
+		}
+	}
+	return result;
+}
+
+SNOW_FUNC(arguments_detect) {
+	REQUIRE_ARGS(1);
+	ASSERT_TYPE(SELF, SN_ARGUMENTS_TYPE);
+	SnArguments* args = (SnArguments*)SELF;
+	VALUE closure = ARGS[0];
+	for (size_t i = 0; i < array_size(DATA); ++i) {
+		VALUE x = array_get(DATA, i);
+		if (snow_eval_truth(snow_call(NULL, closure, 1, x))) {
+			return x;
+		}
+	}
+	return SN_NIL;
+}
+
+SNOW_FUNC(arguments_map_pairs) {
+	REQUIRE_ARGS(1);
+	ASSERT_TYPE(SELF, SN_ARGUMENTS_TYPE);
+	SnArguments* args = (SnArguments*)SELF;
+	VALUE closure = ARGS[0];
+	SnArray* result = snow_create_array_with_size(array_size(NAMES));
+	for (size_t i = 0; i < array_size(NAMES); ++i) {
+		VALUE name = array_get(NAMES, i);
+		VALUE val = array_get(DATA, i);
+		if (name != SN_NIL) {
+			VALUE x = snow_call(NULL, closure, 2, name, val);
+			snow_array_push(result, x);
+		}
+	}
+	return result;
+}
+
 void init_arguments_class(SnClass* klass)
 {
-	// TODO
+	snow_define_property(klass, "any?", arguments_any, NULL);
+	snow_define_property(klass, "unnamed", arguments_unnamed, NULL);
+	snow_define_method(klass, "detect", arguments_detect);
+	snow_define_method(klass, "map_pairs", arguments_map_pairs);
 }

@@ -291,6 +291,12 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			break;
 		}
 		
+		case SN_AST_CURRENT_SCOPE:
+		{
+			ASM(mov, R13, RAX);
+			break;
+		}
+		
 		case SN_AST_LOCAL:
 		{
 			VALUE vsym = node->children[0];
@@ -412,7 +418,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			codegen_compile_node(cgx, self);
 			ASM(mov, RAX, RDI);
 			ASM(mov_id, IMMEDIATE(value_to_symbol(vsym)), RSI);
-			CALL(snow_get_member);
+			CALL(snow_get_member_with_fallback);
 			break;
 		}
 		

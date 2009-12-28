@@ -126,7 +126,8 @@ and                                    { return TOK_LOG_AND; }
 or                                     { return TOK_LOG_OR; }
 xor                                    { return TOK_LOG_XOR; }
 not                                    { return TOK_LOG_NOT; }
-[_$@a-zA-Z][_$@a-zA-Z0-9]*\??          { yylval->symbol = snow_symbol(yytext); return TOK_IDENTIFIER; }
+[_@a-zA-Z][_$@a-zA-Z0-9]*\??           { yylval->symbol = snow_symbol(yytext); return TOK_IDENTIFIER; }
+\$                                     { yylval->node = snow_ast_current_scope(); return TOK_CURRENT_SCOPE; }
 ;                                      { return TOK_EOL; }
 \n                                     { yycolumn = 1; ++yylineno; return TOK_EOL; }
 [ \t\r]                                { /* Eat whitespaces */ }
