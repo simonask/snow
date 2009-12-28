@@ -307,7 +307,6 @@ VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
 	
 	SnFunction* func = (SnFunction*)closure;
 	
-	// TODO: Proper context setup
 	SnContext* context = snow_create_context_for_function(func);
 	context->self = self;
 	context->args = args;
@@ -330,25 +329,38 @@ VALUE snow_call_method(VALUE self, SnSymbol member, uintx num_args, ...)
 VALUE snow_get_member(VALUE self, SnSymbol sym)
 {
 	SnObject* closest_object = get_closest_object(self);
-	return snow_object_get_member(closest_object, self, sym);
+	VALUE member = snow_object_get_member(closest_object, self, sym);
+	return member;
+}
+
+VALUE snow_get_member_with_fallback(VALUE self, SnSymbol sym)
+{
+	SnObject* closest_object = get_closest_object(self);
+	VALUE member = snow_object_get_member(closest_object, self, sym);
+	if (!member) {
+		VALUE member_missing = snow_object_get_member(closest_object, self, snow_symbol("member_missing"));
+		if (member_missing) {
+			member = snow_call(self, member_missing, 1, symbol_to_value(sym));
+			if (member == SN_NIL) member = NULL;
+		}
+	}
+	return member;
 }
 
 VALUE snow_get_member_for_method_call(VALUE self, SnSymbol sym)
 {
-	VALUE member = snow_get_member(self, sym);
+	VALUE member = snow_get_member_with_fallback(self, sym);
 	if (!member) snow_throw_exception_with_description("Cannot call missing member: %s on %s", snow_symbol_to_cstr(sym), snow_inspect_value(self));
 	return member;
 }
 
 VALUE snow_set_member(VALUE self, SnSymbol sym, VALUE val)
 {
-	// TODO: Properties
 	ASSERT(is_object(self));
 	SnObject* object = (SnObject*)self;
-	//ASSERT(object->base.type == SN_OBJECT_TYPE);	// TODO: A predictable way to discern if an object type is derived from SnObject or SnObjectBase directly.
+	ASSERT(snow_is_normal_object(object));
 	return snow_object_set_member(object, self, sym, val);
 }
-
 
 VALUE snow_get_global(SnSymbol name)
 {
@@ -379,10 +391,15 @@ VALUE snow_set_global_from_context(SnSymbol name, VALUE val, SnContext* from)
 
 VALUE snow_get_unspecified_local_from_context(SnSymbol name, SnContext* from)
 {
+	VALUE member = NULL;
 	if (from->self) {
-		VALUE member = snow_get_member(from->self, name);
+		member = snow_get_member(from->self, name);
 		if (member) return member;
 	}
+	
+	member = snow_get_global(name);
+	if (member) return member;
+	
 	return snow_context_local_missing(from, name);
 }
 
