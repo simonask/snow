@@ -1,0 +1,61 @@
+require('lib/class')
+require('lib/file')
+
+XmlBuilder: class {
+	.initialize: [outstream] {
+		.out: outstream or File.stdout
+	}
+	
+	.build: [root_name, root_closure] {
+		builder: self
+		make_tag_emitter: [name] {
+			{
+				builder.out << "<" << name
+				args: $.arguments
+				if args.any?
+					attributes: args.map_pairs [key, value] { key.to_string() + "=\"" + value + '"' }.join(' ')
+					builder.out << " " << attributes if attributes.length > 0
+				end
+				
+				unnamed_args: args.unnamed
+				
+				body: unnamed_args.detect { it.is_a?(Function) }
+				
+				if unnamed_args.any?
+					builder.out << ">"
+					unnamed_args.each {
+						if it.is_a?(Function)
+							it.local_missing: make_tag_emitter
+							builder.out << it()
+						else
+							builder.out << it.to_string()
+						end
+					}
+					builder.out << "</" << name << ">"
+				else
+					builder.out << " />"
+				end
+				nil
+			}
+		}
+		
+		make_tag_emitter(root_name)(root_closure)
+		nil
+	}
+}
+
+xml: XmlBuilder()
+xml.build(#html) {
+	head {
+		title("muh")
+		meta(name: "Content-Type", content: "Fucking Lol")
+	}
+	body {
+		div(class: #body) {
+			h1("Goddag")
+			p("hejsa")
+			p("lol")
+			p { "damn, woman!" }
+		}
+	}
+}
