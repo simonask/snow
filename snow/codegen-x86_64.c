@@ -291,6 +291,12 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			break;
 		}
 		
+		case SN_AST_CURRENT_SCOPE:
+		{
+			ASM(mov, R13, RAX);
+			break;
+		}
+		
 		case SN_AST_LOCAL:
 		{
 			VALUE vsym = node->children[0];

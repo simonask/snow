@@ -17,6 +17,7 @@ typedef enum SnAstNodeType {
 	SN_AST_BREAK,
 	SN_AST_CONTINUE,
 	SN_AST_SELF,
+	SN_AST_CURRENT_SCOPE,
 	SN_AST_LOCAL,
 	SN_AST_MEMBER,
 	SN_AST_LOCAL_ASSIGNMENT,
@@ -45,6 +46,7 @@ CAPI SnAstNode* snow_ast_return(SnAstNode* node);
 CAPI SnAstNode* snow_ast_break();
 CAPI SnAstNode* snow_ast_continue();
 CAPI SnAstNode* snow_ast_self();
+CAPI SnAstNode* snow_ast_current_scope();
 CAPI SnAstNode* snow_ast_local(SnSymbol sym);
 CAPI SnAstNode* snow_ast_member(SnAstNode* self, SnSymbol member);
 CAPI SnAstNode* snow_ast_local_assign(SnSymbol sym, SnAstNode* node);

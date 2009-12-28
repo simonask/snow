@@ -134,7 +134,18 @@ VALUE snow_context_local_missing(SnContext* ctx, SnSymbol name)
 	return snow_call_method(func, snow_symbol("local_missing"), 2, symbol_to_value(name), ctx->self);
 }
 
+SNOW_FUNC(context_get_function) {
+	ASSERT_TYPE(SELF, SN_CONTEXT_TYPE);
+	return ((SnContext*)SELF)->function;
+}
+
+SNOW_FUNC(context_get_arguments) {
+	ASSERT_TYPE(SELF, SN_CONTEXT_TYPE);
+	return ((SnContext*)SELF)->args;
+}
+
 void init_context_class(SnClass* klass)
 {
-	
+	snow_define_property(klass, "function", context_get_function, NULL);
+	snow_define_property(klass, "arguments", context_get_arguments, NULL);
 }

@@ -17,7 +17,7 @@
 
 %token TOK_EOF 0 "end of file"
 
-%left <node> TOK_END TOK_RETURN TOK_BREAK TOK_CONTINUE TOK_SELF
+%left <node> TOK_END TOK_RETURN TOK_BREAK TOK_CONTINUE TOK_SELF TOK_CURRENT_SCOPE
 %left <value> TOK_INTEGER TOK_FLOAT TOK_STRING TOK_TRUE TOK_FALSE TOK_NIL
 %left <symbol> TOK_IDENTIFIER
 %left <symbol> TOK_OPERATOR_FOURTH
@@ -137,7 +137,7 @@ identifier: TOK_IDENTIFIER                                  { /* TODO: register 
 local: identifier                                           { $$ = snow_ast_local($1); }
      ;
 
-non_index_variable: local | member | TOK_SELF;
+non_index_variable: local | member | TOK_SELF | TOK_CURRENT_SCOPE;
 
 index_variable: atomic_expr index_arguments              { $$ = snow_ast_call(snow_ast_member($1, snow_symbol("[]")), $2); }
               ;

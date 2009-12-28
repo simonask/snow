@@ -13,6 +13,7 @@ static uintx ast_size[] = {
 	0, //SN_AST_BREAK,
 	0, //SN_AST_CONTINUE,
 	0, //SN_AST_SELF,
+	0, //SN_AST_CURRENT_SCOPE,
 	1, //SN_AST_LOCAL,
 	3, //SN_AST_MEMBER,
 	2, //SN_AST_LOCAL_ASSIGNMENT,
@@ -78,6 +79,7 @@ SnAstNode* snow_ast_return(SnAstNode* node) {
 SnAstNode* snow_ast_break() { return create_ast_node(SN_AST_BREAK); }
 SnAstNode* snow_ast_continue() { return create_ast_node(SN_AST_CONTINUE); }
 SnAstNode* snow_ast_self() { return create_ast_node(SN_AST_SELF); }
+SnAstNode* snow_ast_current_scope() { return create_ast_node(SN_AST_CURRENT_SCOPE); }
 SnAstNode* snow_ast_local(SnSymbol sym) { return create_ast_node(SN_AST_LOCAL, symbol_to_value(sym)); }
 SnAstNode* snow_ast_member(SnAstNode* self, SnSymbol member) { return create_ast_node(SN_AST_MEMBER, self, symbol_to_value(member)); }
 SnAstNode* snow_ast_local_assign(SnSymbol sym, SnAstNode* node) { return create_ast_node(SN_AST_LOCAL_ASSIGNMENT, symbol_to_value(sym), node); }

@@ -106,6 +106,11 @@ SNOW_FUNC(_array_length) {
 	return int_to_value(snow_array_size((SnArray*)SELF));
 }
 
+SNOW_FUNC(_array_any) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	return boolean_to_value(snow_array_size((SnArray*)SELF) > 0);
+}
+
 SNOW_FUNC(_array_inspect) {
 	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
 	SnArray* array = (SnArray*)SELF;
@@ -264,6 +269,36 @@ SNOW_FUNC(_array_inject) {
 	return SN_NIL;
 }
 
+SNOW_FUNC(_array_detect) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(1);
+	SnArray* array = (SnArray*)SELF;
+	VALUE closure = ARGS[0];
+	
+	for (size_t i = 0; i < snow_array_size(array); ++i) {
+		VALUE x = snow_array_get(array, i);
+		if (snow_eval_truth(snow_call(NULL, closure, 1, x)))
+			return x;
+	}
+	return SN_NIL;
+}
+
+SNOW_FUNC(_array_join) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	SnArray* array = (SnArray*)SELF;
+	SnString* separator = NUM_ARGS > 0 ? (SnString*)snow_call_method(ARGS[0], snow_symbol("to_string"), 0) : NULL;
+	if (separator) { ASSERT_TYPE(separator, SN_STRING_TYPE); }
+	SnString* result = snow_create_string("");
+	for (size_t i = 0; i < snow_array_size(array); ++i) {
+		SnString* converted = (SnString*)snow_call_method(snow_array_get(array, i), snow_symbol("to_string"), 0);
+		ASSERT_TYPE(converted, SN_STRING_TYPE);
+		result = snow_string_concatenate(result, converted);
+		if (i < snow_array_size(array)-1 && separator)
+			result = snow_string_concatenate(result, separator);
+	}
+	return result;
+}
+
 void init_array_class(SnClass* klass)
 {
 	snow_define_class_method(klass, "__call__", _array_new);
@@ -283,6 +318,9 @@ void init_array_class(SnClass* klass)
 	snow_define_method(klass, "select", _array_select);
 	snow_define_method(klass, "reject", _array_reject);
 	snow_define_method(klass, "inject", _array_inject);
+	snow_define_method(klass, "detect", _array_detect);
+	snow_define_method(klass, "join", _array_join);
 	
 	snow_define_property(klass, "length", _array_length, NULL);
+	snow_define_property(klass, "any?", _array_any, NULL);
 }
