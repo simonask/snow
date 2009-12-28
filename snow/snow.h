@@ -37,6 +37,7 @@ CAPI const char* snow_value_to_cstr(VALUE val);
 CAPI const char* snow_inspect_value(VALUE val);
 CAPI bool snow_eval_truth(VALUE val)                                                     ATTR_HOT;
 CAPI bool snow_is_normal_object(VALUE val) /* only true for derivates of SnObject */     ATTR_HOT;
+CAPI bool snow_prototype_chain_contains(VALUE val, SnObject* proto);
 CAPI int snow_compare_objects(VALUE a, VALUE b)                                          ATTR_HOT;
 CAPI bool snow_is_object_assigned(VALUE obj)                                             ATTR_HOT;
 CAPI VALUE snow_set_object_assigned(VALUE obj, SnSymbol assigned_name, VALUE member_of)  ATTR_HOT;

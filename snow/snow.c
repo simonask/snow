@@ -462,6 +462,17 @@ bool snow_is_normal_object(VALUE val) {
 	return false;
 }
 
+bool snow_prototype_chain_contains(VALUE val, SnObject* proto) {
+	SnObject* closest_object = get_closest_object(val);
+	SnObject* obj = closest_object;
+	while (obj != NULL) {
+		ASSERT(snow_is_normal_object(obj));
+		if (obj == proto) return true;
+		obj = obj->prototype;
+	}
+	return false;
+}
+
 int snow_compare_objects(VALUE a, VALUE b)
 {
 	VALUE n = snow_call_method(a, snow_symbol("<=>"), 1, b);
