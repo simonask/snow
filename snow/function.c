@@ -196,7 +196,7 @@ SNOW_FUNC(function_local_missing) {
 	member = snow_get_global(sym);
 	if (member) return member;
 	
-	snow_throw_exception_with_description("Local missing: `%s'", snow_value_to_cstr(ARGS[1]));
+	snow_throw_exception_with_description("Local missing: `%s'", snow_symbol_to_cstr(sym));
 	return NULL;
 }
 
