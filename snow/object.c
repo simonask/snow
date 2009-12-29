@@ -149,6 +149,14 @@ SNOW_FUNC(object_name) {
 	return snow_get_member(SELF, snow_symbol("__name__"));
 }
 
+SNOW_FUNC(object_prototype) {
+	if (snow_is_normal_object(SELF)) {
+		SnObject* self = (SnObject*)SELF;
+		return self->prototype;
+	}
+	return snow_get_prototype(snow_typeof(SELF));
+}
+
 SNOW_FUNC(object_reset_assigned_name) {
 	/*
 		This function resets the SN_FLAG_ASSIGNED flag on the object,
@@ -189,6 +197,7 @@ void init_object_class(SnClass* klass)
 	snow_define_method(klass, "=", object_equals);
 	snow_define_method(klass, "!=", object_not_equals);
 	snow_define_property(klass, "name", object_name, NULL);
+	snow_define_property(klass, "prototype", object_prototype, NULL);
 	snow_define_method(klass, "__reset_assigned_name__", object_reset_assigned_name);
 	snow_define_method(klass, "__on_assign__", object_on_assign);
 }
