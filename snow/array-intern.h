@@ -68,6 +68,22 @@ static inline VALUE array_set(struct array_t* array, intx idx, VALUE val)
 	return val;
 }
 
+static inline VALUE array_erase(struct array_t* array, intx idx)
+{
+	if (idx >= array->size)
+		array_grow(array, idx+1);
+	if (idx < 0)
+		idx += array->size;
+	if (idx < 0)
+		TRAP(); // index out of bounds
+	VALUE val = array->data[idx];
+	for (intx i = idx; i < array->size - 1; ++i) {
+		array->data[i] = array->data[i+1];
+	}
+	array->data[--array->size] = NULL;
+	return val;
+}
+
 static inline VALUE array_push(struct array_t* array, VALUE val)
 {
 	return array_set(array, array_size(array), val);

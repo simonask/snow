@@ -13,6 +13,7 @@ typedef enum SnObjectType
 {
 	SN_OBJECT_TYPE = SN_NORMAL_OBJECT_TYPE_BASE,
 	SN_CLASS_TYPE,
+//	SN_MODULE_TYPE,
 	SN_FUNCTION_TYPE,
 	SN_EXCEPTION_TYPE,
 	
@@ -57,6 +58,7 @@ typedef struct SnObject
 	void* members;
 	struct array_t property_names;
 	struct array_t property_data;
+	struct array_t included_modules;
 } SnObject;
 
 typedef enum SnObjectFlags
@@ -72,5 +74,8 @@ CAPI VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol symbol);
 CAPI VALUE snow_object_set_member(SnObject* obj, VALUE self, SnSymbol symbol, VALUE value);
 CAPI VALUE snow_object_set_property_getter(SnObject* obj, SnSymbol symbol, VALUE getter);
 CAPI VALUE snow_object_set_property_setter(SnObject* obj, SnSymbol symbol, VALUE setter);
+CAPI bool snow_object_include(SnObject* obj, SnObject* included);
+CAPI bool snow_object_uninclude(SnObject* obj, SnObject* included);
+CAPI VALUE snow_object_get_included_member(SnObject* obj, VALUE self, SnSymbol member);
 
 #endif /* end of include guard: OBJECT_H_FSS98HM9 */

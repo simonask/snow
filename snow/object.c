@@ -32,9 +32,10 @@ void snow_object_init(SnObject* obj, SnObject* prototype)
 	obj->prototype = prototype;
 	array_init(&obj->property_names);
 	array_init(&obj->property_data);
+	array_init(&obj->included_modules);
 }
 
-VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol member)
+static inline VALUE object_get_member_without_prototype_but_with_modules(SnObject* obj, VALUE self, SnSymbol member)
 {
 	intx property_idx = array_find(&obj->property_names, symbol_to_value(member));
 	if (property_idx >= 0)
@@ -52,6 +53,17 @@ VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol member)
 		if (val)
 			return val;
 	}
+	
+	VALUE from_module = snow_object_get_included_member(obj, self, member);
+	if (from_module) return from_module;
+	
+	return NULL;
+}
+
+VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol member)
+{
+	VALUE val = object_get_member_without_prototype_but_with_modules(obj, self, member);
+	if (val) return val;
 	
 	SnObject* prototype = obj->prototype ? obj->prototype : snow_get_prototype(snow_typeof(obj));
 	if (prototype != obj)
@@ -117,6 +129,48 @@ VALUE snow_object_set_property_setter(SnObject* obj, SnSymbol symbol, VALUE sett
 	intx idx = create_or_get_index_of_property(obj, symbol);
 	array_set(&obj->property_data, idx<<1|1, setter);
 	return setter;
+}
+
+static inline void detect_included_object(SnObject* object, SnObject* included)
+{
+	if (object == included) snow_throw_exception_with_description("Circular include detected.");
+	
+	for (uintx i = 0; i < array_size(&object->included_modules); ++i) {
+		SnObject* module = (SnObject*)array_get(&object->included_modules, i);
+		ASSERT(snow_is_normal_object(module));
+		detect_included_object(module, included);
+	}
+}
+
+bool snow_object_include(SnObject* obj, SnObject* included)
+{
+	if (array_find(&obj->included_modules, included) >= 0) return false; // already included
+	
+	detect_included_object(included, obj);
+	
+	array_push(&obj->included_modules, included);
+	return true;
+}
+
+bool snow_object_uninclude(SnObject* obj, SnObject* included)
+{
+	intx idx = array_find(&obj->included_modules, included);
+	if (idx >= 0) {
+		array_erase(&obj->included_modules, idx);
+		return true;
+	}
+	return false;
+}
+
+VALUE snow_object_get_included_member(SnObject* obj, VALUE self, SnSymbol member)
+{
+	for (uintx i = 0; i < array_size(&obj->included_modules); ++i) {
+		SnObject* module = (SnObject*)array_get(&obj->included_modules, i);
+		ASSERT(snow_is_normal_object(module));
+		VALUE val = object_get_member_without_prototype_but_with_modules(array_get(&obj->included_modules, i), self, member);
+		if (val) return val;
+	}
+	return NULL;
 }
 
 SNOW_FUNC(object_inspect) {
@@ -187,6 +241,15 @@ SNOW_FUNC(object_is_a) {
 	return boolean_to_value(snow_prototype_chain_contains(SELF, proto));
 }
 
+SNOW_FUNC(object_include) {
+	REQUIRE_ARGS(1);
+	SnObject* module = (SnObject*)ARGS[0];
+	ASSERT(snow_is_normal_object(module)); // must include a regular object
+	ASSERT(snow_is_normal_object(SELF)); // must include it into a regular object
+	SnObject* self = (SnObject*)SELF;
+	return boolean_to_value(snow_object_include(self, module));
+}
+
 void init_object_class(SnClass* klass)
 {
 	snow_define_method(klass, "inspect", object_inspect);
@@ -200,4 +263,5 @@ void init_object_class(SnClass* klass)
 	snow_define_property(klass, "prototype", object_prototype, NULL);
 	snow_define_method(klass, "__reset_assigned_name__", object_reset_assigned_name);
 	snow_define_method(klass, "__on_assign__", object_on_assign);
+	snow_define_method(klass, "include", object_include);
 }
