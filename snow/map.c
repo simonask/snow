@@ -1,5 +1,7 @@
 #include "snow/map.h"
 #include "snow/gc.h"
+#include "snow/snow.h"
+#include "snow/class.h"
 #include "snow/intern.h"
 
 typedef struct MapTuple {
@@ -71,8 +73,58 @@ int snow_map_compare_default(VALUE a, VALUE b)
 	return (intx)b - (intx)a;
 }
 
-void init_map_class(SnClass* klass)
-{
-	
+SNOW_FUNC(map_new) {
+	return snow_create_map();
 }
 
+SNOW_FUNC(map_keys) {
+	ASSERT_TYPE(SELF, SN_MAP_TYPE);
+	SnMap* self = (SnMap*)SELF;
+	MapTuple* tuples = (MapTuple*)self->data;
+	SnArray* keys = snow_create_array();
+	
+	uintx i;
+	for (i = 0; i < self->size; ++i) {
+		snow_array_push(keys, tuples[i].key);
+	}
+	
+	return keys;
+}
+
+SNOW_FUNC(map_values) {
+	ASSERT_TYPE(SELF, SN_MAP_TYPE);
+	SnMap* self = (SnMap*)SELF;
+	MapTuple* tuples = (MapTuple*)self->data;
+	SnArray* values = snow_create_array();
+	
+	uintx i;
+	for (i = 0; i < self->size; ++i) {
+		snow_array_push(values, tuples[i].value);
+	}
+	
+	return values;
+}
+
+SNOW_FUNC(map_get) {
+	REQUIRE_ARGS(1);
+	ASSERT_TYPE(SELF, SN_MAP_TYPE);
+	return snow_map_get(SELF, ARGS[0]);
+}
+
+SNOW_FUNC(map_set) {
+	REQUIRE_ARGS(2);
+	ASSERT_TYPE(SELF, SN_MAP_TYPE);
+	snow_map_set(SELF, ARGS[0], ARGS[1]);
+	return ARGS[1];
+}
+
+void init_map_class(SnClass* klass)
+{
+	snow_define_class_method(klass, "__call__", map_new);
+	
+	snow_define_property(klass, "keys", map_keys, NULL);
+	snow_define_property(klass, "values", map_values, NULL);
+	
+	snow_define_method(klass, "[]", map_get);
+	snow_define_method(klass, "[]:", map_set);
+}
