@@ -43,7 +43,7 @@ VALUE snow_map_get(SnMap* map, VALUE key)
 	return NULL;
 }
 
-VALUE snow_map_set(SnMap* map, VALUE key, VALUE value)
+void snow_map_set(SnMap* map, VALUE key, VALUE value)
 {
 	ASSERT(key && "Cannot use NULL as key in Snow maps!");
 	uintx i;
@@ -52,7 +52,7 @@ VALUE snow_map_set(SnMap* map, VALUE key, VALUE value)
 		if (map->compare(tuples[i].key, key) == 0)
 		{
 			tuples[i].value = value;
-			return value;
+			return;
 		}
 	}
 	
@@ -64,7 +64,6 @@ VALUE snow_map_set(SnMap* map, VALUE key, VALUE value)
 	tuples = (MapTuple*)map->data;
 	tuples[i].key = key;
 	tuples[i].value = value;
-	return value;
 }
 
 int snow_map_compare_default(VALUE a, VALUE b)

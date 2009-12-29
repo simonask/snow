@@ -18,7 +18,7 @@ CAPI SnMap* snow_create_map_with_compare(SnMapCompare);
 CAPI SnMap* snow_create_map_with_deep_comparison();
 CAPI bool snow_map_contains(SnMap*, VALUE key);
 CAPI VALUE snow_map_get(SnMap*, VALUE key);
-CAPI VALUE snow_map_set(SnMap*, VALUE key, VALUE val);
+CAPI void snow_map_set(SnMap*, VALUE key, VALUE val);
 
 CAPI int snow_map_compare_default(VALUE, VALUE);
 

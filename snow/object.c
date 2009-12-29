@@ -89,7 +89,8 @@ VALUE snow_object_set_member(SnObject* obj, VALUE self, SnSymbol member, VALUE v
 	
 	VALUE with_property = object_set_with_property(obj, self, member, val);
 	if (with_property) return with_property;
-	return snow_map_set(obj->members, symbol_to_value(member), val);
+	snow_map_set(obj->members, symbol_to_value(member), val);
+	return val;
 }
 
 static inline intx create_or_get_index_of_property(SnObject* obj, SnSymbol name)
