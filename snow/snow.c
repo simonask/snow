@@ -485,8 +485,10 @@ bool snow_prototype_chain_contains(VALUE val, SnObject* proto) {
 	while (obj != NULL) {
 		ASSERT(snow_is_normal_object(obj));
 		if (obj == proto) return true;
+		if (snow_object_is_included(obj, proto)) return true;
 		obj = obj->prototype;
 	}
+	
 	return false;
 }
 

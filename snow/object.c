@@ -131,22 +131,23 @@ VALUE snow_object_set_property_setter(SnObject* obj, SnSymbol symbol, VALUE sett
 	return setter;
 }
 
-static inline void detect_included_object(SnObject* object, SnObject* included)
+bool snow_object_is_included(SnObject* object, SnObject* included)
 {
-	if (object == included) snow_throw_exception_with_description("Circular include detected.");
+	if (object == included) return true;
 	
 	for (uintx i = 0; i < array_size(&object->included_modules); ++i) {
 		SnObject* module = (SnObject*)array_get(&object->included_modules, i);
 		ASSERT(snow_is_normal_object(module));
-		detect_included_object(module, included);
+		if (snow_object_is_included(module, included)) return true;
 	}
+	return false;
 }
 
 bool snow_object_include(SnObject* obj, SnObject* included)
 {
 	if (array_find(&obj->included_modules, included) >= 0) return false; // already included
 	
-	detect_included_object(included, obj);
+	if (snow_object_is_included(included, obj)) snow_throw_exception_with_description("Circular include detected.");
 	
 	array_push(&obj->included_modules, included);
 	return true;
@@ -236,9 +237,18 @@ SNOW_FUNC(object_on_assign) {
 SNOW_FUNC(object_is_a) {
 	REQUIRE_ARGS(1);
 	SnClass* klass = (SnClass*)ARGS[0];
-	ASSERT_TYPE(klass, SN_CLASS_TYPE); // must specify a class object
-	SnObject* proto = klass->instance_prototype;
-	return boolean_to_value(snow_prototype_chain_contains(SELF, proto));
+	if (snow_typeof(klass) == SN_CLASS_TYPE) {
+		SnObject* proto = klass->instance_prototype;
+		if (snow_prototype_chain_contains(SELF, proto)) return SN_TRUE;
+	}
+	
+	if (snow_is_normal_object(SELF) && snow_is_normal_object(ARGS[0]))
+	{
+		if (snow_prototype_chain_contains(SELF, ARGS[0])) return SN_TRUE;
+		if (snow_object_is_included((SnObject*)SELF, (SnObject*)ARGS[0])) return SN_TRUE;
+	}
+	
+	return SN_FALSE;
 }
 
 SNOW_FUNC(object_include) {
