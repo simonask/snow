@@ -34,10 +34,10 @@
 %type <node> statement conditional conditional_tail control loop
              function_call assignment operation variable log_operation member
              naked_closure closure local literal expression atomic_expr atomic_non_index_expr
-             index_variable non_index_variable
+             index_variable non_index_variable string_literal
 %type <sequence> sequence program parameters parameter_list arguments argument_list index_arguments scope
 %type <symbol> identifier
-%type <value> literal_value string_literal string_data symbol
+%type <value> literal_value symbol
 
 %{
 
@@ -177,15 +177,14 @@ symbol:     '#' identifier                                 { $$ = symbol_to_valu
             | '#' TOK_STRING                               { $$ = symbol_to_value(snow_symbol_from_string($2)); }
             ;
 
-literal_value:    TOK_INTEGER | TOK_FLOAT | TOK_TRUE | TOK_FALSE | TOK_NIL | string_literal | symbol;
-literal:          literal_value                             { $$ = snow_ast_literal($1); }
+string_literal: TOK_STRING                                 { $$ = snow_ast_literal($1); }
+              | string_literal TOK_STRING                  { $$ = snow_ast_call(snow_ast_member($1, snow_symbol("+")), snow_ast_sequence(1, snow_ast_literal($2))); }
+              ;
+
+literal_value:    TOK_INTEGER | TOK_FLOAT | TOK_TRUE | TOK_FALSE | TOK_NIL | symbol;
+literal: literal_value                                     { $$ = snow_ast_literal($1); }
+       | string_literal
        ;
-
-string_data: TOK_STRING;
-
-string_literal: string_data
-            | string_literal string_data                    { $$ = snow_ast_call(snow_ast_member($1, snow_symbol("+")), snow_ast_sequence(1, $2)); }
-            ;
 
 function_call: atomic_expr arguments                        { $$ = snow_ast_call($1, $2); }
              | atomic_expr arguments closure %dprec 2       { snow_ast_sequence_push($2, $3); $$ = snow_ast_call($1, $2); }

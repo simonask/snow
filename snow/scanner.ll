@@ -82,6 +82,8 @@ SnLinkBuffer* string_buffer = NULL;
 <STRING_DOUBLE>[^\$\(\\\n\"]+          { STR_CHARS(yytext); } /* " */
 <STRING_DOUBLE>.                       { STR_CHARS(yytext); }
 
+<STRING_INTERPOLATION>[^\}]+           { STR_CHARS(yytext); }
+<STRING_INTERPOLATION>\}               { BEGIN(STRING_DOUBLE); yylval->value = snow_create_string_from_linkbuffer(string_buffer); STR_CLEAR(); return TOK_STRING; }
                                        /* TODO: String interpolation */
 
 \'                                     { BEGIN(STRING_SINGLE); STR_CLEAR(); } /* ' */
@@ -135,7 +137,7 @@ not                                    { return TOK_LOG_NOT; }
 \|\||&&                                { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_FOURTH; }
 =|~=|>|<|>=|<=|==                      { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_THIRD; }
 %|\/|\*|\*\*                           { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_FIRST; }
-[^ \t\r\n.,\[\]{}():#a-zA-Z0-9\"]+     { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_SECOND; }
+[^ \t\r\n.,\[\]{}():#a-zA-Z0-9\"']+    { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_SECOND; }
 
 %%
 
