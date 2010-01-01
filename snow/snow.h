@@ -22,9 +22,11 @@ CAPI VALUE snow_call(VALUE self, VALUE closure, uintx num_args, ...);
 CAPI VALUE snow_call_va(VALUE self, VALUE closure, uintx num_args, va_list* ap);
 CAPI VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)             ATTR_HOT;
 CAPI VALUE snow_call_method(VALUE self, SnSymbol method, uintx num_args, ...)            ATTR_HOT;
+CAPI VALUE snow_invoke_parallel_threads(struct SnArray* functions, struct SnContext* context) ATTR_HOT;
+CAPI VALUE snow_invoke_parallel_forks(struct SnArray* functions, struct SnContext* context)   ATTR_HOT;
 CAPI VALUE snow_get_member(VALUE self, SnSymbol member)                                  ATTR_HOT;
 CAPI VALUE snow_get_member_for_method_call(VALUE self, SnSymbol member)                  ATTR_HOT;
-CAPI VALUE snow_get_member_with_fallback(VALUE self, SnSymbol member)                    ATTR_HOT; // will call .member_missing
+CAPI VALUE snow_get_member_with_fallback(VALUE self, SnSymbol member)                    ATTR_HOT; // will' call .member_missing
 CAPI VALUE snow_set_member(VALUE self, SnSymbol member, VALUE value)                     ATTR_HOT;
 CAPI VALUE snow_get_global(SnSymbol name)                                                ATTR_HOT;
 CAPI VALUE snow_get_global_from_context(SnSymbol name, struct SnContext*)                ATTR_HOT;

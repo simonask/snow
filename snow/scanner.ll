@@ -134,7 +134,8 @@ not                                    { return TOK_LOG_NOT; }
 \n                                     { yycolumn = 1; ++yylineno; return TOK_EOL; }
 [ \t\r]                                { /* Eat whitespaces */ }
 [.,\[\]{}():#]                         { return (int)(*yytext); }
-\|\||&&                                { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_FOURTH; }
+\|\|                                   { return TOK_PARALLEL_THREAD; }
+&&                                     { return TOK_PARALLEL_FORK; }
 =|~=|>|<|>=|<=|==                      { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_THIRD; }
 %|\/|\*|\*\*                           { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_FIRST; }
 [^ \t\r\n.,\[\]{}():#a-zA-Z0-9\"']+    { yylval->symbol = snow_symbol(yytext); return TOK_OPERATOR_SECOND; }

@@ -326,6 +326,64 @@ VALUE snow_call_method(VALUE self, SnSymbol member, uintx num_args, ...)
 	return ret;
 }
 
+typedef struct ParallelThreadInvocationData {
+	VALUE* results;
+	SnContext* context;
+} ParallelThreadInvocationData;
+
+static void invoke_parallel_thread_function(void* _functions, size_t element_size, size_t idx, void* _userdata) {
+	ParallelThreadInvocationData* userdata = (ParallelThreadInvocationData*)_userdata;
+	SnFunctionDescription* desc = ((SnFunctionDescription**)_functions)[idx];
+	ASSERT_TYPE(desc, SN_FUNCTION_DESCRIPTION_TYPE);
+	SnFunction* func = snow_create_function_from_description(desc);
+	snow_function_declared_in_context(func, userdata->context);
+	SnContext* context = snow_create_context_for_function(func);
+	context->self = userdata->context->self;
+	context->args = userdata->context->args;
+	userdata->results[idx] = snow_function_call(func, context);
+}
+
+VALUE snow_invoke_parallel_threads(SnArray* functions, SnContext* context)
+{
+	uintx len = snow_array_size(functions);
+	VALUE results[len];
+	
+	ParallelThreadInvocationData userdata;
+	userdata.results = results;
+	userdata.context = context;
+	
+	snow_array_parallel_for_each(functions, invoke_parallel_thread_function, &userdata);
+	
+	return snow_copy_array(results, len);
+}
+
+VALUE snow_invoke_parallel_forks(SnArray* functions, SnContext* context)
+{
+	uintx len = snow_array_size(functions);
+	VALUE pids[len];
+	
+	for (size_t i = 0; i < snow_array_size(functions); ++i) {
+		pid_t pid = fork();
+		if (pid) {
+			// main process: Collect the pid in the result array, and continue.
+			pids[i] = int_to_value(pid);
+		} else {
+			// child process: Execute the function, and then exit.
+			SnFunctionDescription* desc = (SnFunctionDescription*)snow_array_get(functions, i);
+			ASSERT_TYPE(desc, SN_FUNCTION_DESCRIPTION_TYPE);
+			SnFunction* func = snow_create_function_from_description(desc);
+			snow_function_declared_in_context(func, context);
+			SnContext* ctx = snow_create_context_for_function(func);
+			ctx->self = context->self;
+			ctx->args = context->args;
+			snow_function_call(func, ctx);
+			exit(0);
+		}
+	}
+	
+	return snow_copy_array(pids, len);
+}
+
 VALUE snow_get_member(VALUE self, SnSymbol sym)
 {
 	SnObject* closest_object = get_closest_object(self);

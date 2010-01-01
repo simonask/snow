@@ -29,6 +29,8 @@ typedef enum SnAstNodeType {
 	SN_AST_OR,
 	SN_AST_XOR,
 	SN_AST_NOT,
+	SN_AST_PARALLEL_THREAD,
+	SN_AST_PARALLEL_FORK
 } SnAstNodeType;
 
 typedef struct SnAstNode {
@@ -58,5 +60,7 @@ CAPI SnAstNode* snow_ast_and(SnAstNode* left, SnAstNode* right);
 CAPI SnAstNode* snow_ast_or(SnAstNode* left, SnAstNode* right);
 CAPI SnAstNode* snow_ast_xor(SnAstNode* left, SnAstNode* right);
 CAPI SnAstNode* snow_ast_not(SnAstNode* expr);
+CAPI SnAstNode* snow_ast_parallel_thread(SnAstNode* seq);
+CAPI SnAstNode* snow_ast_parallel_fork(SnAstNode* seq);
 
 #endif /* end of include guard: AST_H_48SOBLU9 */

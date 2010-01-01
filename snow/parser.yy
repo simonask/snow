@@ -20,6 +20,7 @@
 %left <node> TOK_END TOK_RETURN TOK_BREAK TOK_CONTINUE TOK_SELF TOK_CURRENT_SCOPE
 %left <value> TOK_INTEGER TOK_FLOAT TOK_STRING TOK_TRUE TOK_FALSE TOK_NIL
 %left <symbol> TOK_IDENTIFIER
+%left <symbol> TOK_PARALLEL_THREAD TOK_PARALLEL_FORK
 %left <symbol> TOK_OPERATOR_FOURTH
 %left <symbol> TOK_OPERATOR_THIRD
 %left <node> TOK_LOG_AND TOK_LOG_OR TOK_LOG_XOR TOK_LOG_NOT
@@ -34,7 +35,7 @@
 %type <node> statement conditional conditional_tail control loop
              function_call assignment operation variable log_operation member
              naked_closure closure local literal expression atomic_expr atomic_non_index_expr
-             index_variable non_index_variable string_literal
+             index_variable non_index_variable string_literal parallel_thread parallel_fork parallel_operation
 %type <sequence> sequence program parameters parameter_list arguments argument_list index_arguments scope
 %type <symbol> identifier
 %type <value> literal_value symbol
@@ -196,6 +197,17 @@ assignment: identifier ':' expression                       { $$ = snow_ast_loca
           | atomic_expr index_arguments ':' expression      { snow_ast_sequence_push($2, $4); $$ = snow_ast_call(snow_ast_member($1, snow_symbol("[]:")), $2); }
           ;
 
+parallel_thread: expression TOK_PARALLEL_THREAD expression         %dprec 1  { $$ = snow_ast_parallel_thread(snow_ast_sequence(2, $1, $3)); }
+               | parallel_thread TOK_PARALLEL_THREAD expression    %dprec 2  { snow_ast_sequence_push($1->children[0], $3); $$ = $1; }
+               ;
+
+parallel_fork: expression TOK_PARALLEL_FORK             { $$ = snow_ast_parallel_fork(snow_ast_sequence(1, $1)); }
+             | parallel_fork expression                 { snow_ast_sequence_push($1->children[0], $2); $$ = $1; }
+             | parallel_fork expression TOK_PARALLEL_FORK { snow_ast_sequence_push($1->children[0], $2); $$ = $1; }
+             ;
+
+parallel_operation: parallel_thread | parallel_fork;
+
 log_operation: expression TOK_LOG_AND expression                { $$ = snow_ast_and($1, $3); }
             | expression TOK_LOG_OR expression                  { $$ = snow_ast_or($1, $3); }
             | expression TOK_LOG_XOR expression                 { $$ = snow_ast_xor($1, $3); }
@@ -210,6 +222,7 @@ operation:  TOK_OPERATOR_FIRST expression                       { $$ = snow_ast_
             | expression TOK_OPERATOR_SECOND expression         { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
             | expression TOK_OPERATOR_THIRD expression          { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
             | expression TOK_OPERATOR_FOURTH expression         { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
+            | parallel_operation
             ;
 
 atomic_non_index_expr: literal

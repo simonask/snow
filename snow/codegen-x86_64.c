@@ -696,5 +696,39 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			ASM(link, &after_jump);
 			break;
 		}
+		case SN_AST_PARALLEL_THREAD:
+		case SN_AST_PARALLEL_FORK:
+		{
+			SnAstNode* seq = node->children[0];
+			ASSERT(seq->type == SN_AST_SEQUENCE);
+			SnArray* seq_array = (SnArray*)seq->children[0];
+			ASSERT_TYPE(seq_array, SN_ARRAY_TYPE);
+			
+			SnArray* functions = snow_create_array_with_size(snow_array_size(seq_array));
+			
+			for (uintx i = 0; i < snow_array_size(seq_array); ++i) {
+				SnAstNode* subfunc_body = snow_ast_sequence(1, snow_array_get(seq_array, i));
+				SnAstNode* subfunc = snow_ast_function("<parallellized chunk>", "<TODO>", NULL, subfunc_body);
+				SnCodegen* cg2 = snow_create_codegen(subfunc, (SnCodegen*)cgx);
+				SnFunctionDescription* desc = snow_codegen_compile_description(cg2);
+				snow_array_push(functions, desc);
+			}
+			
+			VALUE key = snow_store_add(functions);
+			
+			ASM(mov_id, key, RDI);
+			CALL(snow_store_get);
+			ASM(mov, RAX, RDI);
+			ASM(mov, R13, RSI);
+			if (node->type == SN_AST_PARALLEL_THREAD) {
+				CALL(snow_invoke_parallel_threads);
+			} else if (node->type == SN_AST_PARALLEL_FORK) {
+				CALL(snow_invoke_parallel_forks);
+			} else {
+				TRAP(); // wtf
+			}
+			
+			break;
+		}
 	}
 }

@@ -25,6 +25,8 @@ static uintx ast_size[] = {
 	2, //SN_AST_OR,
 	2, //SN_AST_XOR,
 	1, //SN_AST_NOT,
+	1, //SN_AST_PARALLEL_THREAD
+	1, //SN_AST_PARALLEL_FORK
 };
 
 static SnAstNode* create_ast_node(SnAstNodeType type, ...)
@@ -63,6 +65,7 @@ SnAstNode* snow_ast_sequence(uintx num, ...) {
 void snow_ast_sequence_push(SnAstNode* seq, VALUE val) {
 	ASSERT(seq->type == SN_AST_SEQUENCE);
 	ASSERT(seq->children[0]);
+	ASSERT_TYPE(seq->children[0], SN_ARRAY_TYPE);
 	snow_array_push((SnArray*)seq->children[0], val);
 }
 
@@ -97,6 +100,8 @@ SnAstNode* snow_ast_and(SnAstNode* left, SnAstNode* right) { return create_ast_n
 SnAstNode* snow_ast_or(SnAstNode* left, SnAstNode* right)  { return create_ast_node(SN_AST_OR, left, right); }
 SnAstNode* snow_ast_xor(SnAstNode* left, SnAstNode* right) { return create_ast_node(SN_AST_XOR, left, right); }
 SnAstNode* snow_ast_not(SnAstNode* expr) { return create_ast_node(SN_AST_NOT, expr); }
+SnAstNode* snow_ast_parallel_thread(SnAstNode* seq) { return create_ast_node(SN_AST_PARALLEL_THREAD, seq); }
+SnAstNode* snow_ast_parallel_fork(SnAstNode* seq) { return create_ast_node(SN_AST_PARALLEL_FORK, seq); }
 
 
 void init_ast_class(SnClass* klass)
