@@ -65,6 +65,10 @@ intx snow_array_find_or_add(SnArray* array, VALUE val) {
 	return array_find_or_add(INTERN, val);
 }
 
+void snow_array_parallel_for_each(SnArray* array, SnParallelForEachCallback callback, void* userdata) {
+	snow_parallel_for_each(INTERN->data, sizeof(VALUE), INTERN->size, callback, userdata);
+}
+
 SNOW_FUNC(_array_new) {
 	SnArray* array = snow_create_array_with_size(NUM_ARGS);
 	for (uintx i = 0; i < NUM_ARGS; ++i) {
