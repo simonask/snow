@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 static inline void throw_errno(const char* msg) {
 	char buffer[1024];
@@ -33,7 +34,14 @@ SNOW_FUNC(socket_initialize)
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
-	addr.sin_addr.s_addr = inet_addr(host);
+	
+	// resolve hostname
+	struct hostent* he = gethostbyname(host);
+	if (!he) {
+		throw_errno("Could not resolve hostname");
+	}
+	// copy resolved address to addr. TODO: try more that one address
+	memcpy(&addr.sin_addr.s_addr, *he->h_addr_list, sizeof(addr.sin_addr.s_addr));
 	
 	int success = connect(descriptor, (struct sockaddr*)&addr, sizeof(addr));
 	if (success == -1)
