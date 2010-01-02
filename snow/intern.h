@@ -9,6 +9,7 @@
 #include "snow/class.h"
 #include "snow/continuation.h"
 #include "snow/gc.h"
+#include "snow/exception.h"
 
 CAPI void warn(const char* msg, ...);
 CAPI void error(const char* msg, ...);
@@ -94,8 +95,12 @@ static inline SnObjectType snow_typeof(VALUE val)
 #define SNOW_FUNC(NAME) static VALUE NAME(SnContext* _context)
 #define SELF (_context->self)
 #define ARGS (_context->args->data.data)
+#define ARG_BY_SYM_AT(SYM, EXPECTED_POSITION) (_context->args ? snow_arguments_get_by_name_at(_context->args, (SYM), (EXPECTED_POSITION)) : NULL)
+#define ARG_BY_NAME_AT(NAME, EXPECTED_POSITION) ARG_BY_SYM_AT(snow_symbol(NAME), (EXPECTED_POSITION))
+#define ARG_BY_SYM(SYM) (_context->args ? (snow_arguments_get_by_name(_context->args, (SYM))) : NULL)
+#define ARG_BY_NAME(NAME) ARG_BY_SYM(snow_symbol(NAME))
 #define NUM_ARGS (_context->args ? _context->args->data.size : 0)
-#define REQUIRE_ARGS(n) ASSERT(_context->args->data.size >= n)
+#define REQUIRE_ARGS(N) do { if (_context->args->data.size < (N)) snow_throw_exception_with_description("Expected %d argument%s for function call.", (N), (N) == 1 ? "" : "s"); } while (0)
 
 // place this macro in all recursive C functions
 #define STACK_GUARD snow_continuation_stack_guard()

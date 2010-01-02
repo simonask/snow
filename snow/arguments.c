@@ -67,6 +67,26 @@ VALUE snow_arguments_get_by_name(SnArguments* args, SnSymbol name)
 	return SN_NIL;
 }
 
+VALUE snow_arguments_get_by_name_at(SnArguments* args, SnSymbol name, uintx idx)
+{
+	size_t unnamed_i = 0;
+	VALUE unnamed = NULL;
+	VALUE named = NULL;
+	
+	for (size_t i = 0; i < array_size(DATA); ++i) {
+		VALUE argname = array_get(NAMES, i);
+		if (argname == SN_NIL) {
+			if (unnamed_i == idx) unnamed = array_get(DATA, i);
+			++unnamed_i;
+		} else if (value_to_symbol(argname) == name) {
+			named = array_get(DATA, i);
+			break;
+		}
+	}
+	
+	return named ? named : unnamed;
+}
+
 SNOW_FUNC(arguments_any) {
 	ASSERT_TYPE(SELF, SN_ARGUMENTS_TYPE);
 	SnArguments* args = (SnArguments*)SELF;

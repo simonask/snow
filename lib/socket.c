@@ -8,18 +8,26 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+static inline void throw_errno(const char* msg) {
+	char buffer[1024];
+	strerror_r(errno, buffer, 1024);
+	snow_throw_exception_with_description("%s: %s", msg, buffer);
+}
+
 SNOW_FUNC(socket_initialize)
 {
 	REQUIRE_ARGS(2);
-	ASSERT_TYPE(ARGS[0], SN_STRING_TYPE);
-	ASSERT_TYPE(ARGS[1], SN_INTEGER_TYPE);
+	VALUE vhost = ARG_BY_NAME_AT("host", 0);
+	VALUE vport = ARG_BY_NAME_AT("port", 1);
+	ASSERT_TYPE(vhost, SN_STRING_TYPE);
+	ASSERT_TYPE(vport, SN_INTEGER_TYPE);
 	
-	const char* host = snow_string_cstr(ARGS[0]);
-	        int port = value_to_int(ARGS[1]);
+	const char* host = snow_string_cstr(vhost);
+	        int port = value_to_int(vport);
 	
 	int descriptor = socket(AF_INET, SOCK_STREAM, 0);
 	if (descriptor == -1)
-		snow_throw_exception_with_description("Socket creation failed.");
+		throw_errno("Socket creation failed");
 	
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
@@ -29,7 +37,7 @@ SNOW_FUNC(socket_initialize)
 	
 	int success = connect(descriptor, (struct sockaddr*)&addr, sizeof(addr));
 	if (success == -1)
-		snow_throw_exception_with_description("Socket connection failed.");
+		throw_errno("Socket connection failed");
 	
 	snow_set_member(SELF, snow_symbol("_fd"), descriptor);
 	snow_set_member(SELF, snow_symbol("host"), ARGS[0]);

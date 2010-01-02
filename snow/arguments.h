@@ -18,5 +18,6 @@ CAPI intx snow_arguments_add_name(SnArguments*, SnSymbol name)                  
 CAPI intx snow_arguments_get_index_for_name(SnArguments*, SnSymbol name)        ATTR_HOT;
 CAPI VALUE snow_arguments_get_by_index(SnArguments*, intx idx)                  ATTR_HOT;
 CAPI VALUE snow_arguments_get_by_name(SnArguments*, SnSymbol sym)               ATTR_HOT;
+CAPI VALUE snow_arguments_get_by_name_at(SnArguments* args, SnSymbol sym, uintx idx) ATTR_HOT;
 
 #endif /* end of include guard: ARGUMENTS_H_4ZC67CWW */
