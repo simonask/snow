@@ -1,6 +1,10 @@
 #ifndef INTERN_H_WXDJG2OI
 #define INTERN_H_WXDJG2OI
 
+#if defined(__GNUC__) && __INCLUDE_LEVEL__ != 1
+#error Please don't include intern.h in header files.
+#endif
+
 #include "snow/snow.h"
 #include "snow/basic.h"
 #include "snow/symbol.h"
