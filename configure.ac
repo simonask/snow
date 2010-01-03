@@ -1,6 +1,6 @@
 AC_INIT(snow/main.c)
 
-AM_INIT_AUTOMAKE(snow,0.0.1)
+AM_INIT_AUTOMAKE(snow, 0.0.1)
 
 AC_CONFIG_HEADERS(config.h)
 
@@ -74,5 +74,10 @@ AC_DEFINE_DIR(SNOW_PATH_LIBDIR, libdir, [where to look for plugins])
 AC_DEFINE_DIR(SNOW_PATH_SYSCONFDIR, [sysconfdir], [System configuration dir])
 AC_DEFINE_DIR(SNOW_PATH_DATADIR, [datadir], [The directory for installing idiosyncratic read-only architecture-independent data.])
 AC_DEFINE_DIR(SNOW_PATH_DATAROOTDIR, [datarootdir], [The root of the directory tree for read-only architecture-independent data files.])
+
+AC_DEFINE([SNOW_VERSION_MAJOR], [0], [Major version component])
+AC_DEFINE([SNOW_VERSION_MINOR], [1], [Minor version component])
+AC_DEFINE([SNOW_VERSION_BUILD], [0], [Build version component])
+AC_DEFINE([SNOW_VERSION_PATCH], [0], [Patch version component])
 
 AC_OUTPUT(Makefile snow/Makefile lib/Makefile test/Makefile)

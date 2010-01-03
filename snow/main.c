@@ -26,7 +26,7 @@
 
 static void print_version_info()
 {
-	printf(PACKAGE " " VERSION " (prealpha super unstable) [" ARCH_NAME "]\n");
+	printf(PACKAGE " %s (prealpha super unstable) [" ARCH_NAME "]\n", snow_version());
 }
 
 static void try_execute_line(void* userdata)

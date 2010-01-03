@@ -49,4 +49,6 @@ CAPI VALUE snow_reset_object_assigned(VALUE obj)                                
 CAPI VALUE snow_store_add(VALUE val)                                                     ATTR_HOT;
 CAPI VALUE snow_store_get(VALUE key)                                                     ATTR_HOT;
 
+CAPI const char* snow_version();
+
 #endif /* end of include guard: SNOW_H_YMYJ9XZE */

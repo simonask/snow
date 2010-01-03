@@ -120,7 +120,7 @@ SnArray* snow_get_load_paths()
 	if (!load_paths_key)
 	{
 		SnArray* load_paths = snow_create_array();
-		SnString* libdir = snow_create_string(SNOW_PATH_DATADIR "/snow");
+		SnString* libdir = snow_create_string(SNOW_PATH_DATADIR "/snow/lib");
 		
 		snow_array_push(load_paths, libdir);
 		load_paths_key = snow_store_add(load_paths);
@@ -604,4 +604,8 @@ VALUE snow_store_get(VALUE key) {
 	intx nkey = value_to_int(key);
 	VALUE val = snow_array_get(store, nkey);
 	return val;
+}
+
+const char* snow_version() {
+	return Q(SNOW_VERSION_MAJOR) "." Q(SNOW_VERSION_MINOR) "." Q(SNOW_VERSION_BUILD) "-p" Q(SNOW_VERSION_PATCH);
 }
