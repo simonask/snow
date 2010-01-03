@@ -65,6 +65,10 @@ intx snow_array_find_or_add(SnArray* array, VALUE val) {
 	return array_find_or_add(INTERN, val);
 }
 
+void snow_array_clear(SnArray* array) {
+	array_clear(INTERN);
+}
+
 void snow_array_parallel_for_each(SnArray* array, SnParallelForEachCallback callback, void* userdata) {
 	snow_parallel_for_each(INTERN->data, sizeof(VALUE), INTERN->size, callback, userdata);
 }

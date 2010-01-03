@@ -130,4 +130,12 @@ static inline intx array_find_or_add(struct array_t* array, VALUE val)
 	return i;
 }
 
+static inline void array_clear(struct array_t* array)
+{
+	if (array->data) {
+		memset(array->data, 0, array->size * sizeof(VALUE));
+	}
+	array->size = 0;
+}
+
 #endif /* end of include guard: ARRAY_INTERN_H_JUS95Q03 */

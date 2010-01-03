@@ -161,9 +161,125 @@ SNOW_FUNC(string_concatenate)
 	REQUIRE_ARGS(1);
 	SnString* self = (SnString*)SELF;
 	VALUE other = (SnString*)ARGS[0];
-	SnString* other_str = (SnString*)(snow_typeof(other) == SN_STRING_TYPE ? other : snow_call_method(other, snow_symbol("to_string"), 0));
-	ASSERT_TYPE(other_str, SN_STRING_TYPE);
-	return snow_string_concatenate(self, other_str);
+	
+	SnClass* StringBuffer = snow_get_global(snow_symbol("StringBuffer"));
+	return snow_call(NULL, StringBuffer, 2, self, other);
+}
+
+static inline SnString* call_to_string(VALUE self) {
+	static bool got_sym = false;
+	static SnSymbol to_string;
+	if (!got_sym) { to_string = snow_symbol("to_string"); got_sym = true; }
+	SnString* str = ((snow_typeof(self) == SN_STRING_TYPE) ? (SnString*)self : (SnString*)snow_call_method(self, to_string, 0));
+	ASSERT_TYPE(str, SN_STRING_TYPE);
+	return str;
+}
+
+SNOW_FUNC(string_buffer_initialize) {
+	SnArray* strings = snow_create_array_with_size(NUM_ARGS);
+	for (size_t i = 0; i < NUM_ARGS; ++i) {
+		snow_array_push(strings, call_to_string(ARGS[i]));
+	}
+	snow_set_member(SELF, snow_symbol("_strings"), strings);
+	return SELF;
+}
+
+SNOW_FUNC(string_buffer_append) {
+	SnArray* strings = snow_get_member(SELF, snow_symbol("_strings"));
+	ASSERT_TYPE(strings, SN_ARRAY_TYPE);
+//	snow_array_grow_by(strings, NUM_ARGS);
+	for (size_t i = 0; i < NUM_ARGS; ++i) {
+		snow_array_push(strings, call_to_string(ARGS[i]));
+	}
+	return SELF;
+}
+
+SNOW_FUNC(string_buffer_to_string) {
+	SnArray* strings = snow_get_member(SELF, snow_symbol("_strings"));
+	ASSERT_TYPE(strings, SN_ARRAY_TYPE);
+	
+	// find final size
+	uintx total = 0;
+	for (size_t i = 0; i < snow_array_size(strings); ++i) {
+		SnString* str = (SnString*)snow_array_get(strings, i);
+		ASSERT_TYPE(str, SN_STRING_TYPE);
+		total += snow_string_size(str);
+	}
+	
+	// copy all strings into result array
+	char buffer[total+1];
+	char* p = buffer;
+	for (size_t i = 0; i < snow_array_size(strings); ++i) {
+		SnString* str = (SnString*)snow_array_get(strings, i);
+		ASSERT_TYPE(str, SN_STRING_TYPE);
+		uintx len = snow_string_size(str);
+		memcpy(p, snow_string_cstr(str), len);
+		p += len;
+	}
+	buffer[total] = '\0';
+	
+	SnString* result = snow_create_string_from_data((byte*)buffer, total);
+	// replace array with result
+	strings = snow_create_array_with_size(1);
+	snow_array_push(strings, result);
+	snow_set_member(SELF, snow_symbol("_strings"), strings);
+	
+	return result;
+}
+
+SNOW_FUNC(string_buffer_inspect) {
+	char cstr[128];
+	VALUE vsym_classname = snow_get_member(snow_get_member(SELF, snow_symbol("class")), snow_symbol("name"));
+	ASSERT(is_symbol(vsym_classname));
+	uint64_t ptr = (uint64_t)SELF;
+	VALUE name = snow_get_member(SELF, snow_symbol("__name__"));
+	const char* name_to_string = name ? snow_value_to_cstr(name) : NULL;
+	
+	// create an excerpt of the buffer for display
+	const int excerpt_max_len = 96;
+	char excerpt[excerpt_max_len+1];
+	SnArray* strings = snow_get_member(SELF, snow_symbol("_strings"));
+	ASSERT_TYPE(strings, SN_ARRAY_TYPE);
+	size_t i;
+	size_t wanted_to_copy = 0;
+	char* p = excerpt;
+	for (i = 0; i < snow_array_size(strings); ++i) {
+		size_t remaining = excerpt_max_len - (p - excerpt);
+		SnString* str = (SnString*)snow_array_get(strings, i);
+		size_t len = snow_string_size(str);
+		wanted_to_copy += len;
+		if (remaining == 0) break;
+		size_t to_copy = len < remaining ? len : remaining;
+		memcpy(p, snow_string_cstr(str), to_copy);
+		p += to_copy;
+	}
+	*p = '\0';
+	bool excerpt_complete = wanted_to_copy <= excerpt_max_len;
+	
+	snprintf(cstr, 128, "<%s%s%s@0x%llx \"%s%s\">", name_to_string ? name_to_string : "", name_to_string ? ":" : "", snow_symbol_to_cstr(value_to_symbol(vsym_classname)), ptr, excerpt, excerpt_complete ? "" : "...");
+	return snow_create_string(cstr);
+}
+
+SNOW_FUNC(string_buffer_length) {
+	SnArray* strings = snow_get_member(SELF, snow_symbol("_strings"));
+	ASSERT_TYPE(strings, SN_ARRAY_TYPE);
+	
+	// find final size
+	uintx total = 0;
+	for (size_t i = 0; i < snow_array_size(strings); ++i) {
+		SnString* str = (SnString*)snow_array_get(strings, i);
+		ASSERT_TYPE(str, SN_STRING_TYPE);
+		total += snow_string_size(str);
+	}
+	
+	return int_to_value(total);
+}
+
+SNOW_FUNC(string_buffer_clear) {
+	SnArray* strings = snow_get_member(SELF, snow_symbol("_strings"));
+	ASSERT_TYPE(strings, SN_ARRAY_TYPE);
+	snow_array_clear(strings);
+	return SN_NIL;
 }
 
 void init_string_class(SnClass* klass)
@@ -174,4 +290,16 @@ void init_string_class(SnClass* klass)
 	snow_define_property(klass, "size", string_size, NULL);
 	snow_define_property(klass, "length", string_length, NULL);
 	snow_define_method(klass, "+", string_concatenate);
+	
+	SnClass* StringBuffer = snow_create_class("StringBuffer");
+	snow_define_method(StringBuffer, "initialize", string_buffer_initialize);
+	snow_define_method(StringBuffer, "append", string_buffer_append);
+	snow_define_method(StringBuffer, "<<", string_buffer_append);
+	snow_define_method(StringBuffer, "+", string_buffer_append);
+	snow_define_method(StringBuffer, "to_string", string_buffer_to_string);
+	snow_define_method(StringBuffer, "inspect", string_buffer_inspect);
+	snow_define_property(StringBuffer, "length", string_buffer_length, NULL);
+	snow_define_method(StringBuffer, "clear", string_buffer_clear);
+	snow_set_global(StringBuffer->name, StringBuffer);
+	
 }
