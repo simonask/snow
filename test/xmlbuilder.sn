@@ -45,7 +45,8 @@ XmlBuilder: class {
 	}
 }
 
-xml: XmlBuilder()
+buffer: StringBuffer()
+xml: XmlBuilder(buffer)
 xml.html {
 	head {
 		title("muh")
@@ -67,3 +68,4 @@ xml.html {
 		}
 	}
 }
+puts(buffer)
