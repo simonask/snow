@@ -12,6 +12,9 @@
 #define ATTR_MALLOC
 #endif
 
+static const int SNOW_GC_ALIGNMENT = 0x10;
+static inline uintx snow_gc_round(uintx size) { return size + ((SNOW_GC_ALIGNMENT - (size % SNOW_GC_ALIGNMENT)) % SNOW_GC_ALIGNMENT); }
+
 typedef void(*SnGCFreeFunc)(VALUE val);
 
 CAPI SnObjectBase* snow_gc_alloc_object(uintx size)           ATTR_ALLOC_SIZE(1) ATTR_MALLOC;
@@ -19,6 +22,7 @@ CAPI void* snow_gc_alloc(uintx size)                          ATTR_ALLOC_SIZE(1)
 CAPI void snow_gc_set_free_func(void* data, SnGCFreeFunc);
 CAPI void snow_gc();
 CAPI void snow_gc_barrier();
+CAPI uintx snow_gc_allocated_size(void* data);
 
 CAPI void* snow_malloc(uintx size);
 CAPI void* snow_calloc(uintx count, uintx size);

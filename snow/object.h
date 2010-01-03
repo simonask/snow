@@ -68,6 +68,7 @@ typedef enum SnObjectFlags
 
 CAPI SnObjectBase* snow_alloc_any_object(SnObjectType type, uintx size);
 CAPI SnObject* snow_create_object(SnObject* prototype);
+CAPI SnObject* snow_create_object_with_extra_data(SnObject* prototype, uintx extra_bytes, void** out_extra);
 CAPI void snow_object_init(SnObject* obj, SnObject* prototype);
 CAPI bool snow_object_has_member(SnObject* obj, SnSymbol symbol);
 CAPI VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol symbol);

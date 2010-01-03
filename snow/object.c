@@ -24,6 +24,14 @@ SnObject* snow_create_object(SnObject* prototype)
 	return obj;
 }
 
+SnObject* snow_create_object_with_extra_data(SnObject* prototype, uintx extra_bytes, void** extra)
+{
+	SnObject* obj = (SnObject*)snow_alloc_any_object(SN_OBJECT_TYPE, sizeof(SnObject)+extra_bytes);
+	snow_object_init(obj, prototype);
+	*extra = (byte*)obj + extra_bytes;
+	return obj;
+}
+
 void snow_object_init(SnObject* obj, SnObject* prototype)
 {
 	obj->flags = SN_FLAG_ASSIGNED; // new objects are "assigned" by default, so they will only get a name assigned if asked for by calling object.__reset_assigned_name__().

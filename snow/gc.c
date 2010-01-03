@@ -53,8 +53,6 @@ typedef struct __attribute__((packed)) GCHeader {
 	unsigned magic_bead2 : 16;
 } GCHeader;
 
-static const int ALIGNMENT = 0x10;
-
 /*
 	The magic beads are used to distinguish pointers to the beginning of objects
 	from pointers to the middle of objects, or more precisely, to find the actual
@@ -67,14 +65,9 @@ static void* gc_alloc(uintx size, GCHeader**) __attribute__((alloc_size(1)));
 static void gc_intern();
 static inline void gc_scan_memory(byte* mem_start, size_t mem_size, GCOperation op);
 
-static inline uintx gc_aligned_size(uintx size)
-{
-	return size + ((ALIGNMENT - (size % ALIGNMENT)) % ALIGNMENT);
-}
-
 static void gc_heap_init(struct heap_t* heap, uintx size)
 {
-	heap->size = gc_aligned_size(size);
+	heap->size = snow_gc_round(size);
 	heap->data = (byte*)snow_malloc(heap->size);
 	heap->offset = 0;
 	snow_init_lock(&heap->lock);
@@ -88,9 +81,9 @@ static void* gc_heap_alloc(struct heap_t* heap, uintx size, GCHeader** header)
 	snow_lock(&heap->lock);
 	ASSERT(heap->data && heap->size);
 	ASSERT(size < heap->size);
-	uintx padded_size = gc_aligned_size(size);
+	uintx padded_size = snow_gc_round(size);
 	uintx new_offset = heap->offset + sizeof(GCHeader) + padded_size;
-	ASSERT((new_offset % ALIGNMENT) == 0);
+	ASSERT((new_offset % SNOW_GC_ALIGNMENT) == 0);
 	void* data = NULL;
 	if (new_offset > heap->size)
 		goto out; // alloc failed, initiate gc
@@ -105,7 +98,7 @@ static void* gc_heap_alloc(struct heap_t* heap, uintx size, GCHeader** header)
 	(*header)->magic_bead1 = MAGIC_BEAD;
 	(*header)->magic_bead2 = MAGIC_BEAD;
 	
-	ASSERT(((uintx)data % ALIGNMENT) == 0);
+	ASSERT(((uintx)data % SNOW_GC_ALIGNMENT) == 0);
 	
 	out:
 	snow_unlock(&heap->lock);
@@ -116,7 +109,7 @@ static void* gc_alloc(uintx size, GCHeader** header)
 {
 	snow_gc_barrier();
 	ASSERT(size > 0);
-	ASSERT(sizeof(GCHeader) == ALIGNMENT);
+	ASSERT(sizeof(GCHeader) == SNOW_GC_ALIGNMENT);
 	
 	if (!gc_nursery.data)
 	{
@@ -176,7 +169,7 @@ static inline bool gc_ptr_valid(void* ptr)
 {
 	// note: does not check if the pointer is actually in any heap
 	GCHeader* header = (GCHeader*)(((byte*)ptr) - sizeof(GCHeader));
-	if ((uintx)header % ALIGNMENT) return false;
+	if ((uintx)header % SNOW_GC_ALIGNMENT) return false;
 	return header->magic_bead1 == MAGIC_BEAD
 		&& header->magic_bead2 == MAGIC_BEAD
 		&& header->flags < GC_FLAG_MAX;
@@ -186,12 +179,12 @@ static inline void* gc_find_object_in_heap(const struct heap_t* heap, void* star
 {
 	if (!gc_heap_contains(heap, start_ptr)) return NULL;
 	uintx nptr = (uintx)start_ptr;
-	nptr = nptr - (nptr % ALIGNMENT);
+	nptr = nptr - (nptr % SNOW_GC_ALIGNMENT);
 	void* ptr = (void*)nptr;
 	
 	while (!gc_ptr_valid(ptr))
 	{
-		nptr -= ALIGNMENT;
+		nptr -= SNOW_GC_ALIGNMENT;
 		ptr = (void*)nptr;
 		
 		#ifdef DEBUG
@@ -243,6 +236,16 @@ void snow_gc_barrier()
 		snow_task_reset_gc_barrier(bottom);
 		snow_restore_execution_state(&state); // restore possibly modifier registers
 	}
+}
+
+uintx snow_gc_allocated_size(void* data)
+{
+	GCHeader* header;
+	data = gc_find_object(data, &header);
+	if (data) {
+		return header->size;
+	}
+	return 0;
 }
 
 static inline void gc_unmark_heap(const struct heap_t* heap)

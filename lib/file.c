@@ -2,13 +2,15 @@
 #include "snow/library.h"
 #include "snow/intern.h"
 #include "snow/pointer.h"
+#include "snow/class.h"
 
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
 
-
-#define GET_FP(SELF) snow_get_member(SELF, snow_symbol("_fp"))
+typedef struct FilePrivate {
+	FILE* fp;
+} FilePrivate;
 
 static inline void throw_errno() {
 	char buffer[1024];
@@ -16,18 +18,17 @@ static inline void throw_errno() {
 	snow_throw_exception_with_description("File error: %s", buffer);
 }
 
-static void file_free(void* _ptr)
+static void file_free(void* _priv)
 {
-	FILE* ptr = (FILE*)_ptr;
-	if (ptr) fclose(ptr);
+	FilePrivate* priv = (FilePrivate*)_priv;
+	if (priv->fp) fclose(priv->fp);
 }
 
 static VALUE create_object_for_global_file_pointer(FILE* fp, SnClass* file_class)
 {
-	VALUE object = snow_create_object(file_class->instance_prototype);
-	// will not attempt to close this file!
-	SnPointer* pointer = snow_create_pointer(fp, NULL);
-	snow_set_member(object, snow_symbol("_fp"), pointer);
+	SnObject* object = snow_create_wrap_object(file_class);
+	FilePrivate* priv = snow_unwrap_struct(object, FilePrivate);
+	priv->fp = fp;
 	return object;
 }
 
@@ -49,8 +50,10 @@ SNOW_FUNC(file_initialize) {
 	
 	FILE* fp = fopen(snow_string_cstr(filename), snow_string_cstr(mode));
 	if (!fp) throw_errno();
-	SnPointer* pointer = snow_create_pointer(fp, file_free);
-	snow_set_member(SELF, snow_symbol("_fp"), pointer);
+	
+	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
+	priv->fp = fp;
+
 	return SELF;
 }
 
@@ -59,36 +62,33 @@ SNOW_FUNC(file_open) {
 }
 
 SNOW_FUNC(file_close) {
-	SnPointer* pointer = GET_FP(SELF);
-	FILE* fp = snow_pointer_get_pointer(pointer);
-	snow_pointer_set_pointer(pointer, NULL);
-	if (fp) {
-		fclose(fp);
+	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
+	if (priv->fp) {
+		fclose(priv->fp);
+		priv->fp = NULL;
 		return SN_TRUE;
 	}
 	return SN_FALSE;
 }
 
 SNOW_FUNC(file_is_eof) {
-	SnPointer* pointer = GET_FP(SELF);
-	FILE* fp = snow_pointer_get_pointer(pointer);
-	if (fp)
-		return boolean_to_value(feof(fp));
+	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
+	if (priv->fp)
+		return boolean_to_value(feof(priv->fp));
 	return SN_TRUE; // no stream == EOF
 }
 
 SNOW_FUNC(file_read) {
 	REQUIRE_ARGS(1);
 	ASSERT_TYPE(ARGS[0], SN_INTEGER_TYPE);
-	SnPointer* pointer = GET_FP(SELF);
-	FILE* fp = snow_pointer_get_pointer(pointer);
-	if (fp && !feof(fp)) {
+	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
+	if (priv->fp && !feof(priv->fp)) {
 		intx num_bytes = value_to_int(ARGS[0]);
 		byte buffer[num_bytes+1];
-		size_t n = fread(buffer, 1, num_bytes, fp);
-		if (!n && !feof(fp)) throw_errno();
+		size_t n = fread(buffer, 1, num_bytes, priv->fp);
+		if (!n && !feof(priv->fp)) throw_errno();
 		buffer[n] = '\0';
-		return snow_create_string(buffer);
+		return snow_create_string((char*)buffer);
 	}
 	return SN_NIL;
 }
@@ -96,13 +96,12 @@ SNOW_FUNC(file_read) {
 SNOW_FUNC(file_read_bytes) {
 	REQUIRE_ARGS(1);
 	ASSERT_TYPE(ARGS[0], SN_INTEGER_TYPE);
-	SnPointer* pointer = GET_FP(SELF);
-	FILE* fp = snow_pointer_get_pointer(pointer);
-	if (fp && !feof(fp)) {
+	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
+	if (priv->fp && !feof(priv->fp)) {
 		intx num_bytes = value_to_int(ARGS[0]);
 		byte buffer[num_bytes];
-		size_t n = fread(buffer, 1, num_bytes, fp);
-		if (!n && !feof(fp)) throw_errno();
+		size_t n = fread(buffer, 1, num_bytes, priv->fp);
+		if (!n && !feof(priv->fp)) throw_errno();
 		SnArray* array = snow_create_array_with_size(n);
 		for (size_t i = 0; i < n; ++i) {
 			snow_array_push(array, int_to_value(buffer[i]));
@@ -128,10 +127,9 @@ SNOW_FUNC(file_write) {
 	REQUIRE_ARGS(1);
 	SnString* str = (SnString*)snow_call_method(ARGS[0], snow_symbol("to_string"), 0);
 	ASSERT_TYPE(str, SN_STRING_TYPE);
-	SnPointer* pointer = GET_FP(SELF);
-	FILE* fp = snow_pointer_get_pointer(pointer);
-	if (fp) {
-		size_t n = file_write_string(fp, str);
+	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
+	if (priv->fp) {
+		size_t n = file_write_string(priv->fp, str);
 		return int_to_value(n);
 	}
 	return SN_NIL;
@@ -141,20 +139,18 @@ SNOW_FUNC(file_stream_write) {
 	REQUIRE_ARGS(1);
 	SnString* str = (SnString*)snow_call_method(ARGS[0], snow_symbol("to_string"), 0);
 	ASSERT_TYPE(str, SN_STRING_TYPE);
-	SnPointer* pointer = GET_FP(SELF);
-	FILE* fp = snow_pointer_get_pointer(pointer);
-	if (fp) {
-		size_t n = file_write_string(fp, str);
+	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
+	if (priv->fp) {
+		file_write_string(priv->fp, str);
 		return SELF;
 	}
 	return SN_NIL;
 }
 
 SNOW_FUNC(file_flush) {
-	SnPointer* pointer = GET_FP(SELF);
-	FILE* fp = snow_pointer_get_pointer(pointer);
-	if (fp) {
-		if (!fflush(fp))
+	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
+	if (priv->fp) {
+		if (!fflush(priv->fp))
 			return SN_TRUE;
 		throw_errno();
 	}
@@ -163,7 +159,7 @@ SNOW_FUNC(file_flush) {
 
 static void file_init(SnContext* global_context)
 {
-	SnClass* File = snow_create_class("File");
+	SnClass* File = snow_create_class_wrap_struct("File", FilePrivate, NULL, NULL);
 	snow_define_method(File, "initialize", file_initialize);
 	snow_define_class_method(File, "open", file_open);
 	snow_define_method(File, "close", file_close);

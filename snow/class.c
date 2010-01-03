@@ -145,3 +145,76 @@ void init_class_class(SnClass* klass)
 	snow_define_property(klass, "__name__", class_get_name, class_set_name);
 	snow_define_property(klass, "instance_prototype", class_instance_prototype, NULL);
 }
+
+static void class_wrap_instance_free(VALUE o) {
+	SnObject* obj = (SnObject*)o;
+	ASSERT(snow_gc_allocated_size(obj) > sizeof(SnObject));
+	byte* data = (byte*)o;
+	SnGCFreeFunc free_func = *(SnGCFreeFunc*)(data + sizeof(SnObject));
+	data += sizeof(SnObject) + sizeof(SnGCFreeFunc);
+	if (free_func) free_func(data);
+}
+
+SNOW_FUNC(class_wrap_new) {
+	SnObject* new_object = snow_create_wrap_object((SnClass*)SELF);
+	
+	VALUE initialize = snow_object_get_member(new_object, new_object, snow_symbol("initialize"));
+	if (initialize)
+	{
+		snow_call_with_args(new_object, initialize, _context->args);
+	}
+	
+	return new_object;
+}
+
+SnClass* _snow_create_class_wrap_struct(const char* name, const char* struct_name, size_t struct_size, SnDataInitFunc init_func, SnDataFinalizeFunc free_func)
+{
+	SnWrapClass* kl = (SnWrapClass*)snow_alloc_any_object(SN_CLASS_TYPE, sizeof(SnWrapClass));
+	snow_object_init((SnObject*)kl, snow_get_prototype(SN_CLASS_TYPE));
+	kl->base.name = snow_symbol(name);
+	kl->base.instance_prototype = snow_create_object(NULL); // NULL => Object is prototype
+	snow_set_member(kl->base.instance_prototype, snow_symbol("class"), kl);
+	kl->struct_name = struct_name;
+	kl->struct_size = struct_size;
+	kl->init_func = init_func;
+	kl->free_func = free_func;
+	snow_define_class_method(&kl->base, "__call__", class_wrap_new);
+	return &kl->base;
+}
+
+SnObject* snow_create_wrap_object(SnClass* wrap_class)
+{
+	ASSERT_TYPE(wrap_class, SN_CLASS_TYPE);
+	ASSERT(snow_gc_allocated_size(wrap_class) == snow_gc_round(sizeof(SnWrapClass))); // hack to try to make sure that we're not in fact a regular class.
+	SnWrapClass* self = (SnWrapClass*)wrap_class;
+	ASSERT(self->base.instance_prototype);
+	
+	/*
+		Layout of wrapped structs:
+		
+		{
+			SnObject base;
+			SnGCFreeFunc free_func; // identical to the free_func in the class
+			byte extra[...];        // size of the wrapped struct
+		}
+	*/
+	
+	void* extra;
+	SnObject* new_object = snow_create_object_with_extra_data(self->base.instance_prototype, self->struct_size + sizeof(SnGCFreeFunc), &extra);
+	SnGCFreeFunc* free_func = (SnGCFreeFunc*)extra;
+	*free_func = self->free_func;
+	extra = (byte*)extra + sizeof(SnGCFreeFunc);
+	
+	memset(extra, 0, self->struct_size);
+	
+	if (self->init_func) self->init_func(extra);
+	snow_gc_set_free_func(new_object, class_wrap_instance_free);
+	
+	return new_object;
+}
+
+void* _snow_unwrap_struct(SnObject* obj, uintx struct_size, const char* struct_name)
+{
+	ASSERT(snow_gc_allocated_size(obj) == snow_gc_round(sizeof(SnObject) + sizeof(SnGCFreeFunc) + struct_size));
+	return ((byte*)obj) + sizeof(SnObject) + sizeof(SnGCFreeFunc);
+}
