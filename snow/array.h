@@ -21,6 +21,7 @@ CAPI VALUE snow_array_pop(SnArray*);
 CAPI intx snow_array_find(SnArray*, VALUE);
 CAPI intx snow_array_find_or_add(SnArray*, VALUE);
 CAPI void snow_array_clear(SnArray* array);
+CAPI struct SnString* snow_array_join(SnArray* array, const char* sep);
 CAPI void snow_array_parallel_for_each(SnArray*, SnParallelForEachCallback func, void* userdata);
 
 static inline VALUE* snow_array_data(SnArray* ar) { return ar->a.data; }

@@ -6,10 +6,12 @@
 
 typedef int(*SnMapCompare)(VALUE a, VALUE b);
 
+struct SnMapTuple;
+
 typedef struct SnMap {
 	SnObjectBase base;
 	uintx size;
-	void* data;
+	struct SnMapTuple* data;
 	SnMapCompare compare;
 } SnMap;
 

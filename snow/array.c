@@ -69,6 +69,35 @@ void snow_array_clear(SnArray* array) {
 	array_clear(INTERN);
 }
 
+SnString* snow_array_join(SnArray* array, const char* sep) {
+	if (!sep) sep = "";
+	uintx sep_len = strlen(sep);
+	
+	uintx num_strings = snow_array_size(array);
+	SnString* strings[num_strings];
+	uintx strings_len = 0;
+	for (size_t i = 0; i < num_strings; ++i) {
+		VALUE x = snow_array_get(array, i);
+		strings[i] = snow_typeof(x) == SN_STRING_TYPE ? (SnString*)x : (SnString*)snow_call_method(snow_array_get(array, i), snow_symbol("to_string"), 0);
+		strings_len += snow_string_size(strings[i]);
+	}
+	
+	char buffer[strings_len + (num_strings-1)*sep_len];
+	char* p = buffer;
+	for (size_t i = 0; i < num_strings; ++i) {
+		uintx len = snow_string_size(strings[i]);
+		memcpy(p, snow_string_cstr(strings[i]), len);
+		p += len;
+		if (i < num_strings-1) {
+			memcpy(p, sep, sep_len);
+			p += sep_len;
+		}
+	}
+	*p = '\0';
+	
+	return snow_create_string_from_data((byte*)buffer, p - buffer);
+}
+
 void snow_array_parallel_for_each(SnArray* array, SnParallelForEachCallback callback, void* userdata) {
 	snow_parallel_for_each(INTERN->data, sizeof(VALUE), INTERN->size, callback, userdata);
 }
@@ -296,15 +325,7 @@ SNOW_FUNC(_array_join) {
 	SnArray* array = (SnArray*)SELF;
 	SnString* separator = NUM_ARGS > 0 ? (SnString*)snow_call_method(ARGS[0], snow_symbol("to_string"), 0) : NULL;
 	if (separator) { ASSERT_TYPE(separator, SN_STRING_TYPE); }
-	SnString* result = snow_create_string("");
-	for (size_t i = 0; i < snow_array_size(array); ++i) {
-		SnString* converted = (SnString*)snow_call_method(snow_array_get(array, i), snow_symbol("to_string"), 0);
-		ASSERT_TYPE(converted, SN_STRING_TYPE);
-		result = snow_string_concatenate(result, converted);
-		if (i < snow_array_size(array)-1 && separator)
-			result = snow_string_concatenate(result, separator);
-	}
-	return result;
+	return snow_array_join(array, separator ? snow_string_cstr(separator) : NULL);
 }
 
 void init_array_class(SnClass* klass)

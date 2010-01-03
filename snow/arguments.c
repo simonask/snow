@@ -2,6 +2,7 @@
 #include "snow/intern.h"
 #include "snow/gc.h"
 #include "snow/array-intern.h"
+#include "snow/map.h"
 
 #define NAMES (&args->names)
 #define DATA (&args->data)
@@ -75,16 +76,39 @@ VALUE snow_arguments_get_by_name_at(SnArguments* args, SnSymbol name, uintx idx)
 	
 	for (size_t i = 0; i < array_size(DATA); ++i) {
 		VALUE argname = array_get(NAMES, i);
+		VALUE data = array_get(DATA, i);
 		if (argname == SN_NIL) {
-			if (unnamed_i == idx) unnamed = array_get(DATA, i);
+			if (unnamed_i == idx) unnamed = data;
 			++unnamed_i;
 		} else if (value_to_symbol(argname) == name) {
-			named = array_get(DATA, i);
+			named = data;
 			break;
 		}
 	}
 	
 	return named ? named : unnamed;
+}
+
+void snow_arguments_put_in_map(SnArguments* args, SnMap* map)
+{
+	VALUE unnamed_args[array_size(DATA)];
+	uintx unnamed_size = 0;
+	
+	for (size_t i = 0; i < array_size(NAMES); ++i) {
+		VALUE argname = array_get(NAMES, i);
+		VALUE data = array_get(DATA, i);
+		if (argname == SN_NIL) {
+			unnamed_args[unnamed_size++] = data;
+		} else {
+			snow_map_set(map, argname, data);
+		}
+	}
+	
+	if (unnamed_size % 2) snow_throw_exception_with_description("Odd number of arguments (%d) for Map.", unnamed_size);
+	
+	for (size_t i = 0; i < unnamed_size/2; ++i) {
+		snow_map_set(map, unnamed_args[i*2], unnamed_args[i*2+1]);
+	}
 }
 
 SNOW_FUNC(arguments_any) {

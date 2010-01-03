@@ -19,5 +19,6 @@ CAPI intx snow_arguments_get_index_for_name(SnArguments*, SnSymbol name)        
 CAPI VALUE snow_arguments_get_by_index(SnArguments*, intx idx)                  ATTR_HOT;
 CAPI VALUE snow_arguments_get_by_name(SnArguments*, SnSymbol sym)               ATTR_HOT;
 CAPI VALUE snow_arguments_get_by_name_at(SnArguments* args, SnSymbol sym, uintx idx) ATTR_HOT;
+CAPI void snow_arguments_put_in_map(SnArguments* args, struct SnMap* map);
 
 #endif /* end of include guard: ARGUMENTS_H_4ZC67CWW */
