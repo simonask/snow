@@ -184,7 +184,6 @@ static VALUE loaded_files_key = NULL;
 
 VALUE snow_load(const char* file)
 {
-	debug("attempting to load file: %s\n", file);
 	struct stat s;
 	if (!stat(file, &s))
 	{
@@ -199,7 +198,7 @@ VALUE snow_load(const char* file)
 		snow_map_set(loaded_files, file_str, SN_TRUE);
 		// TODO: check timestamps in required_files
 		
-		// XXX: come up with a better way to distinguish Snow files and dynaminc libraries
+		// XXX: come up with a better way to distinguish Snow files and dynamic libraries
 		uintx filename_length = strlen(file);
 		bool is_snow = file[filename_length-3] == '.' && file[filename_length-2] == 's' && file[filename_length-1] == 'n';
 		if (is_snow)

@@ -3,16 +3,12 @@
 
 #include "snow/basic.h"
 
-typedef struct SnLinkBufferPage {
-	struct SnLinkBufferPage* next;
-	uintx offset;
-	byte data[];
-} SnLinkBufferPage;
+struct SnLinkBufferPage;
 
 typedef struct SnLinkBuffer {
 	uintx page_size;
-	SnLinkBufferPage* head;
-	SnLinkBufferPage* tail;
+	struct SnLinkBufferPage* head;
+	struct SnLinkBufferPage* tail;
 } SnLinkBuffer;
 
 CAPI SnLinkBuffer* snow_create_linkbuffer(uintx page_size);

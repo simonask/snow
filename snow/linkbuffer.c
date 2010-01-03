@@ -3,6 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+typedef struct SnLinkBufferPage {
+	struct SnLinkBufferPage* next;
+	uintx offset;
+	byte data[];
+} SnLinkBufferPage;
+
+
 SnLinkBuffer* snow_create_linkbuffer(uintx page_size) {
 	SnLinkBuffer* buf = (SnLinkBuffer*)snow_malloc(sizeof(SnLinkBuffer));
 	snow_init_linkbuffer(buf, page_size);

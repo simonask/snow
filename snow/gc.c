@@ -76,7 +76,6 @@ static void gc_heap_init(struct heap_t* heap, uintx size)
 {
 	heap->size = gc_aligned_size(size);
 	heap->data = (byte*)snow_malloc(heap->size);
-	debug("gc: nursery is at %p\n", heap->data);
 	heap->offset = 0;
 	snow_init_lock(&heap->lock);
 	#ifdef DEBUG
