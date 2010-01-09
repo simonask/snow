@@ -220,6 +220,20 @@ SNOW_FUNC(object_prototype) {
 	return snow_get_prototype(snow_typeof(SELF));
 }
 
+SNOW_FUNC(object_members) {
+	if (snow_is_normal_object(SELF)) {
+		SnObject* self = (SnObject*)SELF;
+		
+		if (!self->members)
+			self->members = snow_create_map();
+		
+		return self->members;
+	}
+	
+	snow_throw_exception_with_description("Tried to access member map of non-normal object.");
+	return NULL;
+}
+
 SNOW_FUNC(object_reset_assigned_name) {
 	/*
 		This function resets the SN_FLAG_ASSIGNED flag on the object,
@@ -268,6 +282,31 @@ SNOW_FUNC(object_include) {
 	return boolean_to_value(snow_object_include(self, module));
 }
 
+SNOW_FUNC(object_property) {
+	REQUIRE_ARGS(3);
+	
+	ASSERT_TYPE(ARGS[0], SN_SYMBOL_TYPE);
+	SnSymbol name = value_to_symbol(ARGS[0]);
+	
+	VALUE getter = ARGS[1];
+	VALUE setter = ARGS[2];
+	
+	if (!is_nil(getter))
+		ASSERT_TYPE(getter, SN_FUNCTION_TYPE);
+	else
+		getter = NULL;
+	
+	if (!is_nil(setter))
+		ASSERT_TYPE(setter, SN_FUNCTION_TYPE);
+	else
+		setter = NULL;
+	
+	snow_object_set_property_getter(SELF, name, getter);
+	snow_object_set_property_setter(SELF, name, setter);
+	
+	return SELF;
+}
+
 void init_object_class(SnClass* klass)
 {
 	snow_define_method(klass, "inspect", object_inspect);
@@ -279,7 +318,9 @@ void init_object_class(SnClass* klass)
 	snow_define_method(klass, "!=", object_not_equals);
 	snow_define_property(klass, "name", object_name, NULL);
 	snow_define_property(klass, "prototype", object_prototype, NULL);
+	snow_define_property(klass, "members", object_members, NULL);
 	snow_define_method(klass, "__reset_assigned_name__", object_reset_assigned_name);
 	snow_define_method(klass, "__on_assign__", object_on_assign);
 	snow_define_method(klass, "include", object_include);
+	snow_define_method(klass, "property", object_property);
 }
