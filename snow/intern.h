@@ -26,7 +26,7 @@ CAPI inline void debug(const char* msg, ...) {}
 #define _QUOTEME(x) #x
 #define Q(x) _QUOTEME(x)
 
-#define ASSERT(x) if (!(x)) TRAP();
+#define ASSERT(x) do { if (!(x)) TRAP(); } while (0)
 #define ASSERT_TYPE(OBJECT, TYPE) ASSERT(snow_typeof(OBJECT) == (TYPE))
 
 enum SnValueType {
