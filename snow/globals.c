@@ -19,6 +19,15 @@ SNOW_FUNC(_puts) {
 	return SN_NIL;
 }
 
+SNOW_FUNC(_print) {
+	for (intx i = 0; i < NUM_ARGS; ++i)
+	{
+		const char* str = snow_value_to_cstr(ARGS[i]);
+		printf("%s", str);
+	}
+	return SN_NIL;
+}
+
 SNOW_FUNC(_require) {
 	REQUIRE_ARGS(1);
 	ASSERT_TYPE(ARGS[0], SN_STRING_TYPE);
@@ -60,5 +69,6 @@ void snow_init_globals(SnContext* ctx)
 	set_global(ctx, snow_symbol("LOAD_PATHS"), snow_get_load_paths());
 	set_global(ctx, snow_symbol("require"), snow_create_function_with_name(_require, "require"));
 	set_global(ctx, snow_symbol("puts"), snow_create_function_with_name(_puts, "puts"));
+	set_global(ctx, snow_symbol("print"), snow_create_function_with_name(_print, "print"));
 	set_global(ctx, snow_symbol("throw"), snow_create_function_with_name(_throw, "throw"));
 }
