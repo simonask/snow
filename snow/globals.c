@@ -67,6 +67,7 @@ void snow_init_globals(SnContext* ctx)
 	// others
 	set_global(ctx, snow_symbol("@"), snow_get_class(SN_ARRAY_TYPE));
 	set_global(ctx, snow_symbol("LOAD_PATHS"), snow_get_load_paths());
+	set_global(ctx, snow_symbol("ARGV"), snow_create_array());
 	set_global(ctx, snow_symbol("require"), snow_create_function_with_name(_require, "require"));
 	set_global(ctx, snow_symbol("puts"), snow_create_function_with_name(_puts, "puts"));
 	set_global(ctx, snow_symbol("print"), snow_create_function_with_name(_print, "print"));

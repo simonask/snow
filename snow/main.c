@@ -125,10 +125,17 @@ int main(int argc, char* const* argv)
 		}
 	}
 	
-	if (optind < argc) {
-		// require loose filenames
+	// require first loose argument, unless -- was used
+	if (optind < argc && strcmp("--", argv[optind-1]) != 0) {
 		SnString* filename = snow_create_string(argv[optind++]);
 		snow_array_push(require_files, filename);
+	}
+	
+	// stuff the rest in ARGV
+	SnArray* ARGV = snow_get_global(snow_symbol("ARGV"));
+	while (optind < argc) {
+		SnString* argument = snow_create_string(argv[optind++]);
+		snow_array_push(ARGV, argument);
 	}
 	
 	for (uintx i = 0; i < snow_array_size(require_files); ++i) {
