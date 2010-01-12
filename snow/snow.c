@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <dlfcn.h>
 
 static SnObject* get_closest_object(VALUE)        ATTR_HOT;
@@ -518,7 +519,7 @@ const char* snow_inspect_value(VALUE val)
 		got_sym = true;
 	}
 	
-	SnString* str = (SnString*)snow_call_method(val, inspect, 0);
+	SnString* str = (SnString*)snow_call_method(snow_call_method(val, inspect, 0), snow_symbol("to_string"), 0);
 	ASSERT_TYPE(str, SN_STRING_TYPE);
 	return snow_string_cstr(str);
 }
