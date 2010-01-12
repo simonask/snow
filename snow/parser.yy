@@ -89,150 +89,167 @@ ignore_eol:
 eol: TOK_EOL
    ;
 
-program: sequence TOK_EOF   %dprec 3                       { state->result = $$ = snow_ast_function("<noname>", state->streamname, NULL, $1); }
+program: sequence TOK_EOF  %dprec 3  { state->result = $$ = snow_ast_function("<noname>", state->streamname, NULL, $1); }
        ;
 
-statement: expression    %dprec 1
-         | control       %dprec 1
-         | conditional   %dprec 2
-         | loop          %dprec 2
+statement: expression   %dprec 1
+         | control      %dprec 1
+         | conditional  %dprec 2
+         | loop         %dprec 2
          ;
 
 
-sequence: ignore_eol /* Nothing */                          { $$ = snow_ast_sequence(0); }
-        | statement ignore_eol                              { $$ = snow_ast_sequence(1, $1); }
-        | sequence eol statement ignore_eol                 { $$ = $1; snow_ast_sequence_push($1, $3); }
+sequence: ignore_eol /* Nothing */           { $$ = snow_ast_sequence(0); }
+        | statement ignore_eol               { $$ = snow_ast_sequence(1, $1); }
+        | sequence eol statement ignore_eol  { $$ = $1; snow_ast_sequence_push($1, $3); }
         ;
 
-loop: TOK_WHILE expression eol sequence eol TOK_END             { $$ = snow_ast_loop($2, $4); }
-    | TOK_UNTIL expression eol sequence eol TOK_END             { $$ = snow_ast_loop(snow_ast_not($2), $4); }
-    | statement TOK_WHILE expression                         { $$ = snow_ast_loop($3, $1); }
-    | statement TOK_UNTIL expression                         { $$ = snow_ast_loop(snow_ast_not($3), $1); }
+loop: TOK_WHILE expression eol sequence eol TOK_END  { $$ = snow_ast_loop($2, $4); }
+    | TOK_UNTIL expression eol sequence eol TOK_END  { $$ = snow_ast_loop(snow_ast_not($2), $4); }
+    | statement TOK_WHILE expression                 { $$ = snow_ast_loop($3, $1); }
+    | statement TOK_UNTIL expression                 { $$ = snow_ast_loop(snow_ast_not($3), $1); }
     ;
 
-conditional: TOK_IF expression eol sequence eol conditional_tail                { $$ = snow_ast_if_else($2, $4, $6); }
-             | TOK_UNLESS expression eol sequence eol conditional_tail          { $$ = snow_ast_if_else(snow_ast_not($2), $4, $6); }
-             | statement TOK_IF expression                                               { $$ = snow_ast_if_else($3, $1, snow_ast_literal(SN_NIL)); }
-             | statement TOK_UNLESS expression                                           { $$ = snow_ast_if_else(snow_ast_not($3), $1, snow_ast_literal(SN_NIL)); }
-             ;
 
-conditional_tail: TOK_END                                                       { $$ = NULL; }
-                  | TOK_ELSE eol sequence eol TOK_END                   { $$ = $3; }
-                  | TOK_ELSEIF expression eol sequence eol conditional_tail     { $$ = snow_ast_if_else($2, $4, $6); }
-                  ;
+conditional: TOK_IF expression eol sequence eol conditional_tail      { $$ = snow_ast_if_else($2, $4, $6); }
+           | TOK_UNLESS expression eol sequence eol conditional_tail  { $$ = snow_ast_if_else(snow_ast_not($2), $4, $6); }
+           | statement TOK_IF expression                              { $$ = snow_ast_if_else($3, $1, snow_ast_literal(SN_NIL)); }
+           | statement TOK_UNLESS expression                          { $$ = snow_ast_if_else(snow_ast_not($3), $1, snow_ast_literal(SN_NIL)); }
+           ;
 
+conditional_tail: TOK_END                                                  { $$ = NULL; }
+                | TOK_ELSE eol sequence eol TOK_END                        { $$ = $3; }
+                | TOK_ELSEIF expression eol sequence eol conditional_tail  { $$ = snow_ast_if_else($2, $4, $6); }
+                ;
 
-control: TOK_RETURN                                         { $$ = snow_ast_return(NULL); }
-       | TOK_RETURN expression                              { $$ = snow_ast_return($2); }
-       | TOK_BREAK                                          { /* TODO: create a BREAK ast node */ }
-       | TOK_CONTINUE                                       { /* TODO: create a CONTINUE ast node */ }
+control: TOK_RETURN             { $$ = snow_ast_return(NULL); }
+       | TOK_RETURN expression  { $$ = snow_ast_return($2); }
+       | TOK_BREAK              { /* TODO: create a BREAK ast node */ }
+       | TOK_CONTINUE           { /* TODO: create a CONTINUE ast node */ }
        ;
             
-member: TOK_DOT identifier                                  { $$ = snow_ast_member(snow_ast_self(), $2); }
-      | expression TOK_DOT identifier                       { $$ = snow_ast_member($1, $3); }
+member: TOK_DOT identifier             { $$ = snow_ast_member(snow_ast_self(), $2); }
+      | expression TOK_DOT identifier  { $$ = snow_ast_member($1, $3); }
       ;
 
-identifier: TOK_IDENTIFIER                                  { /* TODO: register symbol */ }
+identifier: TOK_IDENTIFIER  { /* TODO: register symbol */ }
           ;
 
-local: identifier                                           { $$ = snow_ast_local($1); }
+local: identifier  { $$ = snow_ast_local($1); }
      ;
 
-non_index_variable: local | member | TOK_SELF | TOK_CURRENT_SCOPE;
+non_index_variable: local
+                  | member
+                  | TOK_SELF
+                  | TOK_CURRENT_SCOPE
+                  ;
 
-index_variable: atomic_expr index_arguments              { $$ = snow_ast_call(snow_ast_member($1, snow_symbol("[]")), $2); }
+index_variable: atomic_expr index_arguments  { $$ = snow_ast_call(snow_ast_member($1, snow_symbol("[]")), $2); }
               ;
 
-variable: non_index_variable | index_variable;
+variable: non_index_variable
+        | index_variable
+        ;
 
-argument_list: expression                                   { $$ = snow_ast_sequence(1, $1); }
-             | argument_list ',' expression                 { $$ = $1; snow_ast_sequence_push($$, $3); }
+argument_list: expression                    { $$ = snow_ast_sequence(1, $1); }
+             | argument_list ',' expression  { $$ = $1; snow_ast_sequence_push($$, $3); }
              ;
 
-arguments: '(' ')'                                         { $$ = snow_ast_sequence(0); }
-         | '(' argument_list ')'                           { $$ = $2; }
+arguments: '(' ')'                { $$ = snow_ast_sequence(0); }
+         | '(' argument_list ')'  { $$ = $2; }
          ;
 
-index_arguments: '[' argument_list ']'                     { $$ = $2; }
+index_arguments: '[' argument_list ']'  { $$ = $2; }
                ;
 
-scope: '{' sequence '}'                                    { $$ = $2; }
+scope: '{' sequence '}'  { $$ = $2; }
      ;
 
-parameter_list: identifier                                  { $$ = snow_ast_sequence(1, symbol_to_value($1)); }
-              | parameter_list ',' identifier               { snow_ast_sequence_push($1, symbol_to_value($3)); $$ = $1; }
+parameter_list: identifier                     { $$ = snow_ast_sequence(1, symbol_to_value($1)); }
+              | parameter_list ',' identifier  { snow_ast_sequence_push($1, symbol_to_value($3)); $$ = $1; }
               ;
 
-parameters: '[' ']'                                        { $$ = NULL; }
-          | '[' parameter_list ']'                         { $$ = $2; }
+parameters: '[' ']'                 { $$ = NULL; }
+          | '[' parameter_list ']'  { $$ = $2; }
           ;
 
-naked_closure: scope                                       { ++state->info->num_functions; $$ = snow_ast_function("<unnamed>", state->streamname, NULL, $1); }
+naked_closure: scope  { ++state->info->num_functions; $$ = snow_ast_function("<unnamed>", state->streamname, NULL, $1); }
              ;
 
 closure: naked_closure
-       | parameters scope                                  { ++state->info->num_functions; $$ = snow_ast_function("<unnamed>", state->streamname, $1, $2); }
+       | parameters scope  { ++state->info->num_functions; $$ = snow_ast_function("<unnamed>", state->streamname, $1, $2); }
        ;
 
-symbol:     '#' identifier                                 { $$ = symbol_to_value($2); }
-            | '#' TOK_STRING                               { $$ = symbol_to_value(snow_symbol_from_string($2)); }
-            ;
+symbol: '#' identifier  { $$ = symbol_to_value($2); }
+      | '#' TOK_STRING  { $$ = symbol_to_value(snow_symbol_from_string($2)); }
+      ;
 
-string_literal: TOK_STRING                                 { $$ = snow_ast_literal($1); }
-              | string_literal TOK_STRING                  { $$ = snow_ast_call(snow_ast_member($1, snow_symbol("+")), snow_ast_sequence(1, snow_ast_literal($2))); }
+string_literal: TOK_STRING                 { $$ = snow_ast_literal($1); }
+              | string_literal TOK_STRING  { $$ = snow_ast_call(snow_ast_member($1, snow_symbol("+")), snow_ast_sequence(1, snow_ast_literal($2))); }
               ;
 
-literal_value:    TOK_INTEGER | TOK_FLOAT | TOK_TRUE | TOK_FALSE | TOK_NIL | symbol;
-literal: literal_value                                     { $$ = snow_ast_literal($1); }
+literal_value: TOK_INTEGER
+             | TOK_FLOAT
+             | TOK_TRUE
+             | TOK_FALSE
+             | TOK_NIL
+             | symbol
+             ;
+
+literal: literal_value   { $$ = snow_ast_literal($1); }
        | string_literal
        ;
 
-function_call: atomic_expr arguments                        { $$ = snow_ast_call($1, $2); }
-             | atomic_expr arguments closure %dprec 2       { snow_ast_sequence_push($2, $3); $$ = snow_ast_call($1, $2); }
-             | atomic_non_index_expr closure %dprec 1       { $$ = snow_ast_call($1, snow_ast_sequence(1, $2)); }
+function_call: atomic_expr arguments                   { $$ = snow_ast_call($1, $2); }
+             | atomic_expr arguments closure %dprec 2  { snow_ast_sequence_push($2, $3); $$ = snow_ast_call($1, $2); }
+             | atomic_non_index_expr closure %dprec 1  { $$ = snow_ast_call($1, snow_ast_sequence(1, $2)); }
              ;
 
-assignment: identifier ':' expression                       { $$ = snow_ast_local_assign($1, $3); }
-          | member ':' expression                           { $$ = snow_ast_member_assign($1, $3); }
-          | atomic_expr index_arguments ':' expression      { snow_ast_sequence_push($2, $4); $$ = snow_ast_call(snow_ast_member($1, snow_symbol("[]:")), $2); }
+assignment: identifier ':' expression                   { $$ = snow_ast_local_assign($1, $3); }
+          | member ':' expression                       { $$ = snow_ast_member_assign($1, $3); }
+          | atomic_expr index_arguments ':' expression  { snow_ast_sequence_push($2, $4); $$ = snow_ast_call(snow_ast_member($1, snow_symbol("[]:")), $2); }
           ;
 
-parallel_thread: expression TOK_PARALLEL_THREAD expression         %dprec 1  { $$ = snow_ast_parallel_thread(snow_ast_sequence(2, $1, $3)); }
-               | parallel_thread TOK_PARALLEL_THREAD expression    %dprec 2  { snow_ast_sequence_push($1->children[0], $3); $$ = $1; }
+parallel_thread: expression TOK_PARALLEL_THREAD expression       %dprec 1  { $$ = snow_ast_parallel_thread(snow_ast_sequence(2, $1, $3)); }
+               | parallel_thread TOK_PARALLEL_THREAD expression  %dprec 2  { snow_ast_sequence_push($1->children[0], $3); $$ = $1; }
                ;
 
-parallel_fork: expression TOK_PARALLEL_FORK             { $$ = snow_ast_parallel_fork(snow_ast_sequence(1, $1)); }
-             | parallel_fork expression                 { snow_ast_sequence_push($1->children[0], $2); $$ = $1; }
-             | parallel_fork expression TOK_PARALLEL_FORK { snow_ast_sequence_push($1->children[0], $2); $$ = $1; }
+parallel_fork: expression TOK_PARALLEL_FORK                { $$ = snow_ast_parallel_fork(snow_ast_sequence(1, $1)); }
+             | parallel_fork expression                    { snow_ast_sequence_push($1->children[0], $2); $$ = $1; }
+             | parallel_fork expression TOK_PARALLEL_FORK  { snow_ast_sequence_push($1->children[0], $2); $$ = $1; }
              ;
 
-parallel_operation: parallel_thread | parallel_fork;
+parallel_operation: parallel_thread
+                  | parallel_fork
+                  ;
 
-log_operation: expression TOK_LOG_AND expression                { $$ = snow_ast_and($1, $3); }
-            | expression TOK_LOG_OR expression                  { $$ = snow_ast_or($1, $3); }
-            | expression TOK_LOG_XOR expression                 { $$ = snow_ast_xor($1, $3); }
-            | TOK_LOG_NOT expression                            { $$ = snow_ast_not($2); }
-            ;
+log_operation: expression TOK_LOG_AND expression  { $$ = snow_ast_and($1, $3); }
+             | expression TOK_LOG_OR expression   { $$ = snow_ast_or($1, $3); }
+             | expression TOK_LOG_XOR expression  { $$ = snow_ast_xor($1, $3); }
+             | TOK_LOG_NOT expression             { $$ = snow_ast_not($2); }
+             ;
 
-operation:  TOK_OPERATOR_FIRST expression                       { $$ = snow_ast_call(snow_ast_member($2, $1), NULL); }
-            | TOK_OPERATOR_SECOND expression                    { $$ = snow_ast_call(snow_ast_member($2, $1), NULL); }
-            | TOK_OPERATOR_THIRD expression                     { $$ = snow_ast_call(snow_ast_member($2, $1), NULL); }
-            | TOK_OPERATOR_FOURTH expression                    { $$ = snow_ast_call(snow_ast_member($2, $1), NULL); }
-            | expression TOK_OPERATOR_FIRST expression          { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
-            | expression TOK_OPERATOR_SECOND expression         { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
-            | expression TOK_OPERATOR_THIRD expression          { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
-            | expression TOK_OPERATOR_FOURTH expression         { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
-            | parallel_operation
-            ;
+operation: TOK_OPERATOR_FIRST expression              { $$ = snow_ast_call(snow_ast_member($2, $1), NULL); }
+         | TOK_OPERATOR_SECOND expression             { $$ = snow_ast_call(snow_ast_member($2, $1), NULL); }
+         | TOK_OPERATOR_THIRD expression              { $$ = snow_ast_call(snow_ast_member($2, $1), NULL); }
+         | TOK_OPERATOR_FOURTH expression             { $$ = snow_ast_call(snow_ast_member($2, $1), NULL); }
+         | expression TOK_OPERATOR_FIRST expression   { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
+         | expression TOK_OPERATOR_SECOND expression  { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
+         | expression TOK_OPERATOR_THIRD expression   { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
+         | expression TOK_OPERATOR_FOURTH expression  { $$ = snow_ast_call(snow_ast_member($1, $2), snow_ast_sequence(1, $3)); }
+         | parallel_operation
+         ;
 
 atomic_non_index_expr: literal
                      | non_index_variable
                      | closure
-                     | '(' expression ')'                       { $$ = $2; }
+                     | '(' expression ')'  { $$ = $2; }
                      | function_call
                      ;
 
-atomic_expr: atomic_non_index_expr | index_variable;
+atomic_expr: atomic_non_index_expr
+           | index_variable
+           ;
 
 expression: assignment %dprec 9999
           | log_operation %dprec 1
