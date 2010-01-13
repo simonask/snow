@@ -124,8 +124,8 @@ static void codegen_compile_call_with_inlining(SnCodegenX* cgx, void(*func)())
 	else
 	{
 		// no inline version for this codegen
-		ASM(mov_id, IMMEDIATE(func), RCX);
-		ASM(call, RCX);
+		ASM(mov_id, IMMEDIATE(func), R10);
+		ASM(call, R10);
 	}
 }
 
