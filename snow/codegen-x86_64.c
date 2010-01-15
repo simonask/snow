@@ -9,6 +9,8 @@
 #include "snow/array.h"
 #include "snow/arguments.h"
 #include "snow/linkbuffer.h"
+#include "snow/task-intern.h"
+#include "snow/exception-intern.h"
 
 #include <stddef.h>
 
@@ -575,6 +577,41 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			
 			ASM(link, &after_jmp);
 			ASM(link, &cond_jmp);
+			break;
+		}
+		case SN_AST_TRY:
+		{
+			Label body = ASM(label);
+			Label after = ASM(label);
+			Label catch = ASM(label);
+			intx exception_handler = RESERVE_TMP();
+			
+			CALL(snow_create_exception_handler);
+			ASM(mov, RAX, TEMPORARY(exception_handler));
+			
+			ASM(mov_rev, RDI, TEMPORARY(exception_handler));
+			CALL(snow_set_current_exception_handler);
+			
+			ASM(mov_rev, RDI, TEMPORARY(exception_handler));
+			ASM(add_id, IMMEDIATE(8), RDI);
+			CALL(snow_save_execution_state);
+			
+			ASM(mov_id, IMMEDIATE(1), RCX);
+			ASM(cmp, RAX, RCX);
+			LabelRef catch_jmp = ASM(j, CC_ZERO, &catch);
+			
+			codegen_compile_node(cgx, (SnAstNode*)node->children[0]);
+			ASM(mov_id, IMMEDIATE(0xbeefdead), R15);
+			LabelRef after_jmp = ASM(jmp, &after);
+			
+			ASM(bind, &catch);
+			ASM(mov_id, IMMEDIATE(0xdeadbeef), R15);
+			
+			ASM(bind, &after);
+			
+			ASM(link, &after_jmp);
+			ASM(link, &catch_jmp);
+			FREE_TMP(exception_handler);
 			break;
 		}
 		case SN_AST_AND:

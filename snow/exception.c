@@ -69,6 +69,14 @@ void snow_try_catch_ensure(SnExceptionTryFunc try_func, SnExceptionCatchFunc cat
 	if (ensure_func) ensure_func(userdata);
 }
 
+SnExceptionHandler* snow_create_exception_handler()
+{
+	SnExceptionHandler* handler = snow_gc_alloc(sizeof(SnExceptionHandler));
+	handler->previous = snow_get_current_exception_handler();
+	handler->exception = NULL;
+	return handler;
+}
+
 SnException* snow_create_exception()
 {
 	SnException* ex = (SnException*)snow_alloc_any_object(SN_EXCEPTION_TYPE, sizeof(SnException));

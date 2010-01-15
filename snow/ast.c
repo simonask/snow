@@ -21,11 +21,12 @@ static uintx ast_size[] = {
 	3, //SN_AST_IF_ELSE,
 	2, //SN_AST_CALL,
 	2, //SN_AST_LOOP,
+	1, //SN_AST_TRY,
 	2, //SN_AST_AND,
 	2, //SN_AST_OR,
 	2, //SN_AST_XOR,
 	1, //SN_AST_NOT,
-	1, //SN_AST_PARALLEL_THREAD
+	1, //SN_AST_PARALLEL_THREAD,
 	1, //SN_AST_PARALLEL_FORK
 };
 
@@ -96,6 +97,7 @@ SnAstNode* snow_ast_call(SnAstNode* func, SnAstNode* seq_args) {
 	return create_ast_node(SN_AST_CALL, func, seq_args);
 }
 SnAstNode* snow_ast_loop(SnAstNode* while_true, SnAstNode* body) { return create_ast_node(SN_AST_LOOP, while_true, body); }
+SnAstNode* snow_ast_try(SnAstNode* body) { return create_ast_node(SN_AST_TRY, body); }
 SnAstNode* snow_ast_and(SnAstNode* left, SnAstNode* right) { return create_ast_node(SN_AST_AND, left, right); }
 SnAstNode* snow_ast_or(SnAstNode* left, SnAstNode* right)  { return create_ast_node(SN_AST_OR, left, right); }
 SnAstNode* snow_ast_xor(SnAstNode* left, SnAstNode* right) { return create_ast_node(SN_AST_XOR, left, right); }
