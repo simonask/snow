@@ -30,9 +30,9 @@
 
 %token <node> TOK_INTERPOLATION
 %token '.' ',' '[' ']' '{' '}' '(' ')' ':' '#'
-%token TOK_EOL TOK_DO TOK_UNLESS TOK_ELSE TOK_IF TOK_ELSEIF TOK_WHILE TOK_UNTIL
+%token TOK_EOL TOK_DO TOK_UNLESS TOK_ELSE TOK_IF TOK_ELSEIF TOK_WHILE TOK_UNTIL TOK_TRY
 
-%type <node> statement conditional conditional_tail control loop
+%type <node> statement conditional conditional_tail control loop try
              function_call assignment operation variable log_operation member
              naked_closure closure local literal expression atomic_expr atomic_non_index_expr
              index_variable non_index_variable string_literal parallel_thread parallel_fork parallel_operation
@@ -96,6 +96,7 @@ statement: expression   %dprec 1
          | control      %dprec 1
          | conditional  %dprec 2
          | loop         %dprec 2
+         | try          %dprec 2
          ;
 
 
@@ -110,6 +111,8 @@ loop: TOK_WHILE expression eol sequence eol TOK_END  { $$ = snow_ast_loop($2, $4
     | statement TOK_UNTIL expression                 { $$ = snow_ast_loop(snow_ast_not($3), $1); }
     ;
 
+try: TOK_TRY sequence eol TOK_END  { $$ = snow_ast_try($2); }
+   ;
 
 conditional: TOK_IF expression eol sequence eol conditional_tail      { $$ = snow_ast_if_else($2, $4, $6); }
            | TOK_UNLESS expression eol sequence eol conditional_tail  { $$ = snow_ast_if_else(snow_ast_not($2), $4, $6); }
