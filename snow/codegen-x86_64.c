@@ -598,7 +598,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			
 			ASM(mov_id, IMMEDIATE(1), RCX);
 			ASM(cmp, RAX, RCX);
-			ASM(xor, RAX, RAX); // Clear return value in case it throw and there's no catch.
+			ASM(xor, RAX, RAX); // Clear return value in case it throws and there's no catch.
 			LabelRef catch_jmp = ASM(j, CC_ZERO, &catch);
 			
 			codegen_compile_node(cgx, (SnAstNode*)node->children[0]);
