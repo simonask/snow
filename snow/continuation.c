@@ -14,21 +14,6 @@ static void continuation_init_stack(SnContinuation*);
 #define CONTINUATION_STACK_SIZE  (1 << 16) // 64K
 static FIXED_ALLOCATOR(stack_alloc, CONTINUATION_STACK_SIZE);
 
-void snow_init_main_continuation() {
-	SnContinuation* cc = (SnContinuation*)snow_alloc_any_object(SN_CONTINUATION_TYPE, sizeof(SnContinuation));
-	cc->function = NULL;
-	cc->stack_hi = (byte*)(uintx)-1;
-	cc->stack_lo = NULL;
-	cc->running = true;
-	cc->interruptible = false;
-	cc->return_to = NULL;
-	cc->please_clean = NULL;
-	cc->context = NULL;
-	cc->return_val = NULL;
-	cc->task_id = snow_get_current_task_id();
-	snow_set_current_continuation(cc);
-}
-
 SnContinuation* snow_create_continuation(SnFunctionPtr func, SnContext* context)
 {
 	SnContinuation* cc = (SnContinuation*)snow_alloc_any_object(SN_CONTINUATION_TYPE, sizeof(SnContinuation));
@@ -80,7 +65,7 @@ VALUE snow_continuation_call(SnContinuation* cc, SnContinuation* return_to)
 	ASSERT(!cc->please_clean);
 	
 	cc->return_to = return_to;
-	if (!_continuation_save(return_to)) {
+	if (!snow_continuation_save_execution_state(return_to)) {
 		// resuming
 		snow_continuation_resume(cc);
 	} else {
@@ -95,11 +80,6 @@ VALUE snow_continuation_call(SnContinuation* cc, SnContinuation* return_to)
 	
 	ASSERT(false);
 	return NULL; // suppress warning
-}
-
-bool snow_continuation_save_execution_state(SnContinuation* cc)
-{
-	return _continuation_save(cc);
 }
 
 void snow_continuation_yield(SnContinuation* cc, VALUE val)
@@ -144,6 +124,13 @@ void snow_continuation_resume(SnContinuation* cc)
 		_continuation_reset(cc);
 		cc->running = true;
 	}
+	
+	if (snow_task_is_base_continuation(cc)) {
+		snow_thread_returning_to_system_stack();
+	} else {
+		snow_thread_departing_from_system_stack();
+	}
+	
 	_continuation_resume(cc);
 }
 

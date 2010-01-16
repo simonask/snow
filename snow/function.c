@@ -159,22 +159,8 @@ VALUE snow_function_callcc(SnFunction* func, SnContext* context)
 {
 	function_setup_context(func, context);
 	
-	SnContinuation* here = snow_get_current_continuation();
-	SnContinuation base_cc;
-	if (!here)
-	{
-		snow_continuation_init(&base_cc, NULL, NULL);
-		here = &base_cc;
-		snow_task_departing_from_system_stack();
-	}
-	
 	SnContinuation* cc = snow_create_continuation(func->desc->func, context);
-	VALUE ret = snow_continuation_call(cc, here);
-	
-	if (here == &base_cc)
-	{
-		snow_task_returning_to_system_stack();
-	}
+	VALUE ret = snow_continuation_call(cc, snow_get_current_continuation());
 	
 	return ret ? ret : SN_NIL;
 }

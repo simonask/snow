@@ -6,60 +6,60 @@
 
 #include <omp.h>
 
-static SnTask* current_tasks[SNOW_MAX_CONCURRENT_TASKS];
-
 typedef struct SnOpenMPThreadState {
+	SnTask* task;
+	volatile bool gc_barrier;
 	void* stack_top;
 	void* stack_bottom;
 } SnOpenMPThreadState;
 
-static SnOpenMPThreadState thread_states[SNOW_MAX_CONCURRENT_TASKS];
+static SnOpenMPThreadState threads[SNOW_MAX_CONCURRENT_TASKS];
 
-static void _snow_openmp_init_tasks(SnTask* tasks, size_t num_tasks)
+static void _snow_openmp_init_threads();
+static void _snow_openmp_push_task(SnTask* task, void* stack_top);
+static SnTask* _snow_openmp_pop_task();
+
+static int PURE me() { return omp_get_thread_num(); }
+#define ME (me())
+
+void snow_init_parallel(void* stack_top)
 {
-	for (size_t i = 0; i < num_tasks; ++i)
-	{
-		tasks[i].previous = NULL;
-		tasks[i].cc = NULL;
-		tasks[i].exception = NULL;
-		tasks[i].exception_handler = NULL;
-	}
+	memset(threads, 0, SNOW_MAX_CONCURRENT_TASKS * sizeof(SnOpenMPThreadState));
+	static SnTask main_task;
+	memset(&main_task, 0, sizeof(SnTask));
+	_snow_openmp_push_task(&main_task, stack_top);
 }
 
-static void _snow_openmp_push_task(SnTask* task)
+static void _snow_openmp_push_task(SnTask* task, void* stack_top)
 {
 	ASSERT(task);
 	ASSERT(task->previous == NULL);
-	int id = omp_get_thread_num();
-	ASSERT(id < SNOW_MAX_CONCURRENT_TASKS); // too many threads!
-	task->previous = current_tasks[id];
-	ASSERT(!task->previous || !task->previous->gc_barrier); // pushing tasks while gc'ing?!
-	current_tasks[id] = task;
+	ASSERT(ME < SNOW_MAX_CONCURRENT_TASKS); // too many threads!
+	task->previous = threads[ME].task;
+	ASSERT(!task->previous || !threads[ME].gc_barrier); // pushing tasks while gc'ing?!
+	threads[ME].task = task;
+	if (threads[ME].stack_top == NULL) {
+		threads[ME].stack_top = stack_top;
+	}
 }
 
 static SnTask* _snow_openmp_pop_task()
 {
-	int id = omp_get_thread_num();
-	ASSERT(id < SNOW_MAX_CONCURRENT_TASKS); // too many threads!
-	SnTask* task = current_tasks[id];
-	current_tasks[id] = task->previous;
+	ASSERT(ME < SNOW_MAX_CONCURRENT_TASKS); // too many threads! also, how is this possible?
+	ASSERT(!threads[ME].gc_barrier); // finishing task while gc'ing?!
+	SnTask* task = threads[ME].task;
+	threads[ME].task = task->previous;
+	if (threads[ME].task == NULL) {
+		// no more tasks in thread
+		threads[ME].stack_top = NULL;
+	}
 	return task;
 }
 
 static SnTask* _snow_openmp_top_task()
 {
-	int id = omp_get_thread_num();
-	ASSERT(id < SNOW_MAX_CONCURRENT_TASKS); // too many threads!
-	return current_tasks[id];
-}
-
-void snow_init_parallel()
-{
-	memset(current_tasks, 0, sizeof(SnTask*)*SNOW_MAX_CONCURRENT_TASKS);
-	memset(thread_states, 0, sizeof(SnOpenMPThreadState)*SNOW_MAX_CONCURRENT_TASKS);
-	static SnTask main_task;
-	_snow_openmp_init_tasks(&main_task, 1);
-	_snow_openmp_push_task(&main_task);
+	ASSERT(ME < SNOW_MAX_CONCURRENT_TASKS); // too many threads!
+	return threads[ME].task;
 }
 
 static void collect_exceptions_and_rethrow(SnTask* tasks, size_t num_tasks)
@@ -80,93 +80,50 @@ static void collect_exceptions_and_rethrow(SnTask* tasks, size_t num_tasks)
 	}
 }
 
-static inline void enter_thread(void* stack_top)
-{
-	SnOpenMPThreadState* state = &thread_states[omp_get_thread_num()];
-	if (state->stack_top == NULL)
-	{
-		state->stack_top = stack_top;
-	}
-}
-
-static inline void leave_thread(void* stack_top)
-{
-	SnOpenMPThreadState* state = &thread_states[omp_get_thread_num()];
-	if (state->stack_top == stack_top)
-	{
-		state->stack_top = NULL;
-	}
-}
 
 void snow_parallel_for_each(void* data, size_t element_size, size_t num_elements, SnParallelForEachCallback func, void* userdata)
 {
 	SnTask tasks[num_elements];
-	_snow_openmp_init_tasks(tasks, num_elements);
-	
-	void* bottom;
-	GET_STACK_PTR(bottom);
-	snow_task_set_current_stack_bottom(bottom);
+	memset(tasks, 0, sizeof(tasks));
 	
 	#pragma omp parallel for
 	for (int i = 0; i < num_elements; ++i)
 	{
-		// maintain stack extents for GC
+		SnTask* task = &tasks[i];
+		
+		SnContinuation base;
+		snow_continuation_init(&base, NULL, NULL);
+		
+		task->base = &base;
+		task->base->task_id = (uintx)task;
+		task->base->running = true;
+		task->continuation = task->base;
+		task->started_on_system_stack = snow_thread_is_on_system_stack();
+		
 		void* stack_top;
 		GET_STACK_PTR(stack_top);
-		enter_thread(stack_top);
+		_snow_openmp_push_task(task, stack_top);
 		
-		SnTask* task = &tasks[i];
-		_snow_openmp_push_task(task);
-		
-		if (!snow_save_execution_state(&task->base))
+		if (!snow_continuation_save_execution_state(task->base))
 		{
 			func(data, element_size, i, userdata);
 		}
 		
 		task = _snow_openmp_pop_task();
 		ASSERT(task == &tasks[i]);
-		
-		// stack extents for GC
-		leave_thread(stack_top);
 	}
 	
 	collect_exceptions_and_rethrow(tasks, num_elements);
 }
 
-void snow_parallel_call_each(SnParallelCallback* funcs, size_t num, void* userdata)
-{
-	SnTask tasks[num];
-	_snow_openmp_init_tasks(tasks, num);
-	
-	#pragma omp parallel for
-	for (int i = 0; i < num; ++i)
-	{
-		// maintain stack extents for GC
-		void* stack_top;
-		GET_STACK_PTR(stack_top);
-		enter_thread(stack_top);
-		
-		SnTask* task = &tasks[i];
-		_snow_openmp_push_task(task);
-		
-		if (!snow_save_execution_state(&task->base))
-		{
-			funcs[i](i, userdata);
-		}
-		
-		task = _snow_openmp_pop_task();
-		ASSERT(task == &tasks[i]);
-		
-		// stack extents for GC
-		leave_thread(stack_top);
-	}
-
-	collect_exceptions_and_rethrow(tasks, num);
-}
-
 SnTask* snow_get_current_task()
 {
 	return _snow_openmp_top_task();
+}
+
+uintx snow_get_current_thread_index()
+{
+	return ME;
 }
 
 uintx snow_get_current_task_id()
@@ -175,48 +132,60 @@ uintx snow_get_current_task_id()
 	return (uintx)current_task;
 }
 
-void snow_get_current_tasks(SnTask*** out_tasks, size_t* out_num_tasks)
+void snow_get_thread_stack_extents(size_t thread_index, void** top, void** bottom)
 {
-	*out_tasks = current_tasks;
-	*out_num_tasks = SNOW_MAX_CONCURRENT_TASKS;
+	ASSERT(thread_index < SNOW_MAX_CONCURRENT_TASKS);
+	SnOpenMPThreadState* thread = &threads[thread_index];
+	*top = thread->stack_top;
+	*bottom = thread->stack_bottom;
 }
 
-void snow_get_stack_extents(struct SnStackExtents extents[SNOW_MAX_CONCURRENT_TASKS])
+bool snow_thread_is_at_gc_barrier(size_t thread_index)
 {
-	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i)
-	{
-		extents[i].top = thread_states[i].stack_top;
-		extents[i].bottom = thread_states[i].stack_bottom;
+	ASSERT(thread_index < SNOW_MAX_CONCURRENT_TASKS);
+	return threads[thread_index].gc_barrier;
+}
+
+void snow_thread_set_gc_barrier(size_t thread_index)
+{
+	threads[thread_index].gc_barrier = true;
+}
+
+void snow_thread_unset_gc_barrier(size_t thread_index)
+{
+	threads[thread_index].gc_barrier = false;
+}
+
+bool snow_all_threads_at_gc_barrier() {
+	ASSERT(snow_gc_is_collecting());
+	ASSERT(threads[ME].gc_barrier);
+	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
+		SnOpenMPThreadState* thread = &threads[i];
+		if (thread->task && !thread->gc_barrier) return false;
 	}
+	return true;
 }
 
-SnExecutionState* snow_get_current_task_base()
+void snow_get_top_tasks(SnTask** out_tasks, size_t* out_num_threads)
 {
-	SnTask* current_task = _snow_openmp_top_task();
-	ASSERT(current_task);
-	return &current_task->base;
+	*out_num_threads = 0;
+	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
+		if (threads[i].task) {
+			out_tasks[(*out_num_threads)++] = threads[i].task;
+		}
+	}
 }
 
 SnContinuation* snow_get_current_continuation()
 {
-	SnTask* current_task = _snow_openmp_top_task();
-	ASSERT(current_task);
-	return current_task->cc;
+	return threads[ME].task->continuation;
 }
 
 void snow_set_current_continuation(SnContinuation* cc)
 {
-	SnTask* current_task = _snow_openmp_top_task();
-	ASSERT(current_task);
+	SnTask* current_task = threads[ME].task;
 	ASSERT((uintx)current_task == cc->task_id);
-	current_task->cc = cc;
-}
-
-VALUE snow_get_current_task_exception()
-{
-	SnTask* current_task = _snow_openmp_top_task();
-	ASSERT(current_task);
-	return current_task->exception;
+	current_task->continuation = cc;
 }
 
 void snow_abort_current_task(VALUE exception)
@@ -225,64 +194,24 @@ void snow_abort_current_task(VALUE exception)
 	ASSERT(current_task);
 	ASSERT(current_task->exception == NULL); // inconsistency: task should already be aborted at this point
 	current_task->exception = exception;
-	snow_restore_execution_state(&current_task->base);
+	snow_continuation_resume(current_task->base);
 }
 
-SnExceptionHandler* snow_get_current_exception_handler()
+bool snow_thread_is_on_system_stack()
 {
-	SnTask* current_task = _snow_openmp_top_task();
-	return current_task->exception_handler;
+	return threads[ME].stack_bottom == NULL;
 }
 
-void snow_set_current_exception_handler(SnExceptionHandler* handler)
+void snow_thread_departing_from_system_stack(void* stack_bottom)
 {
-	SnTask* current_task = _snow_openmp_top_task();
-	current_task->exception_handler = handler;
+	if (threads[ME].stack_bottom == NULL)
+		threads[ME].stack_bottom = stack_bottom;
 }
 
-void snow_task_set_current_stack_top(void* stack_top)
+void snow_thread_returning_to_system_stack()
 {
-	SnOpenMPThreadState* state = &thread_states[omp_get_thread_num()];
-	state->stack_top = stack_top;
-}
-
-void snow_task_set_current_stack_bottom(void* stack_bottom)
-{
-	SnOpenMPThreadState* state = &thread_states[omp_get_thread_num()];
-	state->stack_bottom = stack_bottom;
-}
-
-void snow_task_departing_from_system_stack()
-{
-	void* here;
-	GET_BASE_PTR(here);
-	snow_task_set_current_stack_bottom(here);
-}
-
-void snow_task_returning_to_system_stack()
-{
-	snow_task_set_current_stack_bottom(NULL);
-}
-
-void snow_task_at_gc_barrier(void* stack_bottom)
-{
-	SnTask* task = _snow_openmp_top_task();
-	task->gc_barrier = true;
-	SnOpenMPThreadState* state = &thread_states[omp_get_thread_num()];
-	if (state->stack_bottom == NULL)
-	{
-		state->stack_bottom = stack_bottom;
-	}
-}
-
-void snow_task_reset_gc_barrier(void* stack_bottom)
-{
-	SnTask* task = _snow_openmp_top_task();
-	task->gc_barrier = false;
-	SnOpenMPThreadState* state = &thread_states[omp_get_thread_num()];
-	if (state->stack_bottom == stack_bottom)
-	{
-		state->stack_bottom = NULL;
-	}
+	SnTask* task = snow_get_current_task();
+	if (threads[ME].stack_bottom != NULL && task->continuation == task->base && task->started_on_system_stack)
+		threads[ME].stack_bottom = NULL;
 }
 

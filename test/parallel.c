@@ -5,31 +5,6 @@
 #include "snow/intern.h"
 #include "snow/lock-impl.h"
 
-static void func1(size_t i, void* userdata)
-{
-	intx* n = (intx*)userdata;
-	SAFE_INCR_WORD(*n);
-}
-
-static void func2(size_t i, void* userdata)
-{
-	intx* n = (intx*)userdata;
-	SAFE_INCR_WORD(*n);
-}
-
-static void func3(size_t i, void* userdata)
-{
-	intx* n = (intx*)userdata;
-	SAFE_INCR_WORD(*n);
-}
-
-TEST_CASE(parallel_call_each) {
-	intx userdata = 0;
-	SnParallelCallback funcs[] = { func1, func2, func3, func1, func2, func3 };
-	snow_parallel_call_each(funcs, 6, &userdata);
-	TEST(userdata == 6);
-}
-
 static void func_for_each(void* data, size_t element_size, size_t i, void* userdata) {
 	intx* nx = (intx*)data;
 	++nx[i];
@@ -55,9 +30,9 @@ static void lock_test_func(size_t i, void* userdata) {
 
 TEST_CASE(lock) {
 	snow_init_lock(&lock);
-	SnParallelCallback funcs[] = {lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func};
+	/*SnParallelCallback funcs[] = {lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func};
 	snow_parallel_call_each(funcs, 8, NULL);
-	TEST(lock_test == 8);
+	TEST(lock_test == 8);*/
 }
 
 static intx rlock_test = 0;
@@ -78,7 +53,7 @@ static void rlock_test_func(size_t i, void* userdata) {
 
 TEST_CASE(recursive_lock) {
 	snow_init_recursive_lock(&rlock);
-	SnParallelCallback funcs[] = { rlock_test_func, rlock_test_func };
+/*	SnParallelCallback funcs[] = { rlock_test_func, rlock_test_func };
 	snow_parallel_call_each(funcs, 2, NULL);
-	TEST(rlock_test == 16);
+	TEST(rlock_test == 16);*/
 }

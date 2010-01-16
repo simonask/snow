@@ -13,7 +13,7 @@
 
 void snow_throw_exception(VALUE exception) 
 {
-	SnExceptionHandler* handler = snow_get_current_exception_handler();
+	SnExceptionHandler* handler = snow_get_current_task()->exception_handler;
 	if (handler != NULL) {
 		handler->exception = exception;
 		snow_restore_execution_state(&handler->state);
@@ -40,8 +40,9 @@ void snow_try_catch_ensure(SnExceptionTryFunc try_func, SnExceptionCatchFunc cat
 {
 	SnExceptionHandler handler;
 	handler.exception = NULL;
-	handler.previous = snow_get_current_exception_handler();
-	snow_set_current_exception_handler(&handler);
+	SnTask* current_task = snow_get_current_task();
+	handler.previous = current_task->exception_handler;
+	current_task->exception_handler = &handler;
 	if (!snow_save_execution_state(&handler.state)) {
 		try_func(userdata);
 	} else {
@@ -49,23 +50,23 @@ void snow_try_catch_ensure(SnExceptionTryFunc try_func, SnExceptionCatchFunc cat
 		SnExceptionHandler catcher;
 		catcher.exception = NULL;
 		catcher.previous = &handler;
-		snow_set_current_exception_handler(&catcher);
+		current_task->exception_handler = &catcher;
 		if (!snow_save_execution_state(&catcher.state)) {
 			catch_func(handler.exception, userdata);
 		} else {
 			// catch block threw an exception, so run the ensure_func and propagate
-			snow_set_current_exception_handler(handler.previous);
+			current_task->exception_handler = handler.previous;
 			if (ensure_func) ensure_func(userdata);
 			snow_throw_exception(catcher.exception);
 		}
 		// catch block didn't throw an exception, so pop exception handler and run ensure_func
-		snow_set_current_exception_handler(handler.previous);
+		current_task->exception_handler = handler.previous;
 		if (ensure_func) ensure_func(userdata); // XXX: What about rethrow?
 		return;
 	}
 	// No exception thrown
 	if (ensure_func) ensure_func(userdata);
-	snow_set_current_exception_handler(handler.previous);
+	current_task->exception_handler = handler.previous;
 }
 
 SnException* snow_create_exception()

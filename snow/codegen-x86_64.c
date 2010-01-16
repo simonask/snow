@@ -22,13 +22,11 @@ typedef struct SnCodegenX {
 static void codegen_compile_node(SnCodegenX* cgx, SnAstNode*);
 static intx codegen_reserve_tmp(SnCodegenX* cgx);
 static void codegen_free_tmp(SnCodegenX* cgx, intx tmp);
-static bool codegen_is_local_from_parent(SnCodegenX* cgx, VALUE vsym);
 
 SnCodegen* snow_create_codegen(SnAstNode* root, SnCodegen* parent)
 {
 	ASSERT(root->type == SN_AST_FUNCTION && "Only function definitions can be used as root nodes in Snow ASTs.");
 	SnCodegenX* codegen = (SnCodegenX*)snow_alloc_any_object(SN_CODEGEN_TYPE, sizeof(SnCodegenX));
-	snow_gc_set_free_func(codegen, codegen_free);
 	
 	codegen_init(&codegen->base, root, parent);
 	
@@ -37,12 +35,6 @@ SnCodegen* snow_create_codegen(SnAstNode* root, SnCodegen* parent)
 	codegen->tmp_freelist = NULL;
 	
 	return (SnCodegen*)codegen;
-}
-
-void codegen_free(VALUE cg)
-{
-	SnCodegenX* cgx = (SnCodegenX*)cg;
-	snow_free_linkbuffer(cgx->base.buffer);
 }
 
 intx codegen_reserve_tmp(SnCodegenX* cgx)

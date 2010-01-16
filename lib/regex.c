@@ -18,7 +18,7 @@ static void regex_free(void* ptr)
 
 SNOW_FUNC(regex_initialize)
 {
-	RegExInternal* intern = (RegExInternal*)snow_gc_alloc(sizeof(RegExInternal));
+	RegExInternal* intern = (RegExInternal*)snow_gc_alloc_atomic(sizeof(RegExInternal));
 	if (regcomp(&intern->regex, "PATTERN", REG_EXTENDED) != 0) {
 		snow_throw_exception_with_description("STUB ERROR MESSAGE -- failed to compile regex.");
 	}

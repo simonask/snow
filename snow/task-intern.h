@@ -11,31 +11,29 @@ struct SnContinuation;
 
 typedef struct SnTask {
 	struct SnTask* previous;
-	struct SnContinuation* cc;
+	struct SnContinuation* continuation;
 	VALUE exception;
 	struct SnExceptionHandler* exception_handler;
-	SnExecutionState base; // used as a catch-all for propagating exceptions to parent task
-	volatile bool gc_barrier;
+	struct SnContinuation* base; // catch-all for exceptions
+	bool started_on_system_stack;
 } SnTask;
 
 CAPI SnTask* snow_get_current_task();
-CAPI void snow_get_current_tasks(SnTask*** out_tasks, size_t* out_num_tasks);
 
-struct SnStackExtents { void* top; void* bottom; };
-CAPI void snow_get_stack_extents(struct SnStackExtents extents[SNOW_MAX_CONCURRENT_TASKS]);
+CAPI uintx snow_get_current_thread_index();
+CAPI void snow_get_thread_stack_extents(size_t thread_index, void** top, void** bottom);
+CAPI bool snow_thread_is_at_gc_barrier(size_t thread_index);
+CAPI void snow_thread_set_gc_barrier(size_t thread_index);
+CAPI void snow_thread_unset_gc_barrier(size_t thread_index);
+CAPI bool snow_all_threads_at_gc_barrier();
 
-CAPI struct SnExecutionState* snow_get_current_task_base();
+CAPI void snow_get_top_tasks(SnTask** out_tasks, size_t* out_num_threads);
 CAPI void snow_set_current_continuation(struct SnContinuation* cc);
 CAPI void snow_abort_current_task(VALUE exception);
-CAPI VALUE snow_get_current_task_exception();
-CAPI struct SnExceptionHandler* snow_get_current_exception_handler();
-CAPI void snow_set_current_exception_handler(struct SnExceptionHandler* handler);
+static inline bool snow_task_is_base_continuation(struct SnContinuation* cc) { return snow_get_current_task()->base == cc; }
 
-CAPI void snow_task_set_current_stack_bottom(void* bottom);
-CAPI void snow_task_set_current_stack_top(void* top);
-CAPI void snow_task_departing_from_system_stack();
-CAPI void snow_task_returning_to_system_stack();
-CAPI void snow_task_at_gc_barrier(void* stack_bottom);
-CAPI void snow_task_reset_gc_barrier(void* stack_bottom);
+CAPI bool snow_thread_is_on_system_stack();
+CAPI void snow_thread_departing_from_system_stack();
+CAPI void snow_thread_returning_to_system_stack();
 
 #endif /* end of include guard: TASK_INTERN_H_VG31U3ZY */

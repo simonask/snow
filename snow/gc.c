@@ -10,463 +10,734 @@
 #include <sys/mman.h>
 #include <errno.h>
 
+// only included for access to data structure layout in GC phases
+#include "snow/codegen.h"
+#include "snow/pointer.h"
+#include "snow/ast.h"
+
 #define DEBUG_MALLOC 0 // set to 1 to override snow_malloc
 
-// necessary for accessing global stuff
-HIDDEN SnArray** _snow_store_ptr();
+#define DEFAULT_HEAP_SIZE (1<<20)
 
-static bool gc_collecting = false;
+volatile bool _snow_gc_is_collecting = false;
 
-struct heap_t {
-	byte* data;
-	uintx offset;
-	uintx size;
-	SnLock lock;
-};
+HIDDEN SnArray** _snow_store_ptr(); // necessary for accessing global stuff
 
-static struct heap_t gc_nursery = {.data = NULL, .offset = 0, .size = 0};
+// internal functions
+typedef void(*SnGCAction)(VALUE* root_pointer, bool on_stack);
+static void gc_mark_root(VALUE* root, bool on_stack);
+static void gc_update_root(VALUE* root, bool on_stack);
 
-typedef enum GCFlag {
-	GC_FLAG_MARK = 1,
-	GC_FLAG_BLOB = 1 << 1,
-	GC_FLAG_TRANSPLANTED = 1 << 2,
-	GC_FLAG_MAX = 1 << 3
-} GCFlag;
+struct SnGCHeap;
+struct SnGCHeader;
+struct SnGCMetaInfo;
 
-typedef enum GCOperation {
-	GC_OP_MARK,
-	GC_OP_UPDATE,
-} GCOperation;
+static void gc_minor();
+static void gc_major();
+static byte* gc_find_object_start(byte* ptr, struct SnGCHeader**, struct SnGCMetaInfo**);
+static struct SnGCHeap* gc_find_heap(const VALUE root);
+static bool gc_heap_contains(const struct SnGCHeap* heap, const VALUE root);
+static void gc_mark_stack(byte* bottom, byte* top);
+static void gc_compute_checksum(struct SnGCHeader* header);
+static bool gc_check_checksum(const struct SnGCHeader* header);
+static bool gc_looks_like_allocation(byte* ptr);
+static void gc_transplant_adult(byte* object, struct SnGCHeader* header, struct SnGCMetaInfo* meta);
+static void gc_finalize_object(byte* object, struct SnGCHeader* header, struct SnGCMetaInfo* meta);
 
-typedef struct __attribute__((packed)) GCHeader {
-	unsigned magic_bead1 : 16;
-	unsigned flags       : 16;
-	
-	SnGCFreeFunc free_func; // : 64 or 32
-	unsigned size        : 16;
-	
-	#if ARCH_IS_32_BIT
-	// compensate for the fact that SnGCFreeFunc is only 4 bytes
+#define GC_NURSERY_SIZE 0x20000 // 128K nurseries
+#define GC_BIG_ALLOCATION_SIZE_BOUNDARY 0x1000 // 4K
+
+typedef enum SnGCAllocType {
+	GC_OBJECT = 0x1,
+	GC_BLOB   = 0x2,
+	GC_ATOMIC = 0x3,
+	GC_ALLOC_TYPE_MAX
+} SnGCAllocType;
+
+typedef enum SnGCFlag {
+	GC_NO_FLAGS      = 0,
+	GC_MARK          = 1,
+	GC_TRANSPLANTED  = 1 << 1,    // the object is no longer here
+	GC_UPDATED       = 1 << 2,    // the object has had its roots updated
+	GC_INDEFINITE    = 1 << 3,
+	GC_FLAGS_MAX
+} SnGCFlag;
+
+typedef byte SnGCFlags;
+
+typedef struct SnGCHeader {
+	// Header info must never change throughout the lifetime of an object.
+	// Only flag contents may change.
+	// sizeof(SnGCHeader) must be == 8 bytes.
+	unsigned size        : 32;
+	unsigned flag_index  : 24;
+	unsigned alloc_type  : 2;
+	unsigned checksum    : 6; // sum of bits set in all the other fields
+} PACKED SnGCHeader;
+
+typedef struct SnGCMetaInfo {
+	// sizeof(SnGCMetaInfo) must be == 8 bytes.
+	SnGCFreeFunc free_func;
+	#ifdef ARCH_IS_32_BIT
 	byte padding[4];
 	#endif
+} PACKED SnGCMetaInfo;
+
+
+typedef struct SnGCHeap {
+	/*
+		An incremental heap, with separate flags for better CoW-performance during GC.
+	*/
+	byte* start;
+	byte* current;
+	byte* end;
 	
-	unsigned magic_bead2 : 16;
-} GCHeader;
+	SnGCFlags* flags;
+	uint32_t num_objects;
+} SnGCHeap;
 
-/*
-	The magic beads are used to distinguish pointers to the beginning of objects
-	from pointers to the middle of objects, or more precisely, to find the actual
-	header of any pointer.
-*/
-static const uint16_t MAGIC_BEAD = 0xbead;
+#define FLAGS_PER_PAGE (SNOW_PAGE_SIZE / sizeof(SnGCFlags))
 
-static bool gc_contains(void*);
-static void* gc_alloc(uintx size, GCHeader**) __attribute__((alloc_size(1)));
-static void gc_intern();
-static inline void gc_scan_memory(byte* mem_start, size_t mem_size, GCOperation op);
+#define MAGIC_BEAD_1 0xbe4db3ad
+#define MAGIC_BEAD_2 0xb3adbe4d
 
-static void gc_heap_init(struct heap_t* heap, uintx size)
-{
-	heap->size = snow_gc_round(size);
-	heap->data = (byte*)snow_malloc(heap->size);
-	heap->offset = 0;
-	snow_init_lock(&heap->lock);
-	#ifdef DEBUG
-	memset(heap->data, 0xcd, heap->size);
-	#endif
+typedef uint64_t SnGCMagicBead;
+
+struct {
+	SnGCHeap nurseries[SNOW_MAX_CONCURRENT_TASKS];
+	
+	SnGCHeap* adult_heaps;
+	uint32_t num_adult_heaps;
+	
+	SnGCHeap* big_allocations;
+	uint32_t num_big_allocations;
+	
+	SnGCHeap* old_nurseries; // nurseries that contained indefinite roots, so cannot be deleted :(
+	uint32_t num_old_nurseries;
+	
+	uint16_t num_minor_collections_since_last_major_collection;
+	byte* lower_bound;
+	byte* upper_bound;
+} GC;
+
+#define MY_NURSERY (&GC.nurseries[snow_get_current_thread_index()])
+
+void snow_init_gc() {
+	memset(&GC, 0, sizeof(GC));
 }
 
-static void* gc_heap_alloc(struct heap_t* heap, uintx size, GCHeader** header)
-{
-	snow_lock(&heap->lock);
-	ASSERT(heap->data && heap->size);
-	ASSERT(size < heap->size);
-	uintx padded_size = snow_gc_round(size);
-	uintx new_offset = heap->offset + sizeof(GCHeader) + padded_size;
-	ASSERT((new_offset % SNOW_GC_ALIGNMENT) == 0);
-	void* data = NULL;
-	if (new_offset > heap->size)
-		goto out; // alloc failed, initiate gc
-		
-	*header = (GCHeader*)(heap->data + heap->offset);
-	data = ((byte*)*header) + sizeof(GCHeader);
-	heap->offset = new_offset;
-	
-	(*header)->size = padded_size;
-	(*header)->flags = 0;
-	(*header)->free_func = NULL;
-	(*header)->magic_bead1 = MAGIC_BEAD;
-	(*header)->magic_bead2 = MAGIC_BEAD;
-	
-	ASSERT(((uintx)data % SNOW_GC_ALIGNMENT) == 0);
-	
-	out:
-	snow_unlock(&heap->lock);
-	return data;
-}
-
-static void* gc_alloc(uintx size, GCHeader** header)
-{
-	snow_gc_barrier();
-	ASSERT(size > 0);
-	ASSERT(sizeof(GCHeader) == SNOW_GC_ALIGNMENT);
-	
-	if (!gc_nursery.data)
-	{
-		gc_heap_init(&gc_nursery, 1 << 23);
-	}
-	
-	void* data = gc_heap_alloc(&gc_nursery, size, header);
-	
-	if (!data)
-	{
-		snow_gc();
-		return gc_alloc(size, header);
-	}
-	
-	return data;
-}
-
-SnObjectBase* snow_gc_alloc_object(uintx size)
-{
-	GCHeader* header;
-	SnObjectBase* obj = (SnObjectBase*)gc_alloc(size, &header);
-	return obj;
-}
-
-void* snow_gc_alloc(uintx size)
-{
-	GCHeader* header;
-	void* data = gc_alloc(size, &header);
-	header->flags |= GC_FLAG_BLOB;
-	return data;
-}
-
-void snow_gc_set_free_func(void* data, SnGCFreeFunc func)
-{
-	ASSERT(gc_contains(data));
-	ASSERT(((uintx)data & 0xf) == 0);
-	GCHeader* header = (GCHeader*)((byte*)data - sizeof(GCHeader));
-	header->free_func = func;
-}
-
-static inline bool gc_ptr_in(const void* ptr, const void* start, const void* end)
-{
-	return (byte*)ptr >= (byte*)start && (byte*)ptr < (byte*)end;
-}
-
-static bool gc_heap_contains(const struct heap_t* heap, void* ptr)
-{
-	return gc_ptr_in(ptr, heap->data + sizeof(GCHeader), heap->data + heap->size);
-}
-
-static bool gc_contains(void* ptr)
-{
-	return gc_heap_contains(&gc_nursery, ptr);
-}
-
-static inline bool gc_ptr_valid(void* ptr)
-{
-	// note: does not check if the pointer is actually in any heap
-	GCHeader* header = (GCHeader*)(((byte*)ptr) - sizeof(GCHeader));
-	if ((uintx)header % SNOW_GC_ALIGNMENT) return false;
-	return header->magic_bead1 == MAGIC_BEAD
-		&& header->magic_bead2 == MAGIC_BEAD
-		&& header->flags < GC_FLAG_MAX;
-}
-
-static inline void* gc_find_object_in_heap(const struct heap_t* heap, void* start_ptr, GCHeader** header)
-{
-	if (!gc_heap_contains(heap, start_ptr)) return NULL;
-	uintx nptr = (uintx)start_ptr;
-	nptr = nptr - (nptr % SNOW_GC_ALIGNMENT);
-	void* ptr = (void*)nptr;
-	
-	while (!gc_ptr_valid(ptr))
-	{
-		nptr -= SNOW_GC_ALIGNMENT;
-		ptr = (void*)nptr;
-		
-		#ifdef DEBUG
-		if (!gc_heap_contains(heap, ptr))
-			TRAP(); // massive heap corruption!
-		#endif
-	}
-	
-	*header = (GCHeader*)(nptr - sizeof(GCHeader));
+void* gc_alloc_chunk(size_t size) {
+	// allocate while updating bounds
+	byte* ptr = (byte*)snow_malloc(size);
+	if (ptr < GC.lower_bound || !GC.lower_bound)
+		GC.lower_bound = ptr;
+	if ((ptr + size) > GC.upper_bound)
+		GC.upper_bound = ptr + size;
 	return ptr;
 }
 
-static inline void* gc_find_object(void* start_ptr, GCHeader** header)
-{
-	return gc_find_object_in_heap(&gc_nursery, start_ptr, header);
-}
-
-void snow_gc()
-{
-	gc_collecting = true;
+static inline SnGCFlags gc_heap_get_flags(SnGCHeap* heap, uint32_t flag_index) {
+	ASSERT(flag_index < heap->num_objects);
 	
-	// save current registers to stack, so they will be considered by the GC as well
-	SnExecutionState state;
-	if (!snow_save_execution_state(&state))
-	{
-		void* stack_ptr = snow_execution_state_get_stack_pointer(&state);
-		snow_task_at_gc_barrier(stack_ptr);
-		gc_intern();
-		snow_task_reset_gc_barrier(stack_ptr);
-		snow_restore_execution_state(&state);
+	if (heap->flags) {
+		return heap->flags[flag_index];
 	}
 	
-	gc_collecting = false;
-}
-
-void snow_gc_barrier()
-{
-	SnTask* current_task = snow_get_current_task();
-	if (gc_collecting)
-	{
-		// dump registers on the stack, so they can be changed by the gc, then restore the values
-		SnExecutionState state;
-		if (snow_save_execution_state(&state))
-			return; // all done
-		void* bottom = snow_execution_state_get_stack_pointer(&state);
-		snow_task_at_gc_barrier(bottom);
-		while (gc_collecting) { usleep(100); }
-		ASSERT(!current_task->gc_barrier);
-		snow_task_reset_gc_barrier(bottom);
-		snow_restore_execution_state(&state); // restore possibly modifier registers
-	}
-}
-
-uintx snow_gc_allocated_size(void* data)
-{
-	GCHeader* header;
-	data = gc_find_object(data, &header);
-	if (data) {
-		return header->size;
-	}
 	return 0;
 }
 
-static inline void gc_unmark_heap(const struct heap_t* heap)
-{
-	byte* end = heap->data + heap->offset;
-	byte* i = heap->data;
-	while (i < end)
-	{
-		GCHeader* header = (GCHeader*)i;
-		header->flags &= ~GC_FLAG_MARK;
-		i += sizeof(GCHeader) + header->size;
+static inline void gc_heap_set_flags(SnGCHeap* heap, uint32_t flag_index, byte flags) {
+	ASSERT(flag_index < heap->num_objects);
+	
+	if (!heap->flags) {
+		heap->flags = snow_malloc(sizeof(SnGCFlags)*heap->num_objects);
+		memset(heap->flags, 0, sizeof(SnGCFlags)*heap->num_objects);
+	}
+	
+	heap->flags[flag_index] |= flags;
+}
+
+static inline void gc_heap_unset_flags(SnGCHeap* heap, uint32_t flag_index, byte flags) {
+	ASSERT(flag_index < heap->num_objects);
+	
+	if (heap->flags) {
+		heap->flags[flag_index] &= ~flags;
 	}
 }
 
-static void gc_scan_continuation(SnContinuation* cc, GCOperation op)
-{
-	gc_scan_memory((byte*)cc, sizeof(SnContinuation), op);
-	
-	byte* stack_lo;
-	byte* stack_hi;
-	snow_continuation_get_stack_bounds(cc, &stack_lo, &stack_hi);
-	ASSERT(stack_hi > stack_lo);
-	if (cc->return_to) // if return_to is NULL, cc wasn't called from anywhere, so it's the initial continuation
-		gc_scan_memory(stack_lo, stack_hi - stack_lo, op);
+static inline size_t gc_heap_available(SnGCHeap* heap) {
+	return heap->end - heap->start;
 }
 
-static inline void gc_scan_memory(byte* mem_start, size_t mem_size, GCOperation op)
-{
-	VALUE* words_start = (VALUE*)mem_start;
-	VALUE* words_end = words_start + (mem_size / sizeof(VALUE));
-	
-	for (VALUE* i = words_start; i < words_end; ++i)
-	{
-		GCHeader* header = NULL;
-		VALUE object_start = gc_find_object(*i, &header);
-		if (object_start)
-		{
-			switch (op)
-			{
-				case GC_OP_MARK:
-				{
-					if (header->flags & GC_FLAG_MARK)
-						continue;
-					header->flags |= GC_FLAG_MARK;
-					break;
-				}
-				case GC_OP_UPDATE:
-				{
-					VALUE new_object_start = *((VALUE*)object_start);
-					ASSERT(new_object_start != object_start);
-					uintx offset = (uintx)*i - (uintx)object_start;
-					object_start = new_object_start;
-					*i = (VALUE)((byte*)new_object_start + offset);
-					
-					header = (GCHeader*)((byte*)*i - sizeof(GCHeader)); // updated header
-					break;
-				}
-			}
-			
-			SnObjectBase* object = (SnObjectBase*)object_start;
-			
-			SnObjectType type = 0;
-			if (!(header->flags & GC_FLAG_BLOB))
-				type = object->type;
-			
-			switch (type)
-			{
-				case SN_CONTINUATION_TYPE:
-				{
-					gc_scan_continuation((SnContinuation*)object, op);
-					break;
-				}
-				default:
-				{
-					gc_scan_memory(object_start, header->size, op);
-					break;
-				}
-			}
-		}
-	}
+static inline size_t gc_calculate_total_size(size_t size) {
+	// returns the size + headers + metadata + alignment
+	size_t extra_stuff = sizeof(SnGCHeader) + sizeof(SnGCMetaInfo) + 2 * sizeof(SnGCMagicBead);
+	return size + extra_stuff;
 }
 
-static void* gc_heap_transplant(struct heap_t* from, struct heap_t* to, void* data)
-{
-	GCHeader* old_header;
-	void* old_data_start = gc_find_object_in_heap(from, data, &old_header);
+static inline void* gc_heap_alloc(SnGCHeap* heap, size_t size, SnGCAllocType alloc_type) {
+	size_t rounded_size = snow_gc_round(size);
+	size_t total_size = gc_calculate_total_size(rounded_size);
 	
-	GCHeader* new_header;
-	void* new_data = gc_heap_alloc(to, old_header->size, &new_header);
-	memcpy(new_header, old_header, sizeof(GCHeader));
-	memcpy(new_data, old_data_start, old_header->size);
+	// XXX: Lock
 	
-	// place pointer to the new data in the first bytes of the old data
-	*((void**)data) = new_data;
-	old_header->flags |= GC_FLAG_TRANSPLANTED;
-	
-	return new_data;
-}
-
-static void gc_intern()
-{
-	SnTask** all_tasks; // XXX: is this feasible for all implementations, besides OpenMP?
-	size_t num_tasks;
-	bool any_not_at_gc_barrier = true;
-	while (any_not_at_gc_barrier)
-	{
-		snow_get_current_tasks(&all_tasks, &num_tasks);
-		ASSERT(num_tasks > 0);
-		
-		for (size_t i = 0; i < num_tasks; ++i)
-		{
-			if (!all_tasks[i]) continue;
-			any_not_at_gc_barrier = !all_tasks[i]->gc_barrier;
-			if (any_not_at_gc_barrier) break;
-		}
+	if (!heap->start) {
+		heap->start = gc_alloc_chunk(GC_NURSERY_SIZE);
+		heap->current = heap->start;
+		heap->end = heap->start + GC_NURSERY_SIZE;
 	}
 	
-	gc_unmark_heap(&gc_nursery);
-	
-	
-	// find system stack extents
-	struct SnStackExtents stacks[SNOW_MAX_CONCURRENT_TASKS];
-	snow_get_stack_extents(stacks);
-	
-	// scan stacks
-	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i)
-	{
-		byte* top = (byte*)stacks[i].top;
-		byte* bottom = (byte*)stacks[i].bottom;
-		if (top)
-		{
-			ASSERT(bottom);
-			ASSERT(bottom < top);
-			gc_scan_memory(bottom, top - bottom, GC_OP_MARK);
-		}
-	}
-	// scan tasks
-	for (size_t i = 0; i < num_tasks; ++i)
-	{
-		if (all_tasks[i])
-		{
-			gc_scan_memory((byte*)all_tasks[i], sizeof(SnTask), GC_OP_MARK);
-		}
-	}
-	// scan auxillary roots
-	gc_scan_memory((byte*)_snow_store_ptr(), sizeof(SnArray*), GC_OP_MARK);
-	gc_scan_memory((byte*)snow_get_basic_types(), SN_TYPE_MAX*sizeof(VALUE), GC_OP_MARK);
-	
-	uintx unreachable = 0;
-	uintx reachable = 0;
-	
-	struct heap_t new_nursery;
-	gc_heap_init(&new_nursery, gc_nursery.size);
-	
-	byte* end = gc_nursery.data + gc_nursery.offset;
-	byte* iter = gc_nursery.data;
-	while (iter < end)
-	{
-		GCHeader* header = (GCHeader*)iter;
-		SnObjectBase* base = ((SnObjectBase*)(iter + sizeof(GCHeader)));
-		ASSERT(gc_ptr_valid(base));
-		if (!(header->flags & GC_FLAG_MARK))
-		{
-			if (header->free_func)
-				header->free_func(base);
-			++unreachable;
-		}
-		else
-		{
-			gc_heap_transplant(&gc_nursery, &new_nursery, base);
-			++reachable;
-		}
-		iter += sizeof(GCHeader) + header->size;
+	// see if we can hold the allocation
+	if (heap->current + total_size >= heap->end) {
+		return NULL;
 	}
 	
-	debug("%llu reachable, %llu unreachable\n", reachable, unreachable);
+	byte* ptr = heap->current;
+	heap->current += total_size;
+	byte* object_end = heap->current;
+	size_t flag_index = heap->num_objects++;
+	// XXX: Unlock
 	
-	// fix up all pointers
-
-	// fix up roots on the stacks
-	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i)
-	{
-		byte* top = (byte*)stacks[i].top;
-		byte* bottom = (byte*)stacks[i].bottom;
-		if (top)
-		{
-			gc_scan_memory(bottom, top - bottom, GC_OP_UPDATE);
-		}
-	}
-	// scan tasks
-	for (size_t i = 0; i < num_tasks; ++i)
-	{
-		if (all_tasks[i])
-		{
-			gc_scan_memory((byte*)all_tasks[i], sizeof(SnTask), GC_OP_UPDATE);
-		}
-	}
-	// fix up auxillary roots
-	gc_scan_memory((byte*)_snow_store_ptr(), sizeof(SnArray*), GC_OP_UPDATE);
-	gc_scan_memory((byte*)snow_get_basic_types(), SN_TYPE_MAX*sizeof(VALUE), GC_OP_UPDATE);
+	SnGCHeader* header = (SnGCHeader*)ptr;
+	ptr += sizeof(SnGCHeader);
+	SnGCMagicBead* bead1 = (SnGCMagicBead*)ptr;
+	ptr += sizeof(SnGCMagicBead);
+	byte* data = ptr;
+	ptr += rounded_size;
+	SnGCMetaInfo* metainfo = (SnGCMetaInfo*)ptr;
+	memset(metainfo, 0, sizeof(SnGCMetaInfo));
+	ptr += sizeof(SnGCMetaInfo);
+	SnGCMagicBead* bead2 = (SnGCMagicBead*)ptr;
+	ptr += sizeof(SnGCMagicBead);
+	ASSERT(ptr == object_end);
+	
+	// set header info, and compute checksum
+	header->size = rounded_size;
+	header->flag_index = flag_index;
+	header->alloc_type = alloc_type;
+	gc_compute_checksum(header);
+	
+	// set beads
+	*bead1 = MAGIC_BEAD_1;
+	*bead2 = MAGIC_BEAD_2;
+	
+	memset(metainfo, 0, sizeof(SnGCMetaInfo));
 	
 	#ifdef DEBUG
-	// poison the old nursery (how cruel!)
-	memset(gc_nursery.data, 0xab, gc_nursery.size);
+	ASSERT(gc_looks_like_allocation((byte*)header));
+	SnGCHeader* check_header;
+	SnGCMetaInfo* check_meta;
+	byte* start = gc_find_object_start(data, &check_header, &check_meta);
+	ASSERT(start == data);
+	ASSERT(check_header == header);
+	ASSERT(check_meta == metainfo);
 	#endif
 	
-	// set new nursery as the current nursery
-	snow_free(gc_nursery.data);
-	memcpy(&gc_nursery, &new_nursery, sizeof(struct heap_t));
+	return data;
+}
+
+static inline void* gc_alloc_from_heap_list(size_t size, SnGCAllocType alloc_type, SnGCHeap** heaps_p, uint32_t* num_heaps_p) {
+	size_t total_size = gc_calculate_total_size(snow_gc_round(size));
 	
-	// unset gc barriers
-	for (size_t i = 0; i < num_tasks; ++i)
+	SnGCHeap* heap = NULL;
+	for (uint32_t i = 0; i < *num_heaps_p; ++i) {
+		if (gc_heap_available(*heaps_p + i) >= total_size) heap = *heaps_p + i;
+	}
+	
+	if (!heap) {
+		*heaps_p = (SnGCHeap*)snow_realloc(*heaps_p, sizeof(SnGCHeap) * (*num_heaps_p + 1));
+		SnGCHeap* heaps = *heaps_p;
+		// swap first and last heap
+		memcpy(&heaps[*num_heaps_p], &heaps[0], sizeof(SnGCHeap));
+		memset(&heaps[0], 0, sizeof(SnGCHeap));
+		(*num_heaps_p)++;
+		heap = &heaps[0];
+	}
+	
+	if (!heap->start && size > GC_NURSERY_SIZE) {
+		heap->start = gc_alloc_chunk(total_size);
+		heap->current = heap->start;
+		heap->end = heap->start + total_size;
+	}
+	
+	void* ptr = gc_heap_alloc(heap, size, alloc_type);
+	ASSERT(ptr); // alloc_from_heap_list must never fail :(
+	return ptr;
+}
+
+static inline void gc_transplant_adult(byte* object, SnGCHeader* old_header, SnGCMetaInfo* old_meta) {
+	byte* new_ptr = (byte*)gc_alloc_from_heap_list(old_header->size, old_header->alloc_type, &GC.adult_heaps, &GC.num_adult_heaps);
+	ASSERT(new_ptr);
+	SnGCMetaInfo* meta = (SnGCMetaInfo*)(new_ptr + old_header->size);
+	memcpy(new_ptr, object, old_header->size);
+	memcpy(meta, old_meta, sizeof(SnGCMetaInfo));
+	// place new pointer in the beginning of the old memory
+	*(byte**)object = new_ptr;
+}
+
+static inline void gc_finalize_object(byte* object, SnGCHeader* header, SnGCMetaInfo* meta) {
+	if (meta->free_func)
+		meta->free_func(object);
+}
+
+static inline void* gc_alloc(size_t size, SnGCAllocType alloc_type) {
+	ASSERT(size); // 0-allocations not allowed.
+	snow_gc_barrier();
+	void* ptr = NULL;
+	
+	if (size > GC_BIG_ALLOCATION_SIZE_BOUNDARY) {
+		ptr = gc_alloc_from_heap_list(size, alloc_type, &GC.big_allocations, &GC.num_big_allocations);
+		ASSERT(ptr); // big allocation failed!
+	}
+	else
 	{
-		if (all_tasks[i])
-		{
-			all_tasks[i]->gc_barrier = false;
+		ptr = gc_heap_alloc(MY_NURSERY, size, alloc_type);
+		if (!ptr) {
+			snow_gc();
+			ptr = gc_heap_alloc(MY_NURSERY, size, alloc_type);
+			ASSERT(ptr); // garbage collection didn't free up enough space!
 		}
 	}
 	
+	return ptr;
+}
+
+SnObjectBase* snow_gc_alloc_object(uintx size) {
+	SnGCHeader* header;
+	void* ptr = gc_alloc(size, GC_OBJECT);
+	return (SnObjectBase*)ptr;
+}
+
+VALUE* snow_gc_alloc_blob(uintx size) {
+	ASSERT(size % sizeof(VALUE) == 0); // blob allocation doesn't match size of roots
+	void* ptr = gc_alloc(size, GC_BLOB);
+	return (VALUE*)ptr;
+}
+
+void* snow_gc_alloc_atomic(uintx size) {
+	SnGCHeader* header;
+	void* ptr = gc_alloc(size, GC_ATOMIC);
+	return ptr;
+}
+
+void snow_gc_set_free_func(const VALUE data, SnGCFreeFunc free_func) {
+	#if DEBUG
+	SnGCHeap* heap = gc_find_heap(data);
+	ASSERT(heap); // not a GC-allocated pointer
+	#endif
+	SnGCHeader* header;
+	SnGCMetaInfo* meta;
+	byte* object = gc_find_object_start((byte*)data, &header, &meta);
+	CAST_FUNCTION_TO_DATA(*meta, free_func);
+}
+
+uintx snow_gc_allocated_size(void* data) {
+	#if DEBUG
+	SnGCHeap* heap = gc_find_heap(data);
+	ASSERT(heap); // not a GC-allocated pointer
+	#endif
+	SnGCHeader* header;
+	SnGCMetaInfo* meta;
+	byte* object = gc_find_object_start((byte*)data, &header, &meta);
+	return header->size;
+}
+
+static inline bool gc_maybe_contains(const VALUE root) {
+	return (const byte*)root >= GC.lower_bound && (const byte*)root <= GC.upper_bound;
+}
+
+SnGCHeap* gc_find_heap(const VALUE root) {
+	if (!gc_maybe_contains(root)) return NULL;
+	
+	for (uint32_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
+		if (gc_heap_contains(GC.nurseries + i, root)) return GC.nurseries + i;
+	}
+	for (uint32_t i = 0; i < GC.num_adult_heaps; ++i) {
+		if (gc_heap_contains(GC.adult_heaps + i, root)) return GC.adult_heaps + i;
+	}
+	for (uint32_t i = 0; i < GC.num_big_allocations; ++i) {
+		if (gc_heap_contains(GC.big_allocations + i, root)) return GC.big_allocations + i;
+	}
+	for (uint32_t i = 0; i < GC.num_old_nurseries; ++i) {
+		if (gc_heap_contains(GC.old_nurseries + i, root)) return GC.old_nurseries + i;
+	}
+	// not in any heap! :(
 	return NULL;
 }
+
+static inline bool gc_heap_contains(const SnGCHeap* heap, const VALUE root) {
+	const byte* data = (const byte*)root;
+	return data >= heap->start && data < heap->end;
+}
+
+bool _snow_gc_task_at_barrier() {
+	return snow_thread_is_at_gc_barrier(snow_get_current_thread_index());
+}
+
+void _snow_gc_task_set_barrier() {
+	snow_thread_set_gc_barrier(snow_get_current_thread_index());
+}
+
+void _snow_gc_task_unset_barrier() {
+	snow_thread_unset_gc_barrier(snow_get_current_thread_index());
+}
+
+void snow_gc() {
+	_snow_gc_is_collecting = true;
+	snow_gc_barrier_enter();
+	void* rsp;
+	GET_STACK_PTR(rsp);
+	snow_thread_departing_from_system_stack(rsp); // register extents for ourselves
+	
+	// wait for other threads to reach barriers
+	while (!snow_all_threads_at_gc_barrier()) { snow_task_yield(); }
+	
+	if (GC.num_minor_collections_since_last_major_collection > 10) {
+		gc_major();
+		GC.num_minor_collections_since_last_major_collection = 0;
+	} else {
+		gc_minor();
+		++GC.num_minor_collections_since_last_major_collection;
+	}
+	
+	
+	snow_thread_returning_to_system_stack();
+	_snow_gc_is_collecting = false;
+	snow_gc_barrier_leave();
+}
+
+void gc_with_stack_do(byte* bottom, byte* top, SnGCAction action) {
+	ASSERT((uintx)bottom % SNOW_GC_ALIGNMENT == 0);
+	ASSERT((uintx)top % SNOW_GC_ALIGNMENT == 0);
+	
+	VALUE* p = (VALUE*)bottom;
+	VALUE* end = (VALUE*)top;
+	while (p < end) {
+		if (gc_maybe_contains(*p))
+			action(p, true);
+		++p;
+	}
+}
+
+void gc_with_definite_roots_do(SnGCAction action) {
+	action((VALUE*)_snow_store_ptr(), false); // _snow_store_ptr() returns an SnArray**
+	
+	VALUE* types = (VALUE*)snow_get_basic_types();
+	for (size_t i = 0; i < SN_TYPE_MAX; ++i) {
+		action(&types[i], false);
+	}
+}
+
+void gc_with_everything_do(SnGCAction action) {
+	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
+		void* stack_top;
+		void* stack_bottom;
+		snow_get_thread_stack_extents(i, &stack_top, &stack_bottom);
+		ASSERT((stack_top && stack_bottom) || (!stack_top && !stack_bottom)); // stack extent calculation mismatch!
+		if (stack_top && stack_bottom) {
+			gc_with_stack_do((byte*)stack_bottom, (byte*)stack_top, action);
+		}
+	}
+	
+	gc_with_definite_roots_do(action);
+}
+
+#define MEMBER(TYPE, NAME) action((VALUE*)(data + offsetof(TYPE, NAME)), false)
+#define MEMBER_ARRAY(TYPE, NAME) action((VALUE*)(data + offsetof(TYPE, NAME) + offsetof(struct array_t, data)), false)
+
+void gc_with_object_do(VALUE object, SnGCHeader* header, SnGCMetaInfo* meta, SnGCAction action) {
+	ASSERT(is_object(object));
+	SnObjectBase* base = (SnObjectBase*)object;
+	byte* data = (byte*)object;
+	if (snow_is_normal_object(object)) {
+		/*
+			Mark up the regular objects, derived from SnObject.
+		*/
+		
+		MEMBER(SnObject, prototype);
+		MEMBER(SnObject, members);
+		MEMBER_ARRAY(SnObject, property_names);
+		MEMBER_ARRAY(SnObject, property_data);
+		MEMBER_ARRAY(SnObject, included_modules);
+		
+		switch (base->type) {
+			case SN_OBJECT_TYPE: break;
+			case SN_CLASS_TYPE:
+				MEMBER(SnClass, instance_prototype);
+				break;
+			case SN_FUNCTION_TYPE:
+				MEMBER(SnFunction, desc);
+				MEMBER(SnFunction, declaration_context);
+				break;
+			case SN_EXCEPTION_TYPE:
+				MEMBER(SnException, description);
+				MEMBER(SnException, thrown_by);
+				break;
+			default:
+				ASSERT(false); // wtf?
+		}
+	}
+	else
+	{
+		/*
+			Mark up the "thin" objects, derived only from SnObjectBase.
+		*/
+		
+		switch (base->type) {
+			case SN_CONTINUATION_TYPE:
+				MEMBER(SnContinuation, return_to);
+				MEMBER(SnContinuation, please_clean);
+				MEMBER(SnContinuation, context);
+				break;
+			case SN_CONTEXT_TYPE:
+				MEMBER(SnContext, static_parent);
+				MEMBER(SnContext, function);
+				MEMBER(SnContext, self);
+				MEMBER(SnContext, local_names);
+				MEMBER(SnContext, locals);
+				MEMBER(SnContext, args);
+				break;
+			case SN_ARGUMENTS_TYPE:
+				MEMBER_ARRAY(SnArguments, names);
+				MEMBER_ARRAY(SnArguments, data);
+				break;
+			case SN_FUNCTION_DESCRIPTION_TYPE:
+				MEMBER(SnFunctionDescription, defined_locals);
+				MEMBER(SnFunctionDescription, argument_names);
+				break;
+			case SN_STRING_TYPE:
+				MEMBER(SnString, data);
+				break;
+			case SN_ARRAY_TYPE:
+				MEMBER_ARRAY(SnArray, a);
+				break;
+			case SN_MAP_TYPE:
+				MEMBER(SnMap, data);
+				break;
+			case SN_CODEGEN_TYPE:
+				MEMBER(SnCodegen, parent);
+				MEMBER(SnCodegen, result);
+				MEMBER_ARRAY(SnCodegen, variable_reference_names);
+				MEMBER(SnCodegen, root);
+				break;
+			case SN_POINTER_TYPE:
+				MEMBER(SnPointer, ptr); // TODO: Consider this.
+				break;
+			case SN_AST_TYPE:
+			{
+				SnAstNode* ast = (SnAstNode*)data;
+				for (size_t i = 0; i < ast->size; ++i) {
+					action(ast->children + i, false);
+				}
+				break;
+			}
+			default:
+				ASSERT(false); // WTF?!
+		}
+	}
+}
+
+void gc_minor() {
+	ASSERT(snow_all_threads_at_gc_barrier());
+	
+	gc_with_everything_do(gc_mark_root);
+	
+	size_t num_indefinites[SNOW_MAX_CONCURRENT_TASKS];
+	memset(num_indefinites, 0, SNOW_MAX_CONCURRENT_TASKS*sizeof(size_t));
+	
+	uintx total_indefinites = 0;
+	uintx total_survivors = 0;
+	uintx total_objects = 0;
+	
+	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
+		if (GC.nurseries[i].start == NULL) continue;
+		
+		SnGCHeap* heap = GC.nurseries + i;
+		byte* p = heap->start;
+		while (p < heap->current) {
+			ASSERT(gc_looks_like_allocation(p));
+			++total_objects;
+			
+			SnGCHeader* header = (SnGCHeader*)p;
+			byte* object = p + sizeof(SnGCHeader*) + sizeof(SnGCMagicBead);
+			SnGCMetaInfo* meta = (SnGCMetaInfo*)(object + header->size);
+			
+			SnGCFlags flags = gc_heap_get_flags(heap, header->flag_index);
+			if (flags & GC_MARK) {
+				++total_survivors;
+				if (flags & GC_INDEFINITE) {
+					// indefinitely referenced, can't transplant the object :(
+					++num_indefinites[i];
+				} else {
+					gc_transplant_adult(object, header, meta);
+					gc_heap_set_flags(heap, header->flag_index, GC_TRANSPLANTED);
+				}
+			} else {
+				gc_finalize_object(object, header, meta);
+			}
+			
+			p = object + header->size + sizeof(SnGCMetaInfo) + sizeof(SnGCMagicBead);
+		}
+	}
+	
+	gc_with_everything_do(gc_update_root);
+	
+	
+	
+	// clean up the nurseries
+	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
+		SnGCHeap* heap = GC.nurseries + i;
+		if (num_indefinites[i] == 0) {
+			// no indefinites, so just reset the current pointer
+			snow_free(heap->flags);
+			heap->current = heap->start;
+			heap->num_objects = 0;
+		} else {
+			total_indefinites += num_indefinites[i];
+			// heap was referenced by indefinite pointers, so copy it and reset the nursery
+			GC.old_nurseries = (SnGCHeap*)snow_realloc(GC.old_nurseries, sizeof(SnGCHeap)*(GC.num_old_nurseries+1));
+			memcpy(GC.old_nurseries + GC.num_old_nurseries, heap, sizeof(SnGCHeap));
+			++GC.num_old_nurseries;
+			
+			// nulling the heap will cause a reinitialization the next time someone allocates from it
+			memset(heap, 0, sizeof(SnGCHeap));
+		}
+	}
+	
+	debug("GC: Minor collection completed. Survivors: %lu (Indefinites: %lu), of %lu\n", total_survivors, total_indefinites, total_objects);
+}
+
+void gc_major() {
+	ASSERT(snow_all_threads_at_gc_barrier());
+	
+	gc_minor();
+	
+/*	gc_with_everything_do(gc_mark_root);
+	
+	gc_with_everything_do(gc_update_root);*/
+}
+
+void gc_mark_root(VALUE* root_p, bool on_stack) {
+	SnGCHeap* heap = gc_find_heap(*root_p);
+	if (heap) {
+		SnGCHeader* header;
+		SnGCMetaInfo* meta;
+		byte* object = gc_find_object_start(*root_p, &header, &meta);
+		
+		SnGCFlags flags = gc_heap_get_flags(heap, header->flag_index);
+
+		flags |= GC_MARK;
+		if (on_stack) flags |= GC_INDEFINITE;
+		gc_heap_set_flags(heap, header->flag_index, flags);
+		
+		if (!(flags & GC_MARK)) {
+			switch (header->alloc_type) {
+				case GC_OBJECT:
+				{
+					gc_with_object_do(object, header, meta, gc_mark_root);
+					break;
+				}
+				case GC_BLOB:
+				{
+					VALUE* blob = (VALUE*)object;
+					for (size_t i = 0; i < header->size / sizeof(VALUE); ++i) {
+						gc_mark_root(blob + i, false);
+					}
+					break;
+				}
+				case GC_ATOMIC:
+				break; // do nothing; it's atomic.
+			}
+		}
+	}
+}
+
+void gc_update_root(VALUE* root_p, bool on_stack) {
+	SnGCHeap* heap = gc_find_heap(*root_p);
+	if (heap) {
+		SnGCHeader* header;
+		SnGCMetaInfo* meta;
+		byte* object = gc_find_object_start(*root_p, &header, &meta);
+		
+		SnGCFlags flags = gc_heap_get_flags(heap, header->flag_index);
+		
+		if (flags & GC_UPDATED) return;
+		
+		if (flags & GC_TRANSPLANTED) {
+			ASSERT(!on_stack); // an indefinite pointer was transplanted!
+			size_t diff = ((byte*)*root_p) - object;
+			object = *((VALUE*)object);
+			*root_p = (VALUE)(object + diff);
+			
+			heap = gc_find_heap(*root_p);
+			gc_find_object_start(object, &header, &meta);
+		}
+		
+		gc_heap_set_flags(heap, header->flag_index, GC_UPDATED);
+		
+		switch (header->alloc_type) {
+			case GC_OBJECT:
+			{
+				gc_with_object_do(object, header, meta, gc_update_root);
+				break;
+			}
+			case GC_BLOB:
+			{
+				VALUE* blob = (VALUE*)object;
+				for (size_t i = 0; i < header->size / sizeof(VALUE); ++i) {
+					gc_update_root(blob + i, false);
+				}
+				break;
+			}
+			case GC_ATOMIC:
+			break; // do nothing; it's atomic
+		}
+	}
+}
+
+bool gc_looks_like_allocation(byte* ptr) {
+	const SnGCHeader* header = (SnGCHeader*)ptr;
+	const SnGCMagicBead* bead1 = (SnGCMagicBead*)(ptr + sizeof(SnGCHeader));
+	const byte* data = ((byte*)bead1) + sizeof(SnGCMagicBead);
+	const byte* data_end = data + header->size;
+	const SnGCMetaInfo* meta = (SnGCMetaInfo*)(data + header->size);
+	const SnGCMagicBead* bead2 = (SnGCMagicBead*)((byte*)meta + sizeof(SnGCMetaInfo));
+	return *bead1 == MAGIC_BEAD_1
+	    && gc_check_checksum(header)
+	    && gc_maybe_contains((const VALUE)data_end) // mostly necessary to avoid crashes on false positives, when checking for bead 2.
+	    && *bead2 == MAGIC_BEAD_2;
+}
+
+static inline byte* gc_find_object_start(byte* data, SnGCHeader** header_p, SnGCMetaInfo** meta_p) {
+	byte* ptr = data;
+	ptr -= (uintx)ptr % SNOW_GC_ALIGNMENT;
+	ptr -= SNOW_GC_ALIGNMENT; // start 16 bytes before
+	while (!gc_looks_like_allocation(ptr))
+	{
+		ptr -= SNOW_GC_ALIGNMENT;
+		ASSERT(gc_maybe_contains(ptr));
+	}
+	byte* object_start = ptr + sizeof(SnGCHeader) + sizeof(SnGCMagicBead);
+	*header_p = (SnGCHeader*)ptr;
+	*meta_p = (SnGCMetaInfo*)(object_start + (*header_p)->size);
+	return object_start;
+}
+
+
+static inline void gc_compute_checksum(SnGCHeader* header) {
+	header->checksum = 0;
+	header->checksum = snow_popcount64(*((uint64_t*)header));
+}
+
+static inline bool gc_check_checksum(const SnGCHeader* header) {
+	SnGCHeader input = *header;
+	input.checksum = 0;
+	uint8_t checksum = snow_popcount64(*((uint64_t*)&input));
+	return checksum == header->checksum;
+}
+
+
+
 
 #if DEBUG_MALLOC
 #define HEAP_SIZE (1 << 25) // 32 mb
@@ -513,9 +784,8 @@ static void verify_heap()
 #endif // DEBUG_MALLOC
 
 static inline uintx allocated_size_of(void* ptr) {
-	byte* data = (byte*)ptr;
-	
 	#if DEBUG_MALLOC
+	byte* data = (byte*)ptr;
 	struct alloc_header* header = (struct alloc_header*)(data - sizeof(struct alloc_header));
 	return header->size;
 	#else

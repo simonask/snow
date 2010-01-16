@@ -28,28 +28,10 @@ CAPI SnContinuation* snow_create_continuation(SnFunctionPtr, SnContext* context)
 CAPI void snow_continuation_init(SnContinuation*, SnFunctionPtr, SnContext*)         ATTR_HOT;
 CAPI void snow_continuation_cleanup(SnContinuation*)                                 ATTR_HOT;
 CAPI VALUE snow_continuation_call(SnContinuation*, SnContinuation* return_to)        ATTR_HOT;
-CAPI bool snow_continuation_save_execution_state(SnContinuation* cc)                 ATTR_HOT;
+#define snow_continuation_save_execution_state(CC) snow_save_execution_state(&(CC)->state)
 CAPI void snow_continuation_yield(SnContinuation* cc, VALUE val)                     ATTR_HOT;
 CAPI void snow_continuation_return(SnContinuation* cc, VALUE val)                    ATTR_HOT;
 CAPI void snow_continuation_resume(SnContinuation* cc)                               ATTR_HOT;
 CAPI void snow_continuation_get_stack_bounds(SnContinuation* cc, byte** lo, byte** hi);
-
-static inline void snow_continuation_stack_guard() {
-	byte* sp;
-	GET_STACK_PTR(sp);
-	SnContinuation* cc = snow_get_current_continuation();
-	if (cc && (sp < cc->stack_lo)) {
-		TRAP(); // Heap corruption! Check for infinite recursion. Otherwise, try increasing the desired stack size of your continuation.
-	}
-}
-
-static inline intx snow_current_continuation_available_stack_space()
-{
-	SnContinuation* cc = snow_get_current_continuation();
-	intx lo = (intx)cc->stack_lo;
-	intx current = 0;
-	GET_STACK_PTR(current);
-	return current - lo;
-}
 
 #endif /* end of include guard: CONTINUATION_H_C8DBOWFC */

@@ -30,20 +30,19 @@ SnSymbol snow_symbol(const char* cstr)
 	ASSERT(storage);
 	ASSERT_TYPE(storage, SN_ARRAY_TYPE);
 	
-	SnString* str = snow_create_string(cstr);
-	
 	SnSymbol retval;
 	
 	for (uintx i = 0; i < snow_array_size(storage); ++i) {
 		SnString* existing = (SnString*)snow_array_get(storage, i);
 		ASSERT_TYPE(existing, SN_STRING_TYPE);
 		
-		if (snow_string_compare(str, existing) == 0) {
+		if (strcmp(cstr, snow_string_cstr(existing)) == 0) {
 			retval = i;
 			goto out;
 		}
 	}
 	
+	SnString* str = snow_create_string(cstr);
 	retval = snow_array_size(storage);
 	snow_array_push(storage, str);
 	
