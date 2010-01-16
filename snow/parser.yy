@@ -30,9 +30,9 @@
 
 %token <node> TOK_INTERPOLATION
 %token '.' ',' '[' ']' '{' '}' '(' ')' ':' '#'
-%token TOK_EOL TOK_DO TOK_UNLESS TOK_ELSE TOK_IF TOK_ELSEIF TOK_WHILE TOK_UNTIL TOK_TRY TOK_CATCH
+%token TOK_EOL TOK_DO TOK_UNLESS TOK_ELSE TOK_IF TOK_ELSEIF TOK_WHILE TOK_UNTIL TOK_TRY TOK_CATCH TOK_ENSURE
 
-%type <node> statement conditional conditional_tail control loop try try_tail
+%type <node> statement conditional conditional_tail control loop try try_catch try_ensure
              function_call assignment operation variable log_operation member
              naked_closure closure local literal expression atomic_expr atomic_non_index_expr
              index_variable non_index_variable string_literal parallel_thread parallel_fork parallel_operation
@@ -111,12 +111,16 @@ loop: TOK_WHILE expression eol sequence eol TOK_END  { $$ = snow_ast_loop($2, $4
     | statement TOK_UNTIL expression                 { $$ = snow_ast_loop(snow_ast_not($3), $1); }
     ;
 
-try: TOK_TRY sequence eol try_tail  { $$ = snow_ast_try($2, $4); }
+try: TOK_TRY sequence eol try_catch try_ensure TOK_END  { $$ = snow_ast_try($2, $4, $5); }
    ;
 
-try_tail: TOK_CATCH sequence TOK_END  { printf("Okay, catch gotten.\n"); $$ = $2; }
-        | TOK_END                     { printf("Okay, catch not gotten.\n"); $$ = NULL; }
-        ;
+try_catch:                     { $$ = NULL; }
+         | TOK_CATCH sequence  { $$ = $2; }
+         ;
+
+try_ensure:                      { $$ = NULL; }
+          | TOK_ENSURE sequence  { $$ = $2; }
+          ;
 
 conditional: TOK_IF expression eol sequence eol conditional_tail      { $$ = snow_ast_if_else($2, $4, $6); }
            | TOK_UNLESS expression eol sequence eol conditional_tail  { $$ = snow_ast_if_else(snow_ast_not($2), $4, $6); }

@@ -119,6 +119,7 @@ do                                     { return TOK_DO; }
 while                                  { return TOK_WHILE; }
 try                                    { return TOK_TRY; }
 catch                                  { return TOK_CATCH; }
+ensure                                 { return TOK_ENSURE; }
 end                                    { return TOK_END; }
 break                                  { yylval->node = snow_ast_break(); return TOK_BREAK; }
 continue                               { yylval->node = snow_ast_continue(); return TOK_CONTINUE; }
