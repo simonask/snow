@@ -594,7 +594,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			CALL(snow_set_current_exception_handler);
 			
 			ASM(mov_rev, RDI, TEMPORARY(exception_handler));
-			ASM(add_id, IMMEDIATE(8), RDI);
+			ASM(add_id, IMMEDIATE(offsetof(SnExceptionHandler, state)), RDI);
 			CALL(snow_save_execution_state);
 			
 			ASM(mov_id, IMMEDIATE(1), RCX);
