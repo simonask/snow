@@ -331,6 +331,10 @@ static inline void asm_int3(SnLinkBuffer* lb) {
 	emit(lb, 0xcc);
 }
 
+static inline void asm_debug_break(SnLinkBuffer* lb) {
+	asm_int3(lb);
+}
+
 static inline void asm_nop(SnLinkBuffer* lb) {
 	emit(lb, 0x90);
 }
