@@ -43,7 +43,7 @@ SnFunctionDescription* snow_codegen_compile_description(SnCodegen* cg)
 	int r = mprotect(compiled_code, len, PROT_EXEC);
 	ASSERT(r == 0);
 	
-	cg->result->func = (SnFunctionPtr)compiled_code;
+	CAST_DATA_TO_FUNCTION(cg->result->func, compiled_code);
 	
 	return cg->result;
 }

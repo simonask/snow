@@ -113,7 +113,7 @@ VALUE snow_function_get_referenced_variable(SnFunction* func, uint32_t idx)
 
 VALUE snow_function_set_referenced_variable(SnFunction* func, uint32_t idx, VALUE val)
 {
-	ASSERT(index < func->num_variable_references);
+	ASSERT(idx < func->num_variable_references);
 	SnArray* ar = func->variable_references[idx].context->locals;
 	return snow_array_set(ar, func->variable_references[idx].variable_index, val);
 }
@@ -200,18 +200,18 @@ SNOW_FUNC(function_local_missing) {
 	return NULL;
 }
 
-SNOW_FUNC(function_call_with_self) {
+/*SNOW_FUNC(function_call_with_self) {
 	REQUIRE_ARGS(1);
 	VALUE self = ARGS[0];
 	VALUE closure = SELF;
 	
-}
+}*/
 
 
 void init_function_class(SnClass* klass)
 {
 	snow_define_method(klass, "local_missing", function_local_missing);
-	snow_define_method(klass, "call_with_self", function_call_with_self);
+//	snow_define_method(klass, "call_with_self", function_call_with_self);
 }
 
 void init_function_description_class(SnClass* klass)

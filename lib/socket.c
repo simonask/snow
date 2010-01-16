@@ -87,6 +87,7 @@ SNOW_FUNC(socket_send) {
 SNOW_FUNC(socket_close) {
 	int descriptor = value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
 	if (close(descriptor) != 0) throw_errno("Could not close socket");
+	return SN_NIL;
 }
 
 SNOW_FUNC(server_initialize) {
@@ -145,6 +146,7 @@ SNOW_FUNC(server_accept) {
 SNOW_FUNC(server_stop) {
 	int server_descriptor = value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
 	if (close(server_descriptor)) throw_errno("Could not stop server");
+	return SN_NIL;
 }
 
 void socket_init(SnContext* global_context)

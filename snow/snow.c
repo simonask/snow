@@ -268,6 +268,7 @@ VALUE snow_require(const char* _file)
 	}
 	
 	snow_throw_exception_with_description("Required file not found!");
+	return NULL;
 }
 
 VALUE snow_call(VALUE self, VALUE closure, uintx num_args, ...)

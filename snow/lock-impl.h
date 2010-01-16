@@ -6,6 +6,20 @@
 #include "snow/lock.h"
 #include <unistd.h>
 
+#ifndef ASSERT
+#error LOL
+#endif
+
+static inline void snow_init_lock(SnLock* lock);
+static inline bool snow_is_locked(SnLock* lock);
+static inline bool snow_try_lock(SnLock* lock);
+static inline void snow_lock(SnLock* lock);
+static inline void snow_unlock(SnLock* lock);
+static inline void snow_init_recursive_lock(SnRecursiveLock* lock);
+static inline bool snow_try_recursive_lock(SnRecursiveLock* lock);
+static inline void snow_recursive_lock(SnRecursiveLock* lock);
+static inline void snow_recursive_unlock(SnRecursiveLock* lock);
+
 static inline void snow_init_lock(SnLock* lock) {
 	lock->locked_by_task_id = 0;
 	lock->locked = 0;

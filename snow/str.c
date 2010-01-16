@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <xlocale.h>
 
 static inline size_t strlen_locale(const char* cstr_utf8, size_t num_bytes) {
@@ -91,7 +92,7 @@ SnString* snow_format_string(const char* format, ...)
 	}
 	buffer[result_len] = '\0';
 	
-	return snow_create_string_from_data(buffer, result_len);
+	return snow_create_string_from_data((byte*)buffer, result_len);
 }
 
 intx snow_string_compare(SnString* a, SnString* b)

@@ -32,12 +32,6 @@ SnContext* snow_create_context_for_function(SnFunction* func)
 
 static VALUE global_context_key = NULL;
 
-static VALUE global_context_func_dummy(SnContext* ctx)
-{
-	TRAP(); // should never be called!
-	return NULL;
-}
-
 SnContext* snow_global_context()
 {
 	if (!global_context_key)
@@ -51,9 +45,7 @@ SnContext* snow_global_context()
 }
 
 VALUE snow_context_get_local(SnContext* ctx, SnSymbol sym)
-{
-	STACK_GUARD;
-	
+{	
 	SnContext* top_ctx = ctx; // used for local_missing
 	
 	SnContext* last_ctx = NULL;
@@ -129,7 +121,7 @@ VALUE snow_context_set_local_local(SnContext* ctx, SnSymbol sym, VALUE val)
 
 VALUE snow_context_local_missing(SnContext* ctx, SnSymbol name)
 {
-	SnObject* func = ctx->function;
+	SnObject* func = (SnObject*)ctx->function;
 	if (!func) func = snow_get_prototype(SN_FUNCTION_TYPE);
 	return snow_call_method(func, snow_symbol("local_missing"), 2, symbol_to_value(name), ctx->self);
 }
