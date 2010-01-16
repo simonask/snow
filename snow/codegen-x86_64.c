@@ -584,6 +584,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			Label body = ASM(label);
 			Label after = ASM(label);
 			Label catch = ASM(label);
+			Label ensure = ASM(label);
 			intx exception_handler = RESERVE_TMP();
 			
 			CALL(snow_create_exception_handler);
@@ -598,19 +599,27 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			
 			ASM(mov_id, IMMEDIATE(1), RCX);
 			ASM(cmp, RAX, RCX);
-			ASM(xor, RAX, RAX); // Clear return value in case it throws and there's no catch.
+			// ASM(xor, RAX, RAX); // Clear return value in case the body throws and there's no catch.
 			LabelRef catch_jmp = ASM(j, CC_ZERO, &catch);
 			
 			codegen_compile_node(cgx, (SnAstNode*)node->children[0]);
-			LabelRef after_jmp = ASM(jmp, &after);
+			LabelRef outer_ensure_jmp = ASM(jmp, &ensure);
 			
 			ASM(bind, &catch);
 			if (node->children[1])
 				codegen_compile_node(cgx, (SnAstNode*)node->children[1]);
 			
+			ASM(bind, &ensure);
+			ASM(mov_rev, RAX, TEMPORARY(exception_handler));
+			ASM(mov_rev, RDI, ADDRESS(RAX, offsetof(SnExceptionHandler, previous)));
+			CALL(snow_set_current_exception_handler);
+			
+			if (node->children[2])
+				codegen_compile_node(cgx, (SnAstNode*)node->children[2]);
+			
 			ASM(bind, &after);
 			
-			ASM(link, &after_jmp);
+			ASM(link, &outer_ensure_jmp);
 			ASM(link, &catch_jmp);
 			FREE_TMP(exception_handler);
 			break;
