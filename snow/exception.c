@@ -86,13 +86,17 @@ SnException* snow_create_exception()
 	return ex;
 }
 
-SNOW_FUNC(exception_to_string)
-{
+SNOW_FUNC(exception_current) {
+	return snow_get_current_exception_handler()->exception;
+}
+
+SNOW_FUNC(exception_to_string) {
 	ASSERT_TYPE(SELF, SN_EXCEPTION_TYPE);
 	return ((SnException*)SELF)->description;
 }
 
 void init_exception_class(SnClass* klass)
 {
+	snow_define_class_method(klass, "current", exception_current);
 	snow_define_method(klass, "to_string", exception_to_string);
 }
