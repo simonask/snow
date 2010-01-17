@@ -142,7 +142,7 @@ SNOW_FUNC(map_inspect) {
 		asprintf(&str, "%s => %s", snow_string_cstr(key), snow_string_cstr(value));
 		ASSERT(str);
 		snow_array_push(strings, snow_create_string(str));
-		free(str);
+		snow_free(str);
 	}
 	
 	SnString* joined = snow_array_join(strings, ", ");

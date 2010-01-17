@@ -2,6 +2,7 @@
 #include "snow/gc.h"
 #include "snow/linkbuffer.h"
 #include "snow/intern.h"
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <xlocale.h>
