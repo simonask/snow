@@ -189,7 +189,7 @@ SNOW_FUNC(_array_each) {
 	
 	for (intx i = 0; i < array_size(INTERN); ++i)
 	{
-		snow_call(NULL, closure, 1, array_get(INTERN, i));
+		snow_call(NULL, closure, 2, array_get(INTERN, i), int_to_value(i));
 	}
 	
 	return array;
