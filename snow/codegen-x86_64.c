@@ -581,6 +581,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		}
 		case SN_AST_TRY:
 		{
+			SnAstNode* catch_node = node->children[1];
+			
 			Label body = ASM(label);
 			Label skip_propagation = ASM(label);
 			Label catch = ASM(label);
@@ -612,7 +614,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			LabelRef outer_ensure_jmp = ASM(jmp, &ensure);
 			
 			ASM(bind, &catch);
-			if (node->children[1]) {
+			if (catch_node) {
 				Label catch_catch = ASM(label);
 				intx catch_exception_handler = RESERVE_TMP();
 				
@@ -636,7 +638,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				ASM(cmp, RAX, RCX);
 				LabelRef catch_catch_jmp = ASM(j, CC_ZERO, &catch_catch);
 				
-				codegen_compile_node(cgx, (SnAstNode*)node->children[1]);
+				codegen_compile_node(cgx, (SnAstNode*)catch_node->children[2]);
 				ASM(mov, RAX, TEMPORARY(return_value));
 				inner_ensure_jmp = ASM(jmp, &ensure);
 				
@@ -672,13 +674,16 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			ASM(link, &catch_jmp);
 			ASM(link, &outer_ensure_jmp);
 			ASM(link, &skip_propagation_jmp);
-			if (node->children[1]) ASM(link, &inner_ensure_jmp);
+			if (catch_node) ASM(link, &inner_ensure_jmp);
 			
 			FREE_TMP(return_value);
 			FREE_TMP(exception_handler);
 			FREE_TMP(exception_to_propagate);
 			break;
 		}
+		case SN_AST_CATCH:
+			TRAP(); // A catch AST node should never be codegenned.
+			break;
 		case SN_AST_AND:
 		{
 			SnAstNode* left = (SnAstNode*)node->children[0];

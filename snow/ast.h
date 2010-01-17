@@ -26,6 +26,7 @@ typedef enum SnAstNodeType {
 	SN_AST_CALL,
 	SN_AST_LOOP,
 	SN_AST_TRY,
+	SN_AST_CATCH,
 	SN_AST_AND,
 	SN_AST_OR,
 	SN_AST_XOR,
@@ -58,6 +59,7 @@ CAPI SnAstNode* snow_ast_if_else(SnAstNode* expr, SnAstNode* body, SnAstNode* el
 CAPI SnAstNode* snow_ast_call(SnAstNode* func, SnAstNode* seq_args);
 CAPI SnAstNode* snow_ast_loop(SnAstNode* while_true, SnAstNode* body);
 CAPI SnAstNode* snow_ast_try(SnAstNode* body, SnAstNode* catch, SnAstNode* ensure);
+CAPI SnAstNode* snow_ast_catch(SnAstNode* parameter, SnAstNode* condition, SnAstNode* body);
 CAPI SnAstNode* snow_ast_and(SnAstNode* left, SnAstNode* right);
 CAPI SnAstNode* snow_ast_or(SnAstNode* left, SnAstNode* right);
 CAPI SnAstNode* snow_ast_xor(SnAstNode* left, SnAstNode* right);

@@ -114,8 +114,11 @@ loop: TOK_WHILE expression eol sequence eol TOK_END  { $$ = snow_ast_loop($2, $4
 try: TOK_TRY sequence eol try_catch try_ensure TOK_END  { $$ = snow_ast_try($2, $4, $5); }
    ;
 
-try_catch:                     { $$ = NULL; }
-         | TOK_CATCH sequence  { $$ = $2; }
+try_catch:                                                      { $$ = NULL; }
+         | TOK_CATCH eol sequence                               { $$ = snow_ast_catch(NULL, NULL, $3); }
+         | TOK_CATCH identifier eol sequence                    { $$ = snow_ast_catch(  $2, NULL, $4); }
+         | TOK_CATCH TOK_IF expression eol sequence             { $$ = snow_ast_catch(NULL,   $3, $5); }
+         | TOK_CATCH identifier TOK_IF expression eol sequence  { $$ = snow_ast_catch(  $2,   $4, $6); }
          ;
 
 try_ensure:                      { $$ = NULL; }
