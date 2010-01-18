@@ -115,10 +115,10 @@ try: TOK_TRY sequence eol try_catch try_ensure TOK_END  { $$ = snow_ast_try($2, 
    ;
 
 try_catch:                                                      { $$ = NULL; }
-         | TOK_CATCH eol sequence                               { $$ = snow_ast_catch(NULL, NULL, $3); }
-         | TOK_CATCH identifier eol sequence                    { $$ = snow_ast_catch(  $2, NULL, $4); }
-         | TOK_CATCH TOK_IF expression eol sequence             { $$ = snow_ast_catch(NULL,   $3, $5); }
-         | TOK_CATCH identifier TOK_IF expression eol sequence  { $$ = snow_ast_catch(  $2,   $4, $6); }
+         | TOK_CATCH eol sequence                               { $$ = snow_ast_catch(               NULL, NULL, $3); }
+         | TOK_CATCH identifier eol sequence                    { $$ = snow_ast_catch(symbol_to_value($2), NULL, $4); }
+         | TOK_CATCH TOK_IF expression eol sequence             { $$ = snow_ast_catch(               NULL,   $3, $5); }
+         | TOK_CATCH identifier TOK_IF expression eol sequence  { $$ = snow_ast_catch(symbol_to_value($2),   $4, $6); }
          ;
 
 try_ensure:                      { $$ = NULL; }
