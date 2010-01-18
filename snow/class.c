@@ -53,18 +53,23 @@ VALUE _snow_define_class_method(SnClass* klass, const char* name, SnFunctionPtr 
 void _snow_define_property(SnClass* klass, const char* name, SnFunctionPtr getter, const char* getter_name, SnFunctionPtr setter, const char* setter_name)
 {
 	ASSERT_TYPE(klass, SN_CLASS_TYPE);
+	_snow_define_object_property(klass->instance_prototype, name, getter, getter_name, setter, setter_name);
+}
+
+void _snow_define_object_property(SnObject* object, const char* name, SnFunctionPtr getter, const char* getter_name, SnFunctionPtr setter, const char* setter_name)
+{
 	ASSERT(name);
 	SnSymbol sym = snow_symbol(name);
 	// XXX: Property functions are always uninterruptible. Consider this, please.
 	if (getter)
 	{
 		SnFunction* getter_func = snow_create_function_with_name(getter, getter_name);
-		snow_object_set_property_getter(klass->instance_prototype, sym, getter_func);
+		snow_object_set_property_getter(object, sym, getter_func);
 	}
 	if (setter)
 	{
 		SnFunction* setter_func = snow_create_function_with_name(setter, setter_name);
-		snow_object_set_property_setter(klass->instance_prototype, sym, setter_func);
+		snow_object_set_property_setter(object, sym, setter_func);
 	}
 }
 
