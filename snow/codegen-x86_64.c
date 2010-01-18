@@ -616,6 +616,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			ASM(bind, &catch);
 			if (catch_node) {
 				Label catch_catch = ASM(label);
+				LabelRef catch_condition_failed_jmp;
 				intx catch_exception_handler = RESERVE_TMP();
 				
 				CALL(snow_create_exception_handler);
@@ -638,6 +639,15 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				ASM(cmp, RAX, RCX);
 				LabelRef catch_catch_jmp = ASM(j, CC_ZERO, &catch_catch);
 				
+				if (catch_node->children[1]) {
+					codegen_compile_node(cgx, (SnAstNode*)catch_node->children[1]);
+					ASM(mov, RAX, RDI);
+					CALL(snow_eval_truth);
+					ASM(xor, RCX, RCX);
+					ASM(cmp, RAX, RCX);
+					catch_condition_failed_jmp = ASM(j, CC_ZERO, &catch_catch);
+				}
+				
 				codegen_compile_node(cgx, (SnAstNode*)catch_node->children[2]);
 				ASM(mov, RAX, TEMPORARY(return_value));
 				inner_ensure_jmp = ASM(jmp, &ensure);
@@ -648,6 +658,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				ASM(mov, R11, TEMPORARY(exception_to_propagate));
 				
 				ASM(link, &catch_catch_jmp);
+				if (catch_node->children[1]) ASM(link, &catch_condition_failed_jmp);
 				FREE_TMP(catch_exception_handler);
 			} else {
 				ASM(mov_rev, R10, TEMPORARY(exception_handler));
