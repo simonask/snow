@@ -99,7 +99,7 @@ SnAstNode* snow_ast_call(SnAstNode* func, SnAstNode* seq_args) {
 }
 SnAstNode* snow_ast_loop(SnAstNode* while_true, SnAstNode* body) { return create_ast_node(SN_AST_LOOP, while_true, body); }
 SnAstNode* snow_ast_try(SnAstNode* body, SnAstNode* catch, SnAstNode* ensure) { return create_ast_node(SN_AST_TRY, body, catch, ensure); }
-SnAstNode* snow_ast_catch(SnAstNode* parameter, SnAstNode* condition, SnAstNode* body) { return create_ast_node(SN_AST_CATCH, parameter, condition, body); }
+SnAstNode* snow_ast_catch(VALUE parameter, SnAstNode* condition, SnAstNode* body) { return create_ast_node(SN_AST_CATCH, parameter, condition, body); }
 SnAstNode* snow_ast_and(SnAstNode* left, SnAstNode* right) { return create_ast_node(SN_AST_AND, left, right); }
 SnAstNode* snow_ast_or(SnAstNode* left, SnAstNode* right)  { return create_ast_node(SN_AST_OR, left, right); }
 SnAstNode* snow_ast_xor(SnAstNode* left, SnAstNode* right) { return create_ast_node(SN_AST_XOR, left, right); }
