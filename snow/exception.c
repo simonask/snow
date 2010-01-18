@@ -97,6 +97,6 @@ SNOW_FUNC(exception_to_string) {
 
 void init_exception_class(SnClass* klass)
 {
-	snow_define_class_method(klass, "current", exception_current);
+	snow_define_class_property(klass, "current", exception_current, NULL);
 	snow_define_method(klass, "to_string", exception_to_string);
 }
