@@ -328,6 +328,20 @@ SNOW_FUNC(_array_join) {
 	return snow_array_join(array, separator ? snow_string_cstr(separator) : NULL);
 }
 
+SNOW_FUNC(_array_includes_p) {
+	REQUIRE_ARGS(1);
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	SnArray* array = (SnArray*)SELF;
+	
+	for (size_t i = 0; i < snow_array_size(array); ++i) {
+		VALUE comparison = snow_call_method(snow_array_get(array, i), snow_symbol("="), 1, ARGS[0]);
+		if (snow_eval_truth(comparison))
+			return int_to_value(i);
+	}
+	
+	return SN_FALSE;
+}
+
 void init_array_class(SnClass* klass)
 {
 	snow_define_class_method(klass, "__call__", _array_new);
@@ -349,6 +363,7 @@ void init_array_class(SnClass* klass)
 	snow_define_method(klass, "inject", _array_inject);
 	snow_define_method(klass, "detect", _array_detect);
 	snow_define_method(klass, "join", _array_join);
+	snow_define_method(klass, "includes?", _array_includes_p);
 	
 	snow_define_property(klass, "length", _array_length, NULL);
 	snow_define_property(klass, "any?", _array_any, NULL);
