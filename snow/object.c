@@ -194,8 +194,20 @@ SNOW_FUNC(object_inspect) {
 }
 
 SNOW_FUNC(object_eval) {
-	REQUIRE_ARGS(1);
-	return snow_call(SELF, ARGS[0], 0);
+	SnArguments* call_arguments = snow_create_arguments_with_size(0);
+	
+	SnArray* closures = snow_get_member(_context->args, snow_symbol("unnamed"));
+	ASSERT_TYPE(closures, SN_ARRAY_TYPE);
+	
+	VALUE argument = ARG_BY_NAME("argument");
+	if (argument)
+		snow_arguments_push(call_arguments, argument);
+	
+	VALUE return_value = SN_NIL;
+	for (uintx i = 0; i < snow_array_size(closures); ++i)
+		return_value = snow_call_with_args(SELF, snow_array_get(closures, i), call_arguments);
+	
+	return return_value;
 }
 
 SNOW_FUNC(object_equals) {
@@ -311,7 +323,7 @@ void init_object_class(SnClass* klass)
 {
 	snow_define_method(klass, "inspect", object_inspect);
 	snow_define_method(klass, "to_string", object_inspect);
-	snow_define_method(klass, "object_eval", object_eval);
+	snow_define_method(klass, "eval", object_eval);
 	snow_define_method(klass, "is_a?", object_is_a);
 	snow_define_method(klass, "is_an?", object_is_a);
 	snow_define_method(klass, "=", object_equals);
