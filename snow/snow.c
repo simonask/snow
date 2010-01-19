@@ -504,7 +504,7 @@ const char* snow_value_to_cstr(VALUE val)
 		got_sym = true;
 	}
 	
-	SnString* str = (SnString*)snow_call_method(val, to_string, 0);
+	SnString* str = (SnString*)snow_call_method(snow_call_method(val, to_string, 0), to_string, 0);
 	ASSERT_TYPE(str, SN_STRING_TYPE);
 	return snow_string_cstr(str);
 }
