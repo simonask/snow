@@ -114,14 +114,14 @@ loop: TOK_WHILE expression eol sequence eol TOK_END  { $$ = snow_ast_loop($2, $4
 try: TOK_TRY sequence try_catch try_ensure TOK_END  { $$ = snow_ast_try($2, $3, $4); }
    ;
 
-try_catch:                                                { $$ = NULL; }
-         | TOK_CATCH catch_condition sequence             { $$ = snow_ast_catch(NULL, $2, $3); }
-         | TOK_CATCH identifier catch_condition sequence  { $$ = snow_ast_catch(symbol_to_value($2), $3, $4); }
+try_catch:                                                    { $$ = NULL; }
+         | TOK_CATCH catch_condition eol sequence             { $$ = snow_ast_catch(NULL, $2, $4); }
+         | TOK_CATCH identifier catch_condition eol sequence  { $$ = snow_ast_catch(symbol_to_value($2), $3, $5); }
          ;
 
-catch_condition:                            { $$ = NULL; }
-               | TOK_IF expression eol      { $$ = $2; }
-               | TOK_UNLESS expression eol  { $$ = snow_ast_not($2); }
+catch_condition:                        { $$ = NULL; }
+               | TOK_IF expression      { $$ = $2; }
+               | TOK_UNLESS expression  { $$ = snow_ast_not($2); }
                ;
 
 try_ensure:                      { $$ = NULL; }
