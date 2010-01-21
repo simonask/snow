@@ -624,8 +624,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				
 				// `catch_exception_handler->exception = exception_handler->exception;`
 				ASM(mov_rev, R10, TEMPORARY(exception_handler));
-				ASM(add_id, offsetof(SnExceptionHandler, exception), R10);
-				ASM(mov_rev, R11, ADDRESS(R10, 0));
+				ASM(mov_rev, R11, ADDRESS(R10, offsetof(SnExceptionHandler, exception)));
 				ASM(mov, R11, ADDRESS(RAX, offsetof(SnExceptionHandler, exception)));
 				
 				ASM(mov_rev, RDI, TEMPORARY(catch_exception_handler));
