@@ -639,6 +639,16 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				ASM(cmp, RAX, RCX);
 				LabelRef catch_catch_jmp = ASM(j, CC_ZERO, &catch_catch);
 				
+				if (catch_node->children[0]) {
+					// `<identifier> = Exception.current`
+					SnSymbol identifier = value_to_symbol(catch_node->children[0]);
+					SnAstNode* exception_getter = snow_ast_member(snow_ast_local(snow_symbol("Exception")),
+					                                              snow_symbol("current"));
+					SnAstNode* assignment = snow_ast_local_assign(identifier, exception_getter);
+					
+					codegen_compile_node(cgx, assignment);
+				}
+				
 				if (catch_node->children[1]) {
 					codegen_compile_node(cgx, (SnAstNode*)catch_node->children[1]);
 					ASM(mov, RAX, RDI);
