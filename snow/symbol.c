@@ -80,6 +80,13 @@ SnString* snow_symbol_to_string(SnSymbol sym)
 	return str;
 }
 
+SNOW_FUNC(symbol___call__) {
+	ASSERT(is_symbol(SELF));
+	REQUIRE_ARGS(1);
+	
+	return snow_call_method(ARGS[0], value_to_symbol(SELF), 0);
+}
+
 SNOW_FUNC(symbol_to_string) {
 	ASSERT(is_symbol(SELF));
 	return snow_symbol_to_string(value_to_symbol(SELF));
@@ -92,6 +99,7 @@ SNOW_FUNC(symbol_inspect) {
 
 void init_symbol_class(SnClass* klass)
 {
+	snow_define_method(klass, "__call__", symbol___call__);
 	snow_define_method(klass, "to_string", symbol_to_string);
 	snow_define_method(klass, "inspect", symbol_inspect);
 }
