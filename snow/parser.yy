@@ -32,7 +32,7 @@
 %token '.' ',' '[' ']' '{' '}' '(' ')' ':' '#'
 %token TOK_EOL TOK_DO TOK_UNLESS TOK_ELSE TOK_IF TOK_ELSEIF TOK_WHILE TOK_UNTIL TOK_TRY TOK_CATCH TOK_ENSURE
 
-%type <node> statement conditional conditional_tail control loop try try_catch try_ensure
+%type <node> statement conditional conditional_tail control loop try try_catch catch_condition try_ensure
              function_call assignment operation variable log_operation member
              naked_closure closure local literal expression atomic_expr atomic_non_index_expr
              index_variable non_index_variable string_literal parallel_thread parallel_fork parallel_operation
@@ -111,15 +111,18 @@ loop: TOK_WHILE expression eol sequence eol TOK_END  { $$ = snow_ast_loop($2, $4
     | statement TOK_UNTIL expression                 { $$ = snow_ast_loop(snow_ast_not($3), $1); }
     ;
 
-try: TOK_TRY sequence eol try_catch try_ensure TOK_END  { $$ = snow_ast_try($2, $4, $5); }
+try: TOK_TRY sequence try_catch try_ensure TOK_END  { $$ = snow_ast_try($2, $3, $4); }
    ;
 
-try_catch:                                                      { $$ = NULL; }
-         | TOK_CATCH eol sequence                               { $$ = snow_ast_catch(               NULL, NULL, $3); }
-         | TOK_CATCH identifier eol sequence                    { $$ = snow_ast_catch(symbol_to_value($2), NULL, $4); }
-         | TOK_CATCH TOK_IF expression eol sequence             { $$ = snow_ast_catch(               NULL,   $3, $5); }
-         | TOK_CATCH identifier TOK_IF expression eol sequence  { $$ = snow_ast_catch(symbol_to_value($2),   $4, $6); }
+try_catch:                                                { $$ = NULL; }
+         | TOK_CATCH catch_condition sequence             { $$ = snow_ast_catch(NULL, $2, $3); }
+         | TOK_CATCH identifier catch_condition sequence  { $$ = snow_ast_catch(symbol_to_value($2), $3, $4); }
          ;
+
+catch_condition:                            { $$ = NULL; }
+               | TOK_IF expression eol      { $$ = $2; }
+               | TOK_UNLESS expression eol  { $$ = snow_ast_not($2); }
+               ;
 
 try_ensure:                      { $$ = NULL; }
           | TOK_ENSURE sequence  { $$ = $2; }
