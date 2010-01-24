@@ -65,8 +65,8 @@ void snow_try_catch_ensure(SnExceptionTryFunc try_func, SnExceptionCatchFunc cat
 		return;
 	}
 	// No exception thrown
-	if (ensure_func) ensure_func(userdata);
 	current_task->exception_handler = handler.previous;
+	if (ensure_func) ensure_func(userdata);
 }
 
 SnException* snow_create_exception()
