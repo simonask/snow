@@ -583,14 +583,14 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		{
 			SnAstNode* catch_node = node->children[1];
 			
-			Label body = ASM(label);
-			Label skip_propagation = ASM(label);
 			Label catch = ASM(label);
 			Label ensure = ASM(label);
+			Label skip_propagation = ASM(label);
+			LabelRef inner_ensure_jmp;
+			
 			intx return_value = RESERVE_TMP();
 			intx exception_handler = RESERVE_TMP();
 			intx exception_to_propagate = RESERVE_TMP();
-			LabelRef inner_ensure_jmp;
 			
 			ASM(mov_id, IMMEDIATE(0), TEMPORARY(exception_to_propagate));
 			ASM(mov_id, IMMEDIATE(SN_NIL), TEMPORARY(return_value));
