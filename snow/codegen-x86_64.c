@@ -678,6 +678,11 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			ASM(bind, &ensure);
 			ASM(mov_rev, RAX, TEMPORARY(exception_handler));
 			ASM(mov_rev, RDI, ADDRESS(RAX, offsetof(SnExceptionHandler, previous)));
+			
+			// `exception_handler->previous->exception = exception_handler->exception;`
+			ASM(mov_rev, R11, ADDRESS(RAX, offsetof(SnExceptionHandler, exception)));
+			ASM(mov, R11, ADDRESS(RDI, offsetof(SnExceptionHandler, exception)));
+			
 			CALL(snow_set_current_exception_handler);
 			
 			if (node->children[2])
@@ -689,6 +694,9 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			CALL(snow_throw_exception);
 			
 			ASM(bind, &skip_propagation);
+			CALL(snow_get_current_exception_handler);
+			ASM(mov_id, IMMEDIATE(0), ADDRESS(RAX, offsetof(SnExceptionHandler, exception)));
+			
 			ASM(mov_rev, RAX, TEMPORARY(return_value));
 			
 			ASM(link, &catch_jmp);
