@@ -165,7 +165,7 @@ SnException* snow_create_exception()
 }
 
 SNOW_FUNC(exception_current) {
-	return snow_get_current_exception_handler()->exception;
+	return snow_current_exception();
 }
 
 SNOW_FUNC(exception_to_string) {
