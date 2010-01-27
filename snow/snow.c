@@ -55,6 +55,10 @@ void snow_init()
 		exit(1);
 	}
 	
+	SnExceptionHandler* exception_handler = snow_create_exception_handler();
+	exception_handler->state = *main_task_base;
+	snow_set_current_exception_handler(exception_handler);
+	
 	// create all base classes
 	SnClass* class_class;
 	snow_init_class_class(&class_class);
