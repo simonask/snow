@@ -1,0 +1,15 @@
+false and Object.object_eval {
+  .tap: [yield] { yield(3); self }
+  puts("Yes, here.")
+  puts(.property)
+  puts(#ancestors, {
+      //result: @()
+      //current: .prototype
+      //while current
+      //  result << current
+      //  current: current.prototype
+      //end
+      //result
+    }, puts("Hrm"))
+  puts("Whoa, here too!")
+}

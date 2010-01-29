@@ -80,6 +80,7 @@ int main(int argc, char* const* argv)
 	static int interactive_mode = false;
 	
 	SnArray* require_files = snow_create_array();
+	snow_array_push(require_files, snow_create_string("baselib/baselib.sn")); // FIXME: Depends on wd.
 	
 	while (true)
 	{
