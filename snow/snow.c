@@ -273,7 +273,7 @@ VALUE snow_require(const char* _file)
 			return result;
 	}
 	
-	snow_throw_exception_with_description("Required file not found!");
+	snow_throw_exception_with_description("Required file not found: %s", _file);
 	return NULL;
 }
 
