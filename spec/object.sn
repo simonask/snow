@@ -1,0 +1,20 @@
+Speck.describe("Object") {
+  .before(#each) {
+    .object: Object()
+  }
+  
+  it("should tap") {
+    .object.tap{ it.foo: #bar }.should = .object
+    .object.foo.should = #bar
+  }
+  
+  it("should have ancestors") {
+    Speck.pending("instance prototypes don't like being manipulated")
+    .object.ancestors.should = @(Object.instance_prototype)
+    Object.ancestors.should = @(Class.instance_prototype, Object.instance_prototype)
+    
+    dummy_class: Class()
+    dummy_class.ancestors.should = @(Object, Class.instance_prototype, Object.instance_prototype)
+    dummy_class().ancestors.should = @(dummy_class.instance_prototype, Object.instance_prototype)
+  }
+}
