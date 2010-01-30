@@ -1,9 +1,10 @@
 require("baselib/object.sn")
 
-false and Array.object_eval {
+Array.instance_prototype.eval {
   .reverse: {
     result: @()
-    .each { result.unshift(it) }
+    me: self
+    .each [elem, index] { result << me.get(-1 - index) }
     result
   }
   
