@@ -1,0 +1,6 @@
+require("../Speck/speck")
+
+ARGV: @("spec/object") if ARGV.empty?
+
+ARGV.each(require)
+Speck.run()
