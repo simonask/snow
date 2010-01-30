@@ -59,6 +59,7 @@
 #define YYREALLOC snow_gc_realloc
 #define YYFREE
 
+#define YYMAXDEPTH 100000
 
 SnAstNode* snow_parse(const char* buf, struct SnParserInfo* out_info)
 {
