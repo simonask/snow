@@ -52,6 +52,8 @@
 #define YYERROR_VERBOSE
 #endif
 
+#define YYMAXDEPTH 100000
+
 SnAstNode* snow_parse(const char* buf, struct SnParserInfo* out_info)
 {
 	SnParserState state;
