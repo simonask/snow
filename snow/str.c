@@ -143,6 +143,13 @@ SNOW_FUNC(string_compare)
 	return int_to_value(snow_string_compare(self, other));
 }
 
+SNOW_FUNC(string_equals)
+{
+	REQUIRE_ARGS(1);
+	VALUE comparison = snow_call_method(SELF, snow_symbol("<=>"), 1, ARGS[0]);
+	return boolean_to_value(comparison == int_to_value(0));
+}
+
 SNOW_FUNC(string_size)
 {
 	ASSERT_TYPE(SELF, SN_STRING_TYPE);
@@ -289,6 +296,7 @@ void init_string_class(SnClass* klass)
 	snow_define_method(klass, "to_string", string_to_string);
 	snow_define_method(klass, "inspect", string_inspect);
 	snow_define_method(klass, "<=>", string_compare);
+	snow_define_method(klass, "=", string_equals);
 	snow_define_property(klass, "size", string_size, NULL);
 	snow_define_property(klass, "length", string_length, NULL);
 	snow_define_method(klass, "+", string_concatenate);
