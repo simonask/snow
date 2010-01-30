@@ -58,10 +58,10 @@ false and Array.object_eval {
     memo
   }
   
-  .sum: { self.inject(0) [memo, element] { memo + element } }
+  .getter(#sum) { self.inject(0) [memo, element] { memo + element } }
   
-  .property(#empty?, { .length = 0 }, nil)
+  .getter(#empty?) { .length = 0 }
   
-  .first: { .get(0) }
-  .last:  { .get(-1) }
+  .getter(#first) { .get(0) }
+  .getter(#last)  { .get(-1) }
 }
