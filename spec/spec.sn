@@ -1,6 +1,7 @@
 require("../Speck/speck")
 
-ARGV: @("spec/object") if ARGV.empty?
+ARGV: @("spec/object", "spec/array") if ARGV.empty?
 
 ARGV.each(require)
+// Speck.terminal_magic?: false
 Speck.run()
