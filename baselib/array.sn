@@ -3,8 +3,7 @@ require("baselib/object.sn")
 Array.instance_prototype.eval {
   .reverse: {
     result: @()
-    me: self
-    .each [elem, index] { result << me.get(-1 - index) }
+    .each [elem, index] { result << .get(-1 - index) }
     result
   }
   

@@ -29,7 +29,7 @@ Speck.describe("Array") {
   }
   
   it("should reverse itself") {
-/*    @("somebody", "set", "up", "us", "the", "bomb").reverse().should = @("bomb", "the", "us", "up", "set", "somebody")*/
+    @("somebody", "set", "up", "us", "the", "bomb").reverse().should = @("bomb", "the", "us", "up", "set", "somebody")
   }
   
   .describe("inject") {
