@@ -304,7 +304,7 @@ VALUE snow_call_with_args(VALUE in_self, VALUE in_closure, SnArguments* args)
 	
 	if (!snow_eval_truth(closure))
 	{
-		snow_throw_exception_with_description("Attempted to call nil.");
+		snow_throw_exception_with_description("Attempted to call %s.", closure == SN_FALSE ? "false" : "nil");
 	}
 	
 	SnSymbol call_sym = snow_symbol("__call__");
