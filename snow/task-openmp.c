@@ -204,6 +204,7 @@ bool snow_thread_is_on_system_stack()
 
 void snow_thread_departing_from_system_stack(void* stack_bottom)
 {
+	ASSERT(threads[ME].stack_bottom == NULL);
 	if (threads[ME].stack_bottom == NULL)
 		threads[ME].stack_bottom = stack_bottom;
 }
@@ -211,7 +212,7 @@ void snow_thread_departing_from_system_stack(void* stack_bottom)
 void snow_thread_returning_to_system_stack()
 {
 	SnTask* task = snow_get_current_task();
-	if (threads[ME].stack_bottom != NULL && task->continuation == task->base && task->started_on_system_stack)
+	if (threads[ME].stack_bottom != NULL)
 		threads[ME].stack_bottom = NULL;
 }
 

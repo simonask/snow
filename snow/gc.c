@@ -17,8 +17,6 @@
 
 #define DEBUG_MALLOC 0 // set to 1 to override snow_malloc
 
-#define DEFAULT_HEAP_SIZE (1<<20)
-
 volatile bool _snow_gc_is_collecting = false;
 
 HIDDEN SnArray** _snow_store_ptr(); // necessary for accessing global stuff
@@ -28,24 +26,32 @@ typedef void(*SnGCAction)(VALUE* root_pointer, bool on_stack);
 static void gc_mark_root(VALUE* root, bool on_stack);
 static void gc_update_root(VALUE* root, bool on_stack);
 
-struct SnGCHeap;
-struct SnGCHeader;
+struct SnGCObjectHead;
+struct SnGCObjectTail;
+struct SnGCAllocInfo;
 struct SnGCMetaInfo;
+struct SnGCHeap;
 
 static void gc_minor();
 static void gc_major();
-static byte* gc_find_object_start(byte* ptr, struct SnGCHeader**, struct SnGCMetaInfo**);
-static struct SnGCHeap* gc_find_heap(const VALUE root);
-static bool gc_heap_contains(const struct SnGCHeap* heap, const VALUE root);
+static byte* gc_find_object_start(const struct SnGCHeap* heap, const byte* ptr, struct SnGCAllocInfo**, struct SnGCMetaInfo**);
+static struct SnGCHeap* gc_find_heap(const void* root);
+static bool gc_heap_contains(const struct SnGCHeap* heap, const void* root);
 static void gc_mark_stack(byte* bottom, byte* top);
-static void gc_compute_checksum(struct SnGCHeader* header);
-static bool gc_check_checksum(const struct SnGCHeader* header);
-static bool gc_looks_like_allocation(byte* ptr);
-static void gc_transplant_adult(byte* object, struct SnGCHeader* header, struct SnGCMetaInfo* meta);
-static void gc_finalize_object(byte* object, struct SnGCHeader* header, struct SnGCMetaInfo* meta);
+static void gc_compute_checksum(struct SnGCAllocInfo* alloc_info);
+static bool gc_check_checksum(const struct SnGCAllocInfo* alloc_info);
+static bool gc_looks_like_allocation(const byte* ptr);
+static void gc_transplant_adult(byte* object, struct SnGCAllocInfo* alloc_info, struct SnGCMetaInfo* meta_info);
+static void gc_finalize_object(void* object, struct SnGCAllocInfo* alloc_info, struct SnGCMetaInfo* meta_info);
 
-#define GC_NURSERY_SIZE 0x20000 // 128K nurseries
-#define GC_BIG_ALLOCATION_SIZE_BOUNDARY 0x1000 // 4K
+typedef enum SnGCFlag {
+	GC_NO_FLAGS      = 0,
+	GC_MARK          = 1,         // the object is referenced by reachable roots
+	GC_TRANSPLANTED  = 1 << 1,    // the object is no longer here
+	GC_UPDATED       = 1 << 2,    // the object has had its roots updated
+	GC_INDEFINITE    = 1 << 3,    // the object is referenced from the stack or another indefinite chunk of memory
+	GC_FLAGS_MAX
+} SnGCFlag;
 
 typedef enum SnGCAllocType {
 	GC_OBJECT = 0x1,
@@ -54,26 +60,15 @@ typedef enum SnGCAllocType {
 	GC_ALLOC_TYPE_MAX
 } SnGCAllocType;
 
-typedef enum SnGCFlag {
-	GC_NO_FLAGS      = 0,
-	GC_MARK          = 1,
-	GC_TRANSPLANTED  = 1 << 1,    // the object is no longer here
-	GC_UPDATED       = 1 << 2,    // the object has had its roots updated
-	GC_INDEFINITE    = 1 << 3,
-	GC_FLAGS_MAX
-} SnGCFlag;
-
-typedef byte SnGCFlags;
-
-typedef struct SnGCHeader {
+typedef struct SnGCAllocInfo {
 	// Header info must never change throughout the lifetime of an object.
 	// Only flag contents may change.
-	// sizeof(SnGCHeader) must be == 8 bytes.
-	unsigned size        : 32;
-	unsigned flag_index  : 24;
-	unsigned alloc_type  : 2;
-	unsigned checksum    : 6; // sum of bits set in all the other fields
-} PACKED SnGCHeader;
+	// sizeof(SnGCAllocInfo) must be == 8 bytes.
+	unsigned size         : 32;
+	unsigned object_index : 24;
+	unsigned alloc_type   : 2;
+	unsigned checksum     : 6; // sum of bits set in all the other fields
+} PACKED SnGCAllocInfo;
 
 typedef struct SnGCMetaInfo {
 	// sizeof(SnGCMetaInfo) must be == 8 bytes.
@@ -83,37 +78,36 @@ typedef struct SnGCMetaInfo {
 	#endif
 } PACKED SnGCMetaInfo;
 
-
-typedef struct SnGCHeap {
-	/*
-		An incremental heap, with separate flags for better CoW-performance during GC.
-	*/
-	byte* start;
-	byte* current;
-	byte* end;
-	
-	SnGCFlags* flags;
-	uint32_t num_objects;
-} SnGCHeap;
-
-#define FLAGS_PER_PAGE (SNOW_PAGE_SIZE / sizeof(SnGCFlags))
-
-#define MAGIC_BEAD_1 0xbe4dbeedbaadb3ad
-#define MAGIC_BEAD_2 0xb3adbaadbeedbe4d
-
+#define MAGIC_BEAD_HEAD 0xbe4dbeedbaadb3ad
+#define MAGIC_BEAD_TAIL 0xb3adbaadbeedbe4d
 typedef uint64_t SnGCMagicBead;
+
+typedef struct SnGCObjectHead {
+	SnGCAllocInfo alloc_info;
+	SnGCMagicBead bead;
+} SnGCObjectHead;
+
+typedef struct SnGCObjectTail {
+	SnGCMetaInfo meta_info;
+	SnGCMagicBead bead;
+} SnGCObjectTail;
+
+#define DEFAULT_HEAP_SIZE (1<<20)
+typedef byte SnGCFlags;
+static void* gc_alloc_chunk(size_t);
+static void gc_free_chunk(void* chunk, size_t);
+#include "snow/gcheap.h"
+
+#define GC_NURSERY_SIZE 0x20000 // 128K nurseries
+#define GC_ADULT_SIZE 0x100000 // 1M adult heaps
+#define GC_BIG_ALLOCATION_SIZE_LIMIT 0x1000 // everything above 4K will go in the "biggies" allocation list
 
 struct {
 	SnGCHeap nurseries[SNOW_MAX_CONCURRENT_TASKS];
 	
-	SnGCHeap* adult_heaps;
-	uint32_t num_adult_heaps;
-	
-	SnGCHeap* big_allocations;
-	uint32_t num_big_allocations;
-	
-	SnGCHeap* old_nurseries; // nurseries that contained indefinite roots, so cannot be deleted :(
-	uint32_t num_old_nurseries;
+	SnGCHeapList adults;
+	SnGCHeapList biggies;
+	SnGCHeapList unkillables; // nurseries that contained indefinite roots, so cannot be deleted yet :(
 	
 	uint16_t num_minor_collections_since_last_major_collection;
 	byte* lower_bound;
@@ -124,9 +118,12 @@ struct {
 
 void snow_init_gc() {
 	memset(&GC, 0, sizeof(GC));
+	gc_heap_list_init(&GC.adults);
+	gc_heap_list_init(&GC.biggies);
+	gc_heap_list_init(&GC.unkillables);
 }
 
-void* gc_alloc_chunk(size_t size) {
+static inline void* gc_alloc_chunk(size_t size) {
 	// allocate while updating bounds
 	byte* ptr = (byte*)snow_malloc(size);
 	if (ptr < GC.lower_bound || !GC.lower_bound)
@@ -136,174 +133,79 @@ void* gc_alloc_chunk(size_t size) {
 	return ptr;
 }
 
-static inline SnGCFlags gc_heap_get_flags(SnGCHeap* heap, uint32_t flag_index) {
-	ASSERT(flag_index < heap->num_objects);
-	
-	if (heap->flags) {
-		return heap->flags[flag_index];
-	}
-	
-	return 0;
-}
-
-static inline void gc_heap_set_flags(SnGCHeap* heap, uint32_t flag_index, byte flags) {
-	ASSERT(flag_index < heap->num_objects);
-	
-	if (!heap->flags) {
-		heap->flags = snow_malloc(sizeof(SnGCFlags)*heap->num_objects);
-		memset(heap->flags, 0, sizeof(SnGCFlags)*heap->num_objects);
-	}
-	
-	heap->flags[flag_index] |= flags;
-}
-
-static inline void gc_heap_unset_flags(SnGCHeap* heap, uint32_t flag_index, byte flags) {
-	ASSERT(flag_index < heap->num_objects);
-	
-	if (heap->flags) {
-		heap->flags[flag_index] &= ~flags;
-	}
-}
-
-static inline size_t gc_heap_available(SnGCHeap* heap) {
-	return heap->end - heap->start;
+static inline void gc_free_chunk(void* chunk, size_t size) {
+	byte* ptr = (byte*)chunk;
+	if (GC.lower_bound == ptr)
+		GC.lower_bound = ptr + size; // guess a new lower bound
+	if ((ptr + size) == GC.upper_bound)
+		GC.upper_bound = ptr;
+	snow_free(chunk);
 }
 
 static inline size_t gc_calculate_total_size(size_t size) {
-	// returns the size + headers + metadata + alignment
-	size_t extra_stuff = sizeof(SnGCHeader) + sizeof(SnGCMetaInfo) + 2 * sizeof(SnGCMagicBead);
+	size_t extra_stuff = sizeof(SnGCObjectHead) + sizeof(SnGCObjectTail);
 	return size + extra_stuff;
 }
 
-static inline void* gc_heap_alloc(SnGCHeap* heap, size_t size, SnGCAllocType alloc_type) {
-	size_t rounded_size = snow_gc_round(size);
-	size_t total_size = gc_calculate_total_size(rounded_size);
+static inline byte* gc_init_allocation(byte* allocated_memory, size_t rounded_size, SnGCAllocType alloc_type, uint32_t object_index)
+{
+	byte* ptr = allocated_memory;
 	
-	// XXX: Lock
-	
-	if (!heap->start) {
-		heap->start = gc_alloc_chunk(GC_NURSERY_SIZE);
-		heap->current = heap->start;
-		heap->end = heap->start + GC_NURSERY_SIZE;
-	}
-	
-	// see if we can hold the allocation
-	if (heap->current + total_size >= heap->end) {
-		return NULL;
-	}
-	
-	byte* ptr = heap->current;
-	heap->current += total_size;
-	byte* object_end = heap->current;
-	size_t flag_index = heap->num_objects++;
-	// XXX: Unlock
-	
-	SnGCHeader* header = (SnGCHeader*)ptr;
-	ptr += sizeof(SnGCHeader);
-	SnGCMagicBead* bead1 = (SnGCMagicBead*)ptr;
-	ptr += sizeof(SnGCMagicBead);
+	SnGCObjectHead* head = (SnGCObjectHead*)ptr;
+	ptr += sizeof(SnGCObjectHead);
 	byte* data = ptr;
 	ptr += rounded_size;
-	SnGCMetaInfo* metainfo = (SnGCMetaInfo*)ptr;
-	memset(metainfo, 0, sizeof(SnGCMetaInfo));
-	ptr += sizeof(SnGCMetaInfo);
-	SnGCMagicBead* bead2 = (SnGCMagicBead*)ptr;
-	ptr += sizeof(SnGCMagicBead);
-	ASSERT(ptr == object_end);
+	SnGCObjectTail* tail = (SnGCObjectTail*)ptr;
+	ptr += sizeof(SnGCObjectTail);
 	
-	// set header info, and compute checksum
-	header->size = rounded_size;
-	header->flag_index = flag_index;
-	header->alloc_type = alloc_type;
-	gc_compute_checksum(header);
+	head->bead = MAGIC_BEAD_HEAD;
+	tail->bead = MAGIC_BEAD_TAIL;
 	
-	// set beads
-	*bead1 = MAGIC_BEAD_1;
-	*bead2 = MAGIC_BEAD_2;
+	SnGCAllocInfo* alloc_info = &head->alloc_info;
+	SnGCMetaInfo* meta_info = &tail->meta_info;
 	
-	memset(metainfo, 0, sizeof(SnGCMetaInfo));
+	// init alloc_info, and compute checksum
+	alloc_info->size = rounded_size;
+	alloc_info->object_index = object_index;
+	alloc_info->alloc_type = alloc_type;
+	gc_compute_checksum(alloc_info);
 	
-	#ifdef DEBUG
-	ASSERT(gc_looks_like_allocation((byte*)header));
-	SnGCHeader* check_header;
-	SnGCMetaInfo* check_meta;
-	byte* start = gc_find_object_start(data, &check_header, &check_meta);
-	ASSERT(start == data);
-	ASSERT(check_header == header);
-	ASSERT(check_meta == metainfo);
-	#endif
+	// init meta_info
+	memset(meta_info, 0, sizeof(SnGCMetaInfo));
 	
 	return data;
-}
-
-static inline void* gc_alloc_from_heap_list(size_t size, SnGCAllocType alloc_type, SnGCHeap** heaps_p, uint32_t* num_heaps_p) {
-	size_t total_size = gc_calculate_total_size(snow_gc_round(size));
-	
-	SnGCHeap* heap = NULL;
-	for (uint32_t i = 0; i < *num_heaps_p; ++i) {
-		if (gc_heap_available(*heaps_p + i) >= total_size) heap = *heaps_p + i;
-	}
-	
-	if (!heap) {
-		*heaps_p = (SnGCHeap*)snow_realloc(*heaps_p, sizeof(SnGCHeap) * (*num_heaps_p + 1));
-		SnGCHeap* heaps = *heaps_p;
-		// swap first and last heap
-		memcpy(&heaps[*num_heaps_p], &heaps[0], sizeof(SnGCHeap));
-		memset(&heaps[0], 0, sizeof(SnGCHeap));
-		(*num_heaps_p)++;
-		heap = &heaps[0];
-	}
-	
-	if (!heap->start && size > GC_NURSERY_SIZE) {
-		heap->start = gc_alloc_chunk(total_size);
-		heap->current = heap->start;
-		heap->end = heap->start + total_size;
-	}
-	
-	void* ptr = gc_heap_alloc(heap, size, alloc_type);
-	ASSERT(ptr); // alloc_from_heap_list must never fail :(
-	return ptr;
-}
-
-static inline void gc_transplant_adult(byte* object, SnGCHeader* old_header, SnGCMetaInfo* old_meta) {
-	byte* new_ptr = (byte*)gc_alloc_from_heap_list(old_header->size, old_header->alloc_type, &GC.adult_heaps, &GC.num_adult_heaps);
-	ASSERT(new_ptr);
-	SnGCMetaInfo* meta = (SnGCMetaInfo*)(new_ptr + old_header->size);
-	memcpy(new_ptr, object, old_header->size);
-	memcpy(meta, old_meta, sizeof(SnGCMetaInfo));
-	// place new pointer in the beginning of the old memory
-	*(byte**)object = new_ptr;
-}
-
-static inline void gc_finalize_object(byte* object, SnGCHeader* header, SnGCMetaInfo* meta) {
-	if (meta->free_func)
-		meta->free_func(object);
 }
 
 static inline void* gc_alloc(size_t size, SnGCAllocType alloc_type) {
 	ASSERT(size); // 0-allocations not allowed.
 	snow_gc_barrier();
-	void* ptr = NULL;
 	
-	if (size > GC_BIG_ALLOCATION_SIZE_BOUNDARY) {
-		ptr = gc_alloc_from_heap_list(size, alloc_type, &GC.big_allocations, &GC.num_big_allocations);
+	byte* ptr = NULL;
+	uint32_t object_index = (uint32_t)-1;
+	
+	size_t rounded_size = snow_gc_round(size);
+	size_t total_size = gc_calculate_total_size(rounded_size);
+	
+	if (total_size > GC_BIG_ALLOCATION_SIZE_LIMIT) {
+		ptr = gc_heap_list_alloc(&GC.biggies, total_size, &object_index, total_size);
 		ASSERT(ptr); // big allocation failed!
 	}
 	else
 	{
-		ptr = gc_heap_alloc(MY_NURSERY, size, alloc_type);
+		ptr = gc_heap_alloc(MY_NURSERY, total_size, &object_index, GC_NURSERY_SIZE);
 		if (!ptr) {
 			snow_gc();
-			ptr = gc_heap_alloc(MY_NURSERY, size, alloc_type);
+			ptr = gc_heap_alloc(MY_NURSERY, total_size, &object_index, GC_NURSERY_SIZE);
 			ASSERT(ptr); // garbage collection didn't free up enough space!
 		}
 	}
 	
-	return ptr;
+	byte* data = gc_init_allocation(ptr, rounded_size, alloc_type, object_index);
+	
+	return data;
 }
 
 SnObjectBase* snow_gc_alloc_object(uintx size) {
-	SnGCHeader* header;
 	void* ptr = gc_alloc(size, GC_OBJECT);
 	return (SnObjectBase*)ptr;
 }
@@ -315,59 +217,66 @@ VALUE* snow_gc_alloc_blob(uintx size) {
 }
 
 void* snow_gc_alloc_atomic(uintx size) {
-	SnGCHeader* header;
 	void* ptr = gc_alloc(size, GC_ATOMIC);
 	return ptr;
 }
 
-void snow_gc_set_free_func(const VALUE data, SnGCFreeFunc free_func) {
-	#if DEBUG
+void snow_gc_set_free_func(const void* data, SnGCFreeFunc free_func) {
 	SnGCHeap* heap = gc_find_heap(data);
 	ASSERT(heap); // not a GC-allocated pointer
-	#endif
-	SnGCHeader* header;
-	SnGCMetaInfo* meta;
-	byte* object = gc_find_object_start((byte*)data, &header, &meta);
-	CAST_FUNCTION_TO_DATA(*meta, free_func);
+	SnGCAllocInfo* alloc_info;
+	SnGCMetaInfo* meta_info;
+	gc_find_object_start(heap, (const byte*)data, &alloc_info, &meta_info);
+	meta_info->free_func = free_func;
 }
 
-uintx snow_gc_allocated_size(void* data) {
-	#if DEBUG
+uintx snow_gc_allocated_size(const void* data) {
 	SnGCHeap* heap = gc_find_heap(data);
 	ASSERT(heap); // not a GC-allocated pointer
-	#endif
-	SnGCHeader* header;
-	SnGCMetaInfo* meta;
-	byte* object = gc_find_object_start((byte*)data, &header, &meta);
-	return header->size;
+	SnGCAllocInfo* alloc_info;
+	SnGCMetaInfo* meta_info;
+	gc_find_object_start(heap, (const byte*)data, &alloc_info, &meta_info);
+	return alloc_info->size;
 }
 
-static inline bool gc_maybe_contains(const VALUE root) {
+
+static inline void gc_transplant_adult(byte* object, SnGCAllocInfo* alloc_info, SnGCMetaInfo* meta) {
+	size_t size = alloc_info->size;
+	ASSERT(size % SNOW_GC_ALIGNMENT == 0);
+	size_t total_size = gc_calculate_total_size(size);
+	
+	uint32_t object_index;
+	byte* new_ptr = gc_heap_list_alloc(&GC.adults, total_size, &object_index, GC_ADULT_SIZE);
+	byte* new_object = gc_init_allocation(new_ptr, size, alloc_info->alloc_type, object_index);
+	memcpy(new_object, object, size);
+	snow_gc_set_free_func(new_object, meta->free_func);
+	// place new pointer in the beginning of the old memory
+	*(byte**)object = new_object;
+}
+
+static inline void gc_finalize_object(void* object, SnGCAllocInfo* alloc_info, SnGCMetaInfo* meta) {
+	if (meta->free_func)
+		meta->free_func(object);
+}
+
+static inline bool gc_maybe_contains(const void* root) {
 	return (const byte*)root >= GC.lower_bound && (const byte*)root <= GC.upper_bound;
 }
 
-SnGCHeap* gc_find_heap(const VALUE root) {
+SnGCHeap* gc_find_heap(const void* root) {
 	if (!gc_maybe_contains(root)) return NULL;
 	
 	for (uint32_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
 		if (gc_heap_contains(GC.nurseries + i, root)) return GC.nurseries + i;
 	}
-	for (uint32_t i = 0; i < GC.num_adult_heaps; ++i) {
-		if (gc_heap_contains(GC.adult_heaps + i, root)) return GC.adult_heaps + i;
-	}
-	for (uint32_t i = 0; i < GC.num_big_allocations; ++i) {
-		if (gc_heap_contains(GC.big_allocations + i, root)) return GC.big_allocations + i;
-	}
-	for (uint32_t i = 0; i < GC.num_old_nurseries; ++i) {
-		if (gc_heap_contains(GC.old_nurseries + i, root)) return GC.old_nurseries + i;
-	}
-	// not in any heap! :(
-	return NULL;
-}
-
-static inline bool gc_heap_contains(const SnGCHeap* heap, const VALUE root) {
-	const byte* data = (const byte*)root;
-	return data >= heap->start && data < heap->end;
+	
+	SnGCHeap* heap = NULL;
+	heap = gc_heap_list_find_heap(&GC.adults, root);
+	if (heap) return heap;
+	heap = gc_heap_list_find_heap(&GC.biggies, root);
+	if (heap) return heap;
+	heap = gc_heap_list_find_heap(&GC.unkillables, root);
+	return heap;
 }
 
 bool _snow_gc_task_at_barrier() {
@@ -442,10 +351,11 @@ void gc_with_everything_do(SnGCAction action) {
 	gc_with_definite_roots_do(action);
 }
 
+
 #define MEMBER(TYPE, NAME) action((VALUE*)(data + offsetof(TYPE, NAME)), false)
 #define MEMBER_ARRAY(TYPE, NAME) action((VALUE*)(data + offsetof(TYPE, NAME) + offsetof(struct array_t, data)), false)
 
-void gc_with_object_do(VALUE object, SnGCHeader* header, SnGCMetaInfo* meta, SnGCAction action) {
+void gc_with_object_do(VALUE object, SnGCAllocInfo* alloc_info, SnGCMetaInfo* meta, SnGCAction action) {
 	ASSERT(is_object(object));
 	SnObjectBase* base = (SnObjectBase*)object;
 	byte* data = (byte*)object;
@@ -537,128 +447,145 @@ void gc_with_object_do(VALUE object, SnGCHeader* header, SnGCMetaInfo* meta, SnG
 	}
 }
 
-
-
-static inline void gc_clear_flags_in_heap_list(SnGCHeap* heaps, size_t num_heaps) {
-	for (size_t i = 0; i < num_heaps; ++i) {
-		SnGCHeap* heap = heaps + i;
-		snow_free(heap->flags);
-		heap->flags = NULL;
+static inline void gc_clear_flags() {
+	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
+		gc_heap_clear_flags(GC.nurseries + i);
 	}
+	gc_heap_list_clear_flags(&GC.adults);
+	gc_heap_list_clear_flags(&GC.biggies);
+	gc_heap_list_clear_flags(&GC.unkillables);
 }
 
-static inline void gc_clear_flags() {
-	gc_clear_flags_in_heap_list(GC.nurseries, SNOW_MAX_CONCURRENT_TASKS);
-	gc_clear_flags_in_heap_list(GC.adult_heaps, GC.num_adult_heaps);
-	gc_clear_flags_in_heap_list(GC.big_allocations, GC.num_big_allocations);
-	gc_clear_flags_in_heap_list(GC.old_nurseries, GC.num_old_nurseries);
+static inline void gc_clear_heap(SnGCHeap* heap) {
+	// first, call free funcs where necessary
+	byte* p = heap->start;
+	while (p < heap->current) {
+		SnGCObjectHead* head = (SnGCObjectHead*)p;
+		byte* object = p + sizeof(SnGCObjectHead);
+		SnGCObjectTail* tail = (SnGCObjectTail*)(object + head->alloc_info.size);
+		
+		SnGCAllocInfo* alloc_info = &head->alloc_info;
+		SnGCMetaInfo* meta_info = &tail->meta_info;
+		
+		SnGCFlags flags = gc_heap_get_flags(heap, alloc_info->object_index);
+		if (!(flags & GC_TRANSPLANTED)) {
+			ASSERT(!(flags & GC_MARK)); // there were marked objects within the heap, and we're still trying to clear it. Clearly wrong.
+			gc_finalize_object(object, alloc_info, meta_info);
+		}
+	}
+	
+	#ifdef DEBUG
+	memset(heap->start, 0xcd, heap->end - heap->start);
+	#endif
+	
+	heap->current = heap->start;
+	heap->num_objects = 0;
+	gc_heap_clear_flags(heap);
 }
 
 void gc_minor() {
 	ASSERT(snow_all_threads_at_gc_barrier());
-	
-	gc_clear_flags();
 	
 	gc_with_everything_do(gc_mark_root);
 	
 	size_t num_indefinites[SNOW_MAX_CONCURRENT_TASKS];
 	memset(num_indefinites, 0, SNOW_MAX_CONCURRENT_TASKS*sizeof(size_t));
 	
+	/*
+		Move or delete objects!
+	*/
 	uintx total_indefinites = 0;
 	uintx total_survivors = 0;
 	uintx total_objects = 0;
-	
 	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
 		if (GC.nurseries[i].start == NULL) continue;
+		
+		uint32_t survivors = 0;
 		
 		SnGCHeap* heap = GC.nurseries + i;
 		byte* p = heap->start;
 		while (p < heap->current) {
-			ASSERT(gc_looks_like_allocation(p));
+			ASSERT(gc_looks_like_allocation(p)); // heap corruption?
 			++total_objects;
 			
-			SnGCHeader* header = (SnGCHeader*)p;
-			byte* object = p + sizeof(SnGCHeader) + sizeof(SnGCMagicBead);
-			SnGCMetaInfo* meta = (SnGCMetaInfo*)(object + header->size);
+			SnGCObjectHead* head = (SnGCObjectHead*)p;
+			byte* object = p + sizeof(SnGCObjectHead);
+			SnGCObjectTail* tail = (SnGCObjectTail*)(object + head->alloc_info.size);
 			
-			SnGCFlags flags = gc_heap_get_flags(heap, header->flag_index);
+			SnGCAllocInfo* alloc_info = &head->alloc_info;
+			SnGCMetaInfo* meta_info = &tail->meta_info;
+			
+			SnGCFlags flags = gc_heap_get_flags(heap, alloc_info->object_index);
 			if (flags & GC_MARK) {
-				++total_survivors;
+				++survivors;
 				if (flags & GC_INDEFINITE) {
 					// indefinitely referenced, can't transplant the object :(
-					header->flag_index = num_indefinites[i]++;
+					num_indefinites[i]++;
 				} else {
-					gc_transplant_adult(object, header, meta);
-					gc_heap_set_flags(heap, header->flag_index, GC_TRANSPLANTED);
+					gc_transplant_adult(object, alloc_info, meta_info);
+					gc_heap_set_flags(heap, alloc_info->object_index, GC_TRANSPLANTED);
 				}
-			} else {
-				gc_finalize_object(object, header, meta);
 			}
 			
-			p = object + header->size + sizeof(SnGCMetaInfo) + sizeof(SnGCMagicBead);
+			p = ((byte*)tail) + sizeof(SnGCObjectTail);
 		}
+		
+		if (survivors == 0) {
+			gc_clear_heap(heap);
+		}
+		
+		total_survivors += survivors;
 	}
 	
 	gc_with_everything_do(gc_update_root);
 	
-	// clean up the nurseries
+	debug("GC: Minor collection completed. Survivors: %lu (Indefinites: %lu), of %lu\n", total_survivors, total_indefinites, total_objects);
+	
 	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
 		SnGCHeap* heap = GC.nurseries + i;
-		if (num_indefinites[i] == 0) {
-			// no indefinites, so just reset the current pointer
-			snow_free(heap->flags);
-			heap->current = heap->start;
-			heap->num_objects = 0;
-		} else {
-			total_indefinites += num_indefinites[i];
-			// heap was referenced by indefinite pointers, so copy it and reset the nursery
-			heap->num_objects = num_indefinites[i];
-			GC.old_nurseries = (SnGCHeap*)snow_realloc(GC.old_nurseries, sizeof(SnGCHeap)*(GC.num_old_nurseries+1));
-			memcpy(GC.old_nurseries + GC.num_old_nurseries, heap, sizeof(SnGCHeap));
-			++GC.num_old_nurseries;
-			
-			// nulling the heap will cause a reinitialization the next time someone allocates from it
+		
+		if (num_indefinites[i] > 0) {
+			gc_heap_list_push_heap(&GC.unkillables, heap);
 			memset(heap, 0, sizeof(SnGCHeap));
+		} else {
+			gc_clear_heap(heap);
 		}
 	}
 	
-	debug("GC: Minor collection completed. Survivors: %lu (Indefinites: %lu), of %lu\n", total_survivors, total_indefinites, total_objects);
+	gc_clear_flags();
 }
 
-static inline void gc_purge_heap_list(SnGCHeap** heaps_p, uint32_t* num_heaps_p) {
-	for (size_t i = 0; i < *num_heaps_p;) {
-		SnGCHeap* heap = (*heaps_p) + i;
+static inline void gc_purge_heap_list(SnGCHeapList* list) {
+	/*
+		Delete all objects in heaps in the list that aren't GC_MARKed.
+	*/
+	
+	SnGCHeapListNode* node = list->head;
+	while (node != NULL) {
+		SnGCHeap* heap = &node->heap;
+		uint32_t marked_objects = 0;
 		
 		byte* p = heap->start;
-		bool marked_objects = false;
 		while (p < heap->current) {
-			ASSERT(gc_looks_like_allocation(p));
-			SnGCHeader* header = (SnGCHeader*)p;
-			byte* data = p + sizeof(SnGCHeader) + sizeof(SnGCMagicBead);
+			ASSERT(gc_looks_like_allocation(p)); // heap corruption?
+			SnGCObjectHead* head = (SnGCObjectHead*)p;
+			byte* object = p + sizeof(SnGCObjectHead);
+			SnGCObjectTail* tail = (SnGCObjectTail*)(object + head->alloc_info.size);
 			
-			SnGCFlags flags = gc_heap_get_flags(heap, header->flag_index);
+			SnGCFlags flags = gc_heap_get_flags(heap, head->alloc_info.object_index);
 			if (flags & GC_MARK) {
-				marked_objects = true;
-				break;
+				++marked_objects;
 			}
-			// TODO: Call free funcs
 			
-			p = data + header->size + sizeof(SnGCMetaInfo) + sizeof(SnGCMagicBead);
+			p = ((byte*)tail) + sizeof(SnGCObjectTail);
 		}
 		
-		if (!marked_objects) {
-			debug("GC: Major collection purged heap: %p (start: %p, end: %p, size: %lu)\n", heap, heap->start, heap->end, heap->end - heap->start);
-			snow_free(heap->start);
-			snow_free(heap->flags);
-			--(*num_heaps_p);
-			if (*num_heaps_p != i) {
-				// move the last heap into this heap's place
-				memcpy(*heaps_p + i, *heaps_p + *num_heaps_p, sizeof(SnGCHeap));
-			}
-			memset(*heaps_p + *num_heaps_p, 0, sizeof(SnGCHeap));
+		if (marked_objects == 0) {
+			debug("heap %p has no more live objects, deleting...\n", heap);
+			gc_clear_heap(heap);
+			node = gc_heap_list_erase(list, node);
 		} else {
-			debug("GC: Major collection, heap survived: %p (start: %p, end: %p, size: %lu)\n", heap, heap->start, heap->end, heap->end - heap->start);
-			++i;
+			node = node->next;
 		}
 	}
 }
@@ -670,37 +597,36 @@ void gc_major() {
 	
 	// go through all heaps, count number of live objects, and remove empty heaps
 	
-	gc_purge_heap_list(&GC.adult_heaps, &GC.num_adult_heaps); // TODO: Compact adults
-	gc_purge_heap_list(&GC.big_allocations, &GC.num_big_allocations);
-	gc_purge_heap_list(&GC.old_nurseries, &GC.num_old_nurseries);
-	
-	TRAP();
+	/*gc_purge_heap_list(&GC.adults); // TODO: Compact adults
+	gc_purge_heap_list(&GC.biggies);
+	gc_purge_heap_list(&GC.unkillables);*/
 }
 
 void gc_mark_root(VALUE* root_p, bool on_stack) {
 	SnGCHeap* heap = gc_find_heap(*root_p);
 	if (heap) {
-		SnGCHeader* header;
+		SnGCAllocInfo* alloc_info;
 		SnGCMetaInfo* meta;
-		byte* object = gc_find_object_start(*root_p, &header, &meta);
+		byte* object = gc_find_object_start(heap, (const byte*)*root_p, &alloc_info, &meta);
 		
-		SnGCFlags flags = gc_heap_get_flags(heap, header->flag_index);
+		SnGCFlags flags = gc_heap_get_flags(heap, alloc_info->object_index);
 
-		flags |= GC_MARK;
-		if (on_stack) flags |= GC_INDEFINITE;
-		gc_heap_set_flags(heap, header->flag_index, flags);
+		SnGCFlags new_flags = flags | GC_MARK;
+		if (on_stack) new_flags |= GC_INDEFINITE;
+		gc_heap_set_flags(heap, alloc_info->object_index, new_flags);
 		
 		if (!(flags & GC_MARK)) {
-			switch (header->alloc_type) {
+			// was not already marked
+			switch (alloc_info->alloc_type) {
 				case GC_OBJECT:
 				{
-					gc_with_object_do(object, header, meta, gc_mark_root);
+					gc_with_object_do(object, alloc_info, meta, gc_mark_root);
 					break;
 				}
 				case GC_BLOB:
 				{
 					VALUE* blob = (VALUE*)object;
-					for (size_t i = 0; i < header->size / sizeof(VALUE); ++i) {
+					for (size_t i = 0; i < alloc_info->size / sizeof(VALUE); ++i) {
 						gc_mark_root(blob + i, false);
 					}
 					break;
@@ -715,11 +641,11 @@ void gc_mark_root(VALUE* root_p, bool on_stack) {
 void gc_update_root(VALUE* root_p, bool on_stack) {
 	SnGCHeap* heap = gc_find_heap(*root_p);
 	if (heap) {
-		SnGCHeader* header;
+		SnGCAllocInfo* alloc_info;
 		SnGCMetaInfo* meta;
-		byte* object = gc_find_object_start(*root_p, &header, &meta);
+		byte* object = gc_find_object_start(heap, (const byte*)*root_p, &alloc_info, &meta);
 		
-		SnGCFlags flags = gc_heap_get_flags(heap, header->flag_index);
+		SnGCFlags flags = gc_heap_get_flags(heap, alloc_info->object_index);
 		
 		if (flags & GC_UPDATED) return;
 		
@@ -730,21 +656,21 @@ void gc_update_root(VALUE* root_p, bool on_stack) {
 			*root_p = (VALUE)(object + diff);
 			
 			heap = gc_find_heap(*root_p);
-			gc_find_object_start(object, &header, &meta);
+			gc_find_object_start(heap, object, &alloc_info, &meta);
 		}
 		
-		gc_heap_set_flags(heap, header->flag_index, GC_UPDATED);
+		gc_heap_set_flags(heap, alloc_info->object_index, GC_UPDATED);
 		
-		switch (header->alloc_type) {
+		switch (alloc_info->alloc_type) {
 			case GC_OBJECT:
 			{
-				gc_with_object_do(object, header, meta, gc_update_root);
+				gc_with_object_do(object, alloc_info, meta, gc_update_root);
 				break;
 			}
 			case GC_BLOB:
 			{
 				VALUE* blob = (VALUE*)object;
-				for (size_t i = 0; i < header->size / sizeof(VALUE); ++i) {
+				for (size_t i = 0; i < alloc_info->size / sizeof(VALUE); ++i) {
 					gc_update_root(blob + i, false);
 				}
 				break;
@@ -755,49 +681,44 @@ void gc_update_root(VALUE* root_p, bool on_stack) {
 	}
 }
 
-bool gc_looks_like_allocation(byte* ptr) {
-	const SnGCHeader* header = (SnGCHeader*)ptr;
-	const SnGCMagicBead* bead1 = (SnGCMagicBead*)(ptr + sizeof(SnGCHeader));
-	const byte* data = ((byte*)bead1) + sizeof(SnGCMagicBead);
-	const byte* data_end = data + header->size;
-	const SnGCMetaInfo* meta = (SnGCMetaInfo*)(data + header->size);
-	const SnGCMagicBead* bead2 = (SnGCMagicBead*)((byte*)meta + sizeof(SnGCMetaInfo));
-	return *bead1 == MAGIC_BEAD_1
-	    && gc_check_checksum(header)
-	    && gc_maybe_contains((const VALUE)data_end) // mostly necessary to avoid crashes on false positives, when checking for bead 2.
-	    && *bead2 == MAGIC_BEAD_2;
+bool gc_looks_like_allocation(const byte* ptr) {
+	const SnGCObjectHead* head = (SnGCObjectHead*)ptr;
+	const byte* data = ptr + sizeof(SnGCObjectHead);
+	const byte* data_end = data + head->alloc_info.size;
+	const SnGCObjectTail* tail = (SnGCObjectTail*)data_end;
+	
+	return head->bead == MAGIC_BEAD_HEAD
+	    && gc_check_checksum(&head->alloc_info)
+	    && gc_maybe_contains((const void*)data_end) // mostly necessary to avoid crashes on false positives, when checking for bead 2.
+	    && tail->bead == MAGIC_BEAD_TAIL;
 }
 
-static inline byte* gc_find_object_start(byte* data, SnGCHeader** header_p, SnGCMetaInfo** meta_p) {
-	byte* ptr = data;
+static inline byte* gc_find_object_start(const SnGCHeap* heap, const byte* data, SnGCAllocInfo** alloc_info_p, SnGCMetaInfo** meta_p) {
+	const byte* ptr = data;
 	ptr -= (uintx)ptr % SNOW_GC_ALIGNMENT;
-	ptr -= SNOW_GC_ALIGNMENT; // start 16 bytes before
-	while (!gc_looks_like_allocation(ptr))
+	while (gc_heap_contains(heap, ptr) && !gc_looks_like_allocation(ptr))
 	{
 		ptr -= SNOW_GC_ALIGNMENT;
 		ASSERT(gc_maybe_contains(ptr));
 	}
-	byte* object_start = ptr + sizeof(SnGCHeader) + sizeof(SnGCMagicBead);
-	*header_p = (SnGCHeader*)ptr;
-	*meta_p = (SnGCMetaInfo*)(object_start + (*header_p)->size);
-	return object_start;
+	const byte* object_start = ptr + sizeof(SnGCObjectHead);
+	*alloc_info_p = &((SnGCObjectHead*)ptr)->alloc_info;
+	*meta_p = &((SnGCObjectTail*)(object_start + (*alloc_info_p)->size))->meta_info;
+	return (byte*)object_start;
 }
 
 
-static inline void gc_compute_checksum(SnGCHeader* header) {
-	header->checksum = 0;
-	header->checksum = snow_popcount64(*((uint64_t*)header));
+static inline void gc_compute_checksum(SnGCAllocInfo* alloc_info) {
+	alloc_info->checksum = 0;
+	alloc_info->checksum = snow_popcount64(*((uint64_t*)alloc_info));
 }
 
-static inline bool gc_check_checksum(const SnGCHeader* header) {
-	SnGCHeader input = *header;
+static inline bool gc_check_checksum(const SnGCAllocInfo* alloc_info) {
+	SnGCAllocInfo input = *alloc_info;
 	input.checksum = 0;
 	uint8_t checksum = snow_popcount64(*((uint64_t*)&input));
-	return checksum == header->checksum;
+	return checksum == alloc_info->checksum;
 }
-
-
-
 
 #if DEBUG_MALLOC
 #define HEAP_SIZE (1 << 25) // 32 mb
@@ -816,28 +737,28 @@ struct alloc_header {
 
 #define MAGIC_BEAD 0xbead
 
-static void verify_header(void* ptr, struct alloc_header* header)
+static void verify_alloc_info(void* ptr, struct alloc_header* alloc_info)
 {
-	ASSERT(header == ((byte*)ptr - sizeof(struct alloc_header)));
-	ASSERT(header->ptr == ptr);
-	ASSERT(header->magic_bead1 == MAGIC_BEAD); // overrun of previous
-	ASSERT(header->magic_bead2 == MAGIC_BEAD); // underrun
-	ASSERT((header->freed && header->free_rip) || (!header->freed && !header->free_rip));
+	ASSERT((byte*)alloc_info == ((byte*)ptr - sizeof(struct alloc_header)));
+	ASSERT(alloc_info->ptr == ptr);
+	ASSERT(alloc_info->magic_bead1 == MAGIC_BEAD); // overrun of previous
+	ASSERT(alloc_info->magic_bead2 == MAGIC_BEAD); // underrun
+	ASSERT((alloc_info->freed && alloc_info->free_rip) || (!alloc_info->freed && !alloc_info->free_rip));
 }
 
 static void verify_heap()
 {
 	byte* data = (byte*)heap;
 	uintx offset = 0;
-	struct alloc_header* previous_header = NULL;
+	struct alloc_header* previous_alloc_info = NULL;
 	while (offset < heap_offset)
 	{
-		struct alloc_header* header = (struct alloc_header*)(data + offset);
+		struct alloc_header* alloc_info = (struct alloc_header*)(data + offset);
 		offset += sizeof(struct alloc_header);
 		void* ptr = data + offset;
-		offset += header->size;
-		verify_header(ptr, header);
-		previous_header = header;
+		offset += alloc_info->size;
+		verify_alloc_info(ptr, alloc_info);
+		previous_alloc_info = alloc_info;
 	}
 	ASSERT(offset == heap_offset);
 }
@@ -846,8 +767,8 @@ static void verify_heap()
 static inline uintx allocated_size_of(void* ptr) {
 	#if DEBUG_MALLOC
 	byte* data = (byte*)ptr;
-	struct alloc_header* header = (struct alloc_header*)(data - sizeof(struct alloc_header));
-	return header->size;
+	struct alloc_header* alloc_info = (struct alloc_header*)(data - sizeof(struct alloc_header));
+	return alloc_info->size;
 	#else
 		#ifdef __APPLE__
 	return malloc_size(ptr);
@@ -865,20 +786,20 @@ void* snow_malloc(uintx size)
 	
 	verify_heap();
 	ASSERT(heap_offset < HEAP_SIZE); // oom
-	struct alloc_header* header = (struct alloc_header*)((byte*)heap + heap_offset);
+	struct alloc_header* alloc_info = (struct alloc_header*)((byte*)heap + heap_offset);
 	heap_offset += sizeof(struct alloc_header);
 	void* ptr = (byte*)heap + heap_offset;
 	heap_offset += size;
 	
-	header->magic_bead1 = MAGIC_BEAD;
-	header->ptr = ptr;
-	header->size = size;
-	header->freed = false;
+	alloc_info->magic_bead1 = MAGIC_BEAD;
+	alloc_info->ptr = ptr;
+	alloc_info->size = size;
+	alloc_info->freed = false;
 	void(*rip)();
 	GET_RETURN_PTR(rip);
-	header->alloc_rip = rip;
-	header->free_rip = NULL;
-	header->magic_bead2 = MAGIC_BEAD;
+	alloc_info->alloc_rip = rip;
+	alloc_info->free_rip = NULL;
+	alloc_info->magic_bead2 = MAGIC_BEAD;
 	verify_heap();
 	#else
 	void* ptr = malloc(size);
@@ -916,7 +837,7 @@ void* snow_calloc(uintx count, uintx size)
 
 void* snow_realloc(void* ptr, uintx new_size)
 {
-	uintx old_size = allocated_size_of(ptr);
+	uintx old_size = ptr ? allocated_size_of(ptr) : 0;
 	if (old_size < new_size)
 	{
 		void* new_ptr = snow_malloc(new_size);
@@ -935,12 +856,12 @@ void snow_free(void* ptr)
 		ASSERT((byte*)ptr > (byte*)heap && (byte*)ptr < ((byte*)heap + heap_offset));
 		verify_heap();
 		
-		struct alloc_header* header = ((byte*)ptr - sizeof(struct alloc_header));
-		verify_header(ptr, header);
-		header->freed = true;
+		struct alloc_header* alloc_info = (struct alloc_header*)((byte*)ptr - sizeof(struct alloc_header));
+		verify_alloc_info(ptr, alloc_info);
+		alloc_info->freed = true;
 		void(*rip)();
 		GET_RETURN_PTR(rip);
-		header->free_rip = rip;
+		alloc_info->free_rip = rip;
 		#endif
 		
 		uintx size = allocated_size_of(ptr);

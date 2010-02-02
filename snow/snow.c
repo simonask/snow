@@ -32,7 +32,7 @@ void snow_init()
 {
 	snow_init_gc();
 	void* base;
-	GET_BASE_PTR(base);
+	GET_CALLER_BASE_PTR(base);
 	snow_init_parallel(base);
 	
 	// base emergency exception handler
@@ -293,8 +293,11 @@ VALUE snow_call_va(VALUE self, VALUE closure, uintx num_args, va_list* ap)
 	return snow_call_with_args(self, closure, args);
 }
 
-VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
+VALUE snow_call_with_args(VALUE in_self, VALUE in_closure, SnArguments* args)
 {
+	VALUE self = in_self;
+	VALUE closure = in_closure;
+	
 	if (!snow_eval_truth(closure))
 	{
 		snow_throw_exception_with_description("Attempted to call nil.");

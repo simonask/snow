@@ -15,19 +15,6 @@
 
 static const int SNOW_GC_ALIGNMENT = 0x10;
 static inline uintx snow_gc_round(uintx size) { return size + ((SNOW_GC_ALIGNMENT - (size % SNOW_GC_ALIGNMENT)) % SNOW_GC_ALIGNMENT); }
-static inline uintx snow_gc_round_pow2(uintx x)
-{
-	--x;
-	x |= x >> 1;
-	x |= x >> 2;
-	x |= x >> 4;
-	x |= x >> 8;
-	x |= x >> 16;
-	if (sizeof(x) > 4)
-		x |= x >> 32;
-	++x;
-	return x;
-}
 
 typedef void(*SnGCFreeFunc)(VALUE val);
 
@@ -61,7 +48,7 @@ CAPI void* snow_gc_alloc_atomic(uintx size) ATTR_ALLOC_SIZE(1);
 	snow_gc_set_free_func: sets a finalizer function for the given pointer, which will be called when
 	the memory pointed to by that pointer is garbage collected.
 */
-CAPI void snow_gc_set_free_func(const VALUE data, SnGCFreeFunc);
+CAPI void snow_gc_set_free_func(const void* data, SnGCFreeFunc);
 
 /*
 	snow_gc: Force GC invocation.
@@ -72,7 +59,7 @@ CAPI void snow_gc();
 	snow_gc_allocated_size: Return the number of bytes allocated for the pointer. Might be larger than
 	the original number of bytes requested for the allocation.
 */
-CAPI uintx snow_gc_allocated_size(void* data);
+CAPI uintx snow_gc_allocated_size(const void* data);
 
 extern volatile bool _snow_gc_is_collecting;
 static inline bool snow_gc_is_collecting() { return _snow_gc_is_collecting; }

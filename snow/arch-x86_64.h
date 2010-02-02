@@ -5,6 +5,7 @@
 
 #define GET_STACK_PTR(var) __asm__("mov %%rsp, %0\n" : "=g"(var))
 #define GET_BASE_PTR(var) __asm__("mov %%rbp, %0\n" : "=g"(var))
+#define GET_CALLER_BASE_PTR(var) __asm__("mov -0x10(%%rsp), %0\n" : "=r"(var))
 #define GET_RETURN_PTR(var) __asm__("mov 8(%%rbp), %0\n" : "=r"(var))
 #define TRAP() __asm__("int3\nnop\n")
 
