@@ -43,9 +43,10 @@ void snow_init()
 	main_base.task_id = snow_get_current_task_id();
 	if (snow_continuation_save_execution_state(&main_base)) {
 		// UNHANDLED EXCEPTION ALERT!
-		if (task->exception)
+		VALUE exception = snow_current_exception();
+		if (exception)
 		{
-			const char* str = snow_value_to_cstr(task->exception);
+			const char* str = snow_value_to_cstr(exception);
 			fprintf(stderr, "UNHANDLED EXCEPTION: %s\nAborting.\n", str);
 		}
 		else
