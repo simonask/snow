@@ -2,13 +2,13 @@ Object.instance_prototype.eval {
   .tap: [yield] { yield(self); self }
   // Suggestion: .tap! for .eval(yield)
   
-  .property(#ancestors, {
-      result: @()
-      current: .prototype
-      while current
-       result << current
-       current: current.prototype
-      end
-      result
-    }, nil)
+  .getter(#ancestors) {
+    result: @()
+    current: .prototype
+    while current
+     result << current
+     current: current.prototype
+    end
+    result
+  }
 }
