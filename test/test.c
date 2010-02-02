@@ -33,21 +33,17 @@ int main (int argc, char const *argv[])
 	struct test_case* test_case = first_case;
 	while (test_case) {
 		printf("%-60s", test_case->name);
-		int r = setjmp(fail_buf);
-		if (!r) {
-			test_case->func();
-		}
 		
-		switch (r)
+		switch (setjmp(fail_buf))
 		{
-			case 0: ++ok; break;
+			case 0:
+			  test_case->func(); ++ok;
+			  printf(GREEN "ok" RESET_COLOR "\n");
+			  break;
 			case 1: ++failed; break;
 			case 2: ++pending; break;
 			default: TRAP();
 		}
-		
-		if (!r)
-			printf(GREEN "ok" RESET_COLOR "\n");
 		
 		test_case = test_case->next;
 	}
