@@ -22,13 +22,11 @@ typedef struct SnCodegenX {
 static void codegen_compile_node(SnCodegenX* cgx, SnAstNode*);
 static intx codegen_reserve_tmp(SnCodegenX* cgx);
 static void codegen_free_tmp(SnCodegenX* cgx, intx tmp);
-static bool codegen_is_local_from_parent(SnCodegenX* cgx, VALUE vsym);
 
 SnCodegen* snow_create_codegen(SnAstNode* root, SnCodegen* parent)
 {
 	ASSERT(root->type == SN_AST_FUNCTION && "Only function definitions can be used as root nodes in Snow ASTs.");
 	SnCodegenX* codegen = (SnCodegenX*)snow_alloc_any_object(SN_CODEGEN_TYPE, sizeof(SnCodegenX));
-	snow_gc_set_free_func(codegen, codegen_free);
 	
 	codegen_init(&codegen->base, root, parent);
 	
@@ -37,12 +35,6 @@ SnCodegen* snow_create_codegen(SnAstNode* root, SnCodegen* parent)
 	codegen->tmp_freelist = NULL;
 	
 	return (SnCodegen*)codegen;
-}
-
-void codegen_free(VALUE cg)
-{
-	SnCodegenX* cgx = (SnCodegenX*)cg;
-	snow_free_linkbuffer(cgx->base.buffer);
 }
 
 intx codegen_reserve_tmp(SnCodegenX* cgx)
@@ -61,6 +53,8 @@ void codegen_free_tmp(SnCodegenX* cgx, intx tmp)
 }
 
 #define ASM(instr, ...) asm_##instr(cgx->base.buffer, ##__VA_ARGS__)
+#define ASM_S(instr) asm_##instr(cgx->base.buffer)
+#define ASM_LABEL ASM_S(label)
 #define RESERVE_TMP() codegen_reserve_tmp(cgx)
 #define FREE_TMP(tmp) codegen_free_tmp(cgx, tmp)
 #define TEMPORARY(tmp) ADDRESS(RBP, -(tmp+1) * sizeof(VALUE))
@@ -70,7 +64,7 @@ static void codegen_compile_call_with_inlining(SnCodegenX* cgx, void(*func)())
 {
 	if (func == (void(*)())snow_eval_truth)
 	{
-		Label was_true = ASM(label);
+		Label was_true = ASM_LABEL;
 		
 		uintx mask = ~(uintx)0x6;
 		// if RDI has bits set besides for 0x6, it's true for certain
@@ -100,7 +94,7 @@ static void codegen_compile_call_with_inlining(SnCodegenX* cgx, void(*func)())
 		#ifdef DEBUG
 		// Only do bounds checking in debug
 		ASM(xor, RAX, RAX);
-		Label out_of_bounds = ASM(label); // predeclaration
+		Label out_of_bounds = ASM_LABEL; // predeclaration
 		ASM(mov_rev, R8, ADDRESS(RDI, offsetof(struct array_t, size)));
 		// we're loading quadwords (because of limited asm support), so mask the results
 		ASM(mov_id, IMMEDIATE(0x00000000ffffffff), R9);
@@ -170,12 +164,12 @@ void codegen_compile_root(SnCodegen* cg)
 	codegen_compile_node(cgx, body_seq);
 	
 	// return
-	Label return_label = ASM(label);
+	Label return_label = ASM_LABEL;
 	ASM(bind, &return_label);
 	ASM(pop, R14);
 	ASM(pop, R13);
-	ASM(leave);
-	ASM(ret);
+	ASM_S(leave);
+	ASM_S(ret);
 	
 	// link all returns
 	if (cgx->returns) {
@@ -452,8 +446,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		
 		case SN_AST_IF_ELSE:
 		{
-			Label if_false = ASM(label);
-			Label after = ASM(label);
+			Label if_false = ASM_LABEL;
+			Label after = ASM_LABEL;
 			// compile condition
 			codegen_compile_node(cgx, (SnAstNode*)node->children[0]);
 			ASM(mov, RAX, RDI);
@@ -565,8 +559,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		}
 		case SN_AST_LOOP:
 		{
-			Label cond = ASM(label);
-			Label after = ASM(label);
+			Label cond = ASM_LABEL;
+			Label after = ASM_LABEL;
 			
 			ASM(bind, &cond);
 			codegen_compile_node(cgx, (SnAstNode*)node->children[0]);
@@ -589,7 +583,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			SnAstNode* right = (SnAstNode*)node->children[1];
 			
 			intx left_save = RESERVE_TMP();
-			Label was_false = ASM(label);
+			Label was_false = ASM_LABEL;
 			
 			codegen_compile_node(cgx, left);
 			ASM(mov, RAX, TEMPORARY(left_save));
@@ -611,7 +605,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			SnAstNode* right = (SnAstNode*)node->children[1];
 			
 			intx left_save = RESERVE_TMP();
-			Label was_true = ASM(label);
+			Label was_true = ASM_LABEL;
 			
 			codegen_compile_node(cgx, left);
 			ASM(mov, RAX, TEMPORARY(left_save));
@@ -633,12 +627,11 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			SnAstNode* right = (SnAstNode*)node->children[1];
 			
 			// TODO: Optimize this.
-			Label both_true_or_false = ASM(label);
-			Label left_true = ASM(label);
-			Label done = ASM(label);
+			Label both_true_or_false = ASM_LABEL;
+			Label left_true = ASM_LABEL;
+			Label done = ASM_LABEL;
 			intx left_save = RESERVE_TMP();
 			intx right_save = RESERVE_TMP();
-			intx right_truth_save = RESERVE_TMP();
 			codegen_compile_node(cgx, left);
 			ASM(mov, RAX, TEMPORARY(left_save));
 			codegen_compile_node(cgx, right);
@@ -677,8 +670,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 		}
 		case SN_AST_NOT:
 		{
-			Label if_false = ASM(label);
-			Label after = ASM(label);
+			Label if_false = ASM_LABEL;
+			Label after = ASM_LABEL;
 		
 			codegen_compile_node(cgx, node->children[0]);
 			ASM(mov, RAX, RDI);
@@ -716,7 +709,7 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			
 			VALUE key = snow_store_add(functions);
 			
-			ASM(mov_id, key, RDI);
+			ASM(mov_id, IMMEDIATE(key), RDI);
 			CALL(snow_store_get);
 			ASM(mov, RAX, RDI);
 			ASM(mov, R13, RSI);

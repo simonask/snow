@@ -84,8 +84,6 @@ VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol member)
 
 static inline VALUE object_set_with_property(SnObject* obj, VALUE self, SnSymbol member, VALUE val)
 {
-	STACK_GUARD;
-	
 	intx property_idx = array_find(&obj->property_names, symbol_to_value(member));
 	if (property_idx >= 0)
 	{
@@ -263,7 +261,7 @@ SNOW_FUNC(object_on_assign) {
 	SnObject* self = (SnObject*)SELF;
 	VALUE vname = ARGS[0];
 	ASSERT(is_symbol(vname));
-	VALUE member_of = NUM_ARGS > 1 ? ARGS[1] : NULL; // TODO: Use this for something?
+	//VALUE member_of = NUM_ARGS > 1 ? ARGS[1] : NULL; // TODO: Use this for something?
 	snow_object_set_member(self, self, snow_symbol("__name__"), vname);
 	return SELF;
 }

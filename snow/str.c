@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <xlocale.h>
 
 static inline size_t strlen_locale(const char* cstr_utf8, size_t num_bytes) {
@@ -23,7 +24,7 @@ SnString* snow_create_string(const char* cstr_utf8)
 {
 	SnString* str = (SnString*)snow_alloc_any_object(SN_STRING_TYPE, sizeof(SnString));
 	uintx len = strlen(cstr_utf8);
-	str->data = snow_gc_alloc(len+1);
+	str->data = snow_gc_alloc_atomic(len+1);
 	memcpy(str->data, cstr_utf8, len+1);
 	str->size = len;
 	str->length = strlen_locale(str->data, len);
@@ -33,7 +34,7 @@ SnString* snow_create_string(const char* cstr_utf8)
 SnString* snow_create_string_from_data(const byte* cstr_utf8, size_t num_bytes)
 {
 	SnString* str = (SnString*)snow_alloc_any_object(SN_STRING_TYPE, sizeof(SnString));
-	str->data = snow_gc_alloc(num_bytes+1);
+	str->data = snow_gc_alloc_atomic(num_bytes+1);
 	memcpy(str->data, cstr_utf8, num_bytes);
 	str->data[num_bytes] = '\0';
 	str->size = num_bytes;
@@ -45,7 +46,7 @@ SnString* snow_create_string_from_linkbuffer(SnLinkBuffer* buffer)
 {
 	SnString* str = (SnString*)snow_alloc_any_object(SN_STRING_TYPE, sizeof(SnString));
 	uintx len = snow_linkbuffer_size(buffer);
-	str->data = snow_gc_alloc(len + 1);
+	str->data = snow_gc_alloc_atomic(len + 1);
 	snow_linkbuffer_copy_data(buffer, str->data, len);
 	str->data[len] = '\0';
 	str->size = len;
@@ -91,7 +92,7 @@ SnString* snow_format_string(const char* format, ...)
 	}
 	buffer[result_len] = '\0';
 	
-	return snow_create_string_from_data(buffer, result_len);
+	return snow_create_string_from_data((byte*)buffer, result_len);
 }
 
 intx snow_string_compare(SnString* a, SnString* b)
@@ -105,7 +106,7 @@ SnString* snow_string_concatenate(SnString* a, SnString* b)
 	size_t len_b = snow_string_size(b);
 	SnString* str = (SnString*)snow_alloc_any_object(SN_STRING_TYPE, sizeof(SnString));
 	uintx len_result = len_a + len_b;
-	str->data = snow_gc_alloc(len_result + 1);
+	str->data = snow_gc_alloc_atomic(len_result + 1);
 	memcpy(str->data, a->data, len_a);
 	memcpy(&str->data[len_a], b->data, len_b);
 	str->data[len_result] = '\0';

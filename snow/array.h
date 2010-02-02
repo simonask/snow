@@ -2,7 +2,7 @@
 #define ARRAY_H_N1C9JYJW
 
 #include "snow/object.h"
-#include "snow/lock.h"
+#include "snow/lock-impl.h"
 #include "snow/task.h"
 
 typedef struct SnArray {

@@ -10,11 +10,6 @@ NOINLINE NO_PROFILING void _continuation_resume(SnContinuation* cc) {
 	TRAP(); // should never be reached
 }
 
-NOINLINE NO_PROFILING bool _continuation_save(SnContinuation* cc)
-{
-	return snow_save_execution_state(&cc->state);	
-}
-
 void NO_PROFILING _continuation_return_handler() {
 	/*
 		This is a bouncer function that catches when the outmost function in
@@ -37,9 +32,9 @@ void NO_PROFILING _continuation_return_handler() {
 void _continuation_reset(SnContinuation* cc) {
 	(*(void**)(cc->stack_hi-0x8)) = cc; // self-reference for return bouncer
 	(*(void**)(cc->stack_hi-0x10)) = NULL; // rbp for return bouncer
-	(*(void**)(cc->stack_hi-0x18)) = _continuation_return_handler; // bouncer
+	CAST_FUNCTION_TO_DATA((*(void**)(cc->stack_hi-0x18)), _continuation_return_handler); // bouncer
 	cc->state.rsp = cc->stack_hi - 0x18; // alignment, bounce space
 	cc->state.rbp = cc->state.rsp;
 	cc->running = false;
-	cc->state.rip = cc->function;
+	cc->state.rip = (void(*)())cc->function;
 }

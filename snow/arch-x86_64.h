@@ -5,6 +5,7 @@
 
 #define GET_STACK_PTR(var) __asm__("mov %%rsp, %0\n" : "=g"(var))
 #define GET_BASE_PTR(var) __asm__("mov %%rbp, %0\n" : "=g"(var))
+#define GET_CALLER_BASE_PTR(var) __asm__("mov -0x10(%%rsp), %0\n" : "=r"(var))
 #define GET_RETURN_PTR(var) __asm__("mov 8(%%rbp), %0\n" : "=r"(var))
 #define TRAP() __asm__("int3\nnop\n")
 
@@ -74,6 +75,18 @@ static inline bool snow_bit_test_and_clear(void* field, uintx bit_index) {
 #define SAFE_INCR_WORD(x) __asm__("lock incq %0\n" : "=m"(x))
 #define SAFE_DECR_WORD(x) __asm__("lock decq %0\n" : "=m"(x))
 
+static inline uint8_t snow_highest_bit_index(uintx x) {
+	uint8_t result = 0xff;
+	__asm__("bsr %0, %1\n" : "=g"(result) : "r"(x));
+	return result;
+}
 
+static inline uint8_t snow_popcount32(uint32_t x) {
+	return __builtin_popcount(x);
+}
+
+static inline uint8_t snow_popcount64(uint64_t x) {
+	return __builtin_popcountll(x);
+}
 
 #endif /* end of include guard: ARCH_X86_64_H_1DPMYG2I */

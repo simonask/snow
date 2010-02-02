@@ -26,9 +26,6 @@ CAPI inline void debug(const char* msg, ...) {}
 #define _QUOTEME(x) #x
 #define Q(x) _QUOTEME(x)
 
-#define ASSERT(x) do { if (!(x)) TRAP(); } while (0)
-#define ASSERT_TYPE(OBJECT, TYPE) ASSERT(snow_typeof(OBJECT) == (TYPE))
-
 enum SnValueType {
 	kIntegerType = 0x1,
 	kNil = 0x2,
@@ -106,11 +103,6 @@ static inline SnObjectType snow_typeof(VALUE val)
 #define ARG_BY_NAME(NAME) ARG_BY_SYM(snow_symbol(NAME))
 #define NUM_ARGS (_context->args ? _context->args->data.size : 0)
 #define REQUIRE_ARGS(N) do { if (_context->args->data.size < (N)) snow_throw_exception_with_description("Expected %d argument%s for function call.", (N), (N) == 1 ? "" : "s"); } while (0)
-
-// place this macro in all recursive C functions
-#define STACK_GUARD snow_continuation_stack_guard()
-// place this with large stack allocations
-#define ASSERT_STACK_SPACE(n) ASSERT(snow_current_continuation_available_stack_space() >= n);
 
 // Implementations that may depend on the definitions above
 #include "snow/lock-impl.h"

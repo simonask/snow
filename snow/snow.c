@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
+#include <stdlib.h>
 
 static SnObject* get_closest_object(VALUE)        ATTR_HOT;
 
@@ -29,19 +30,22 @@ static SnClass* basic_classes[SN_TYPE_MAX];
 
 void snow_init()
 {
-	snow_init_parallel();
+	snow_init_gc();
 	void* base;
-	GET_BASE_PTR(base);
-	snow_task_set_current_stack_top(base);
+	GET_CALLER_BASE_PTR(base);
+	snow_init_parallel(base);
 	
 	// base emergency exception handler
-	SnExecutionState* main_task_base = snow_get_current_task_base();
-	if (snow_save_execution_state(main_task_base)) {
+	SnContinuation main_base;
+	snow_continuation_init(&main_base, NULL, NULL);
+	SnTask* task = snow_get_current_task();
+	task->base = &main_base;
+	main_base.task_id = snow_get_current_task_id();
+	if (snow_continuation_save_execution_state(&main_base)) {
 		// UNHANDLED EXCEPTION ALERT!
-		VALUE exception = snow_get_current_task_exception();
-		if (exception)
+		if (task->exception)
 		{
-			const char* str = snow_value_to_cstr(exception);
+			const char* str = snow_value_to_cstr(task->exception);
 			fprintf(stderr, "UNHANDLED EXCEPTION: %s\nAborting.\n", str);
 		}
 		else
@@ -95,8 +99,6 @@ void snow_init()
 	init_boolean_class(basic_classes[SN_BOOLEAN_TYPE]);
 	init_symbol_class(basic_classes[SN_SYMBOL_TYPE]);
 	init_float_class(basic_classes[SN_FLOAT_TYPE]);
-	
-	snow_init_main_continuation();
 }
 
 VALUE snow_eval(const char* str)
@@ -268,6 +270,7 @@ VALUE snow_require(const char* _file)
 	}
 	
 	snow_throw_exception_with_description("Required file not found!");
+	return NULL;
 }
 
 VALUE snow_call(VALUE self, VALUE closure, uintx num_args, ...)
@@ -290,8 +293,11 @@ VALUE snow_call_va(VALUE self, VALUE closure, uintx num_args, va_list* ap)
 	return snow_call_with_args(self, closure, args);
 }
 
-VALUE snow_call_with_args(VALUE self, VALUE closure, SnArguments* args)
+VALUE snow_call_with_args(VALUE in_self, VALUE in_closure, SnArguments* args)
 {
+	VALUE self = in_self;
+	VALUE closure = in_closure;
+	
 	if (!snow_eval_truth(closure))
 	{
 		snow_throw_exception_with_description("Attempted to call nil.");

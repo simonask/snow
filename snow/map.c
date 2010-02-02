@@ -61,7 +61,7 @@ void snow_map_set(SnMap* map, VALUE key, VALUE value)
 	}
 	
 	// TODO: preallocate
-	void* new_data = snow_gc_alloc(sizeof(SnMapTuple) * (map->size + 1));
+	void* new_data = snow_gc_alloc_blob(sizeof(SnMapTuple) * (map->size + 1));
 	memcpy(new_data, map->data, map->size * sizeof(SnMapTuple));
 	i = map->size++;
 	map->data = new_data;

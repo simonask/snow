@@ -16,7 +16,7 @@ static inline void array_init(struct array_t* array)
 
 static inline void array_init_with_size(struct array_t* array, uintx size)
 {
-	array->data = size ? (VALUE*)snow_gc_alloc(size * sizeof(VALUE)) : NULL;
+	array->data = size ? (VALUE*)snow_gc_alloc_blob(size * sizeof(VALUE)) : NULL;
 	array->size = 0;
 	array->alloc_size = size;
 }
@@ -30,7 +30,7 @@ static inline void array_grow(struct array_t* array, intx new_size)
 {
 	if (new_size > array->alloc_size)
 	{
-		VALUE* new_data = (VALUE*)snow_gc_alloc(sizeof(VALUE) * new_size);
+		VALUE* new_data = (VALUE*)snow_gc_alloc_blob(sizeof(VALUE) * new_size);
 		memcpy(new_data, array->data, sizeof(VALUE) * array->size);
 		array->data = new_data;
 		array->alloc_size = new_size;

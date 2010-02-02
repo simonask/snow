@@ -113,7 +113,7 @@ VALUE snow_function_get_referenced_variable(SnFunction* func, uint32_t idx)
 
 VALUE snow_function_set_referenced_variable(SnFunction* func, uint32_t idx, VALUE val)
 {
-	ASSERT(index < func->num_variable_references);
+	ASSERT(idx < func->num_variable_references);
 	SnArray* ar = func->variable_references[idx].context->locals;
 	return snow_array_set(ar, func->variable_references[idx].variable_index, val);
 }
@@ -159,22 +159,8 @@ VALUE snow_function_callcc(SnFunction* func, SnContext* context)
 {
 	function_setup_context(func, context);
 	
-	SnContinuation* here = snow_get_current_continuation();
-	SnContinuation base_cc;
-	if (!here)
-	{
-		snow_continuation_init(&base_cc, NULL, NULL);
-		here = &base_cc;
-		snow_task_departing_from_system_stack();
-	}
-	
 	SnContinuation* cc = snow_create_continuation(func->desc->func, context);
-	VALUE ret = snow_continuation_call(cc, here);
-	
-	if (here == &base_cc)
-	{
-		snow_task_returning_to_system_stack();
-	}
+	VALUE ret = snow_continuation_call(cc, snow_get_current_continuation());
 	
 	return ret ? ret : SN_NIL;
 }
@@ -200,18 +186,18 @@ SNOW_FUNC(function_local_missing) {
 	return NULL;
 }
 
-SNOW_FUNC(function_call_with_self) {
+/*SNOW_FUNC(function_call_with_self) {
 	REQUIRE_ARGS(1);
 	VALUE self = ARGS[0];
 	VALUE closure = SELF;
 	
-}
+}*/
 
 
 void init_function_class(SnClass* klass)
 {
 	snow_define_method(klass, "local_missing", function_local_missing);
-	snow_define_method(klass, "call_with_self", function_call_with_self);
+//	snow_define_method(klass, "call_with_self", function_call_with_self);
 }
 
 void init_function_description_class(SnClass* klass)
