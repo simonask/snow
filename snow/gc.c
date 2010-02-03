@@ -31,6 +31,7 @@ struct SnGCObjectTail;
 struct SnGCAllocInfo;
 struct SnGCMetaInfo;
 struct SnGCHeap;
+struct SnGCHeapList;
 
 static void gc_minor();
 static void gc_major();
@@ -41,8 +42,9 @@ static void gc_mark_stack(byte* bottom, byte* top);
 static void gc_compute_checksum(struct SnGCAllocInfo* alloc_info);
 static bool gc_check_checksum(const struct SnGCAllocInfo* alloc_info);
 static bool gc_looks_like_allocation(const byte* ptr);
-static void gc_transplant_adult(byte* object, struct SnGCAllocInfo* alloc_info, struct SnGCMetaInfo* meta_info);
+static void gc_transplant(byte* object, struct SnGCAllocInfo* alloc_info, struct SnGCMetaInfo* meta_info, struct SnGCHeapList* transplant_to);
 static void gc_finalize_object(void* object, struct SnGCAllocInfo* alloc_info, struct SnGCMetaInfo* meta_info);
+static void gc_clear_flags();
 
 typedef enum SnGCFlag {
 	GC_NO_FLAGS      = 0,
@@ -112,6 +114,14 @@ struct {
 	uint16_t num_minor_collections_since_last_major_collection;
 	byte* lower_bound;
 	byte* upper_bound;
+	
+	struct {
+		uint32_t survived;
+		uint32_t freed;
+		uint32_t moved;
+		uint32_t indefinites;
+		uint32_t total;
+	} stats;
 } GC;
 
 #define MY_NURSERY (&GC.nurseries[snow_get_current_thread_index()])
@@ -121,6 +131,14 @@ void snow_init_gc() {
 	gc_heap_list_init(&GC.adults);
 	gc_heap_list_init(&GC.biggies);
 	gc_heap_list_init(&GC.unkillables);
+}
+
+static inline void gc_clear_statistics() {
+	memset(&GC.stats, 0, sizeof(GC.stats));
+}
+
+static inline void gc_print_statistics(const char* phase) {
+	debug("GC: %s collection statistics: %u survived, %u freed, %u moved, %u indefinites, of %u objects.\n", phase, GC.stats.survived, GC.stats.freed, GC.stats.moved, GC.stats.indefinites, GC.stats.total);
 }
 
 static inline void* gc_alloc_chunk(size_t size) {
@@ -239,21 +257,6 @@ uintx snow_gc_allocated_size(const void* data) {
 	return alloc_info->size;
 }
 
-
-static inline void gc_transplant_adult(byte* object, SnGCAllocInfo* alloc_info, SnGCMetaInfo* meta) {
-	size_t size = alloc_info->size;
-	ASSERT(size % SNOW_GC_ALIGNMENT == 0);
-	size_t total_size = gc_calculate_total_size(size);
-	
-	uint32_t object_index;
-	byte* new_ptr = gc_heap_list_alloc(&GC.adults, total_size, &object_index, GC_ADULT_SIZE);
-	byte* new_object = gc_init_allocation(new_ptr, size, alloc_info->alloc_type, object_index);
-	memcpy(new_object, object, size);
-	snow_gc_set_free_func(new_object, meta->free_func);
-	// place new pointer in the beginning of the old memory
-	*(byte**)object = new_object;
-}
-
 static inline void gc_finalize_object(void* object, SnGCAllocInfo* alloc_info, SnGCMetaInfo* meta) {
 	if (meta->free_func)
 		meta->free_func(object);
@@ -298,17 +301,23 @@ void snow_gc() {
 	GET_STACK_PTR(rsp);
 	snow_thread_departing_from_system_stack(rsp); // register extents for ourselves
 	
+	gc_clear_statistics();
+	
 	// wait for other threads to reach barriers
 	while (!snow_all_threads_at_gc_barrier()) { snow_task_yield(); }
 	
 	if (GC.num_minor_collections_since_last_major_collection > 10) {
+		// TODO: Better heuristics for when to perform major collections
 		gc_major();
 		GC.num_minor_collections_since_last_major_collection = 0;
+		gc_print_statistics("major");
 	} else {
 		gc_minor();
 		++GC.num_minor_collections_since_last_major_collection;
+		gc_print_statistics("minor");
 	}
 	
+	gc_clear_flags();
 	
 	snow_thread_returning_to_system_stack();
 	_snow_gc_is_collecting = false;
@@ -483,76 +492,90 @@ static inline void gc_clear_heap(SnGCHeap* heap) {
 	gc_heap_clear_flags(heap);
 }
 
-void gc_minor() {
-	ASSERT(snow_all_threads_at_gc_barrier());
+static inline void gc_sweep_heap(SnGCHeap* heap, uint32_t* out_num_indefinites, SnGCHeapList* transplant_to) {
+	uint32_t survivors = 0;
+	byte* p = heap->start;
+	while (p < heap->current) {
+		ASSERT(gc_looks_like_allocation(p)); // heap corruption?
+		++GC.stats.total;
+		
+		SnGCObjectHead* head = (SnGCObjectHead*)p;
+		byte* object = p + sizeof(SnGCObjectHead);
+		SnGCObjectTail* tail = (SnGCObjectTail*)(object + head->alloc_info.size);
+		
+		SnGCAllocInfo* alloc_info = &head->alloc_info;
+		SnGCMetaInfo* meta_info = &tail->meta_info;
+		
+		SnGCFlags flags = gc_heap_get_flags(heap, alloc_info->object_index);
+		if (flags & GC_MARK) {
+			++survivors;
+			if (flags & GC_INDEFINITE) {
+				// indefinitely referenced, can't transplant the object :(
+				++*out_num_indefinites;
+				++GC.stats.indefinites;
+			} else {
+				gc_transplant(object, alloc_info, meta_info, transplant_to);
+				gc_heap_set_flags(heap, alloc_info->object_index, GC_TRANSPLANTED);
+			}
+		}
+		
+		p = ((byte*)tail) + sizeof(SnGCObjectTail);
+	}
 	
-	gc_with_everything_do(gc_mark_root);
+	if (survivors == 0) {
+		gc_clear_heap(heap);
+	}
 	
-	size_t num_indefinites[SNOW_MAX_CONCURRENT_TASKS];
-	memset(num_indefinites, 0, SNOW_MAX_CONCURRENT_TASKS*sizeof(size_t));
-	
-	/*
-		Move or delete objects!
-	*/
-	uintx total_indefinites = 0;
-	uintx total_survivors = 0;
-	uintx total_objects = 0;
+	GC.stats.survived += survivors;
+}
+
+static inline void gc_sweep_nurseries(uint32_t* num_indefinites_per_nursery_heap) {
 	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
 		if (GC.nurseries[i].start == NULL) continue;
 		
-		uint32_t survivors = 0;
-		
 		SnGCHeap* heap = GC.nurseries + i;
-		byte* p = heap->start;
-		while (p < heap->current) {
-			ASSERT(gc_looks_like_allocation(p)); // heap corruption?
-			++total_objects;
-			
-			SnGCObjectHead* head = (SnGCObjectHead*)p;
-			byte* object = p + sizeof(SnGCObjectHead);
-			SnGCObjectTail* tail = (SnGCObjectTail*)(object + head->alloc_info.size);
-			
-			SnGCAllocInfo* alloc_info = &head->alloc_info;
-			SnGCMetaInfo* meta_info = &tail->meta_info;
-			
-			SnGCFlags flags = gc_heap_get_flags(heap, alloc_info->object_index);
-			if (flags & GC_MARK) {
-				++survivors;
-				if (flags & GC_INDEFINITE) {
-					// indefinitely referenced, can't transplant the object :(
-					num_indefinites[i]++;
-				} else {
-					gc_transplant_adult(object, alloc_info, meta_info);
-					gc_heap_set_flags(heap, alloc_info->object_index, GC_TRANSPLANTED);
-				}
-			}
-			
-			p = ((byte*)tail) + sizeof(SnGCObjectTail);
-		}
-		
-		if (survivors == 0) {
-			gc_clear_heap(heap);
-		}
-		
-		total_survivors += survivors;
+		gc_sweep_heap(heap, num_indefinites_per_nursery_heap + i, &GC.adults);
 	}
-	
-	gc_with_everything_do(gc_update_root);
-	
-	debug("GC: Minor collection completed. Survivors: %lu (Indefinites: %lu), of %lu\n", total_survivors, total_indefinites, total_objects);
-	
+}
+
+static inline void gc_reset_or_save_nurseries(uint32_t* num_indefinites_per_nursery_heap) {
 	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
 		SnGCHeap* heap = GC.nurseries + i;
 		
-		if (num_indefinites[i] > 0) {
+		if (num_indefinites_per_nursery_heap[i] > 0) {
 			gc_heap_list_push_heap(&GC.unkillables, heap);
 			memset(heap, 0, sizeof(SnGCHeap));
 		} else {
 			gc_clear_heap(heap);
 		}
 	}
+}
+
+void gc_minor() {
+	ASSERT(snow_all_threads_at_gc_barrier());
 	
+	gc_with_everything_do(gc_mark_root);
+	
+	uint32_t num_indefinites[SNOW_MAX_CONCURRENT_TASKS];
+	memset(num_indefinites, 0, SNOW_MAX_CONCURRENT_TASKS*sizeof(uint32_t));
+	
+	gc_sweep_nurseries(num_indefinites);
+
+	gc_with_everything_do(gc_update_root);
+	
+	gc_reset_or_save_nurseries(num_indefinites);
+}
+
+void gc_major() {
+	ASSERT(snow_all_threads_at_gc_barrier());
+	
+	gc_minor();
+	
+	// TODO: This can be more efficient
 	gc_clear_flags();
+	gc_with_everything_do(gc_mark_root);
+	
+	// now all objects are in adult heaps, so 
 }
 
 static inline void gc_purge_heap_list(SnGCHeapList* list) {
@@ -590,16 +613,22 @@ static inline void gc_purge_heap_list(SnGCHeapList* list) {
 	}
 }
 
-void gc_major() {
-	ASSERT(snow_all_threads_at_gc_barrier());
+static inline void gc_transplant(byte* object, SnGCAllocInfo* alloc_info, SnGCMetaInfo* meta, SnGCHeapList* transplant_to) {
+	size_t size = alloc_info->size;
+	ASSERT(size % SNOW_GC_ALIGNMENT == 0);
+	size_t total_size = gc_calculate_total_size(size);
 	
-	gc_minor();
+	uint32_t object_index;
+	byte* new_ptr = gc_heap_list_alloc(transplant_to, total_size, &object_index, GC_ADULT_SIZE);
+	byte* new_object = gc_init_allocation(new_ptr, size, alloc_info->alloc_type, object_index);
+	memcpy(new_object, object, size);
+	snow_gc_set_free_func(new_object, meta->free_func);
 	
-	// go through all heaps, count number of live objects, and remove empty heaps
-	
-	/*gc_purge_heap_list(&GC.adults); // TODO: Compact adults
-	gc_purge_heap_list(&GC.biggies);
-	gc_purge_heap_list(&GC.unkillables);*/
+	meta->free_func = NULL;
+	memset(object, 0xef, size);
+	// place new pointer in the beginning of the old memory
+	*(byte**)object = new_object;
+	++GC.stats.moved;
 }
 
 void gc_mark_root(VALUE* root_p, bool on_stack) {
@@ -612,7 +641,9 @@ void gc_mark_root(VALUE* root_p, bool on_stack) {
 		SnGCFlags flags = gc_heap_get_flags(heap, alloc_info->object_index);
 
 		SnGCFlags new_flags = flags | GC_MARK;
-		if (on_stack) new_flags |= GC_INDEFINITE;
+		if (on_stack) {
+			new_flags |= GC_INDEFINITE;
+		}
 		gc_heap_set_flags(heap, alloc_info->object_index, new_flags);
 		
 		if (!(flags & GC_MARK)) {
