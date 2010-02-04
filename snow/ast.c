@@ -31,6 +31,32 @@ static uintx ast_size[] = {
 	1, //SN_AST_PARALLEL_FORK
 };
 
+static const char* ast_name[] = {
+	"literal",
+	"sequence",
+	"function",
+	"return",
+	"break",
+	"continue",
+	"self",
+	"current_scope",
+	"local",
+	"member",
+	"local_assignment",
+	"member_assignment",
+	"if_else",
+	"call",
+	"loop",
+	"try",
+	"catch",
+	"and",
+	"or",
+	"xor",
+	"not",
+	"parallel_thread",
+	"parallel_fork"
+};
+
 static SnAstNode* create_ast_node(SnAstNodeType type, ...)
 {
 	SnAstNode* node = (SnAstNode*)snow_alloc_any_object(SN_AST_TYPE, sizeof(SnAstNode) + ast_size[type]*sizeof(VALUE));
@@ -108,7 +134,23 @@ SnAstNode* snow_ast_parallel_thread(SnAstNode* seq) { return create_ast_node(SN_
 SnAstNode* snow_ast_parallel_fork(SnAstNode* seq) { return create_ast_node(SN_AST_PARALLEL_FORK, seq); }
 
 
+SnSymbol snow_ast_type_name(SnAstNodeType type) {
+	return snow_symbol(ast_name[type]);
+}
+
+SNOW_FUNC(_ast_type) {
+	ASSERT_TYPE(SELF, SN_AST_TYPE);
+	SnAstNode* self = (SnAstNode*)SELF;
+	return symbol_to_value(snow_ast_type_name(self->type));
+}
+
+SNOW_FUNC(_ast_inspect) {
+	ASSERT_TYPE(SELF, SN_AST_TYPE);
+	return snow_format_string("<AstNode (%@)>", snow_get_member(SELF, snow_symbol("name")));
+}
+
 void init_ast_class(SnClass* klass)
 {
-	
+	snow_define_property(klass, "type", _ast_type, NULL);
+	snow_define_method(klass, "inspect", _ast_inspect);
 }
