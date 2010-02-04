@@ -36,4 +36,8 @@ CAPI bool snow_thread_is_on_system_stack();
 CAPI void snow_thread_departing_from_system_stack();
 CAPI void snow_thread_returning_to_system_stack();
 
+CAPI struct SnExceptionHandler* snow_current_exception_handler();
+CAPI void snow_push_exception_handler(struct SnExceptionHandler*);
+CAPI void snow_pop_exception_handler();
+
 #endif /* end of include guard: TASK_INTERN_H_VG31U3ZY */

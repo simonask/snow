@@ -5,7 +5,7 @@
 #include "snow/task-intern.h"
 
 TEST_CASE(no_throwing) {
-	SnExceptionHandler* starting_handler = snow_get_current_exception_handler();
+	SnExceptionHandler* starting_handler = snow_current_exception_handler();
 	bool tried = false, ensured = false;
 	
 	SnTryState state;
@@ -24,11 +24,11 @@ TEST_CASE(no_throwing) {
 	
 	TEST(tried);
 	TEST(ensured);
-	TEST_EQ(starting_handler, snow_get_current_exception_handler());
+	TEST_EQ(starting_handler, snow_current_exception_handler());
 }
 
 TEST_CASE(throws_once) {
-	SnExceptionHandler* starting_handler = snow_get_current_exception_handler();
+	SnExceptionHandler* starting_handler = snow_current_exception_handler();
 	bool tried = false, caught = false, ensured = false;
 	
 	VALUE exception = int_to_value(60);
@@ -53,11 +53,11 @@ TEST_CASE(throws_once) {
 	TEST(tried);
 	TEST(caught);
 	TEST(ensured);
-	TEST_EQ(starting_handler, snow_get_current_exception_handler());
+	TEST_EQ(starting_handler, snow_current_exception_handler());
 }
 
 TEST_CASE(throws_in_catch) {
-	SnExceptionHandler* starting_handler = snow_get_current_exception_handler();
+	SnExceptionHandler* starting_handler = snow_current_exception_handler();
 	bool tried = false, caught = false, ensured = false;
 	VALUE exception_thrown = NULL;
 	
@@ -90,11 +90,11 @@ TEST_CASE(throws_in_catch) {
 	TEST(caught);
 	TEST(ensured);
 	TEST_EQ(exception_thrown, int_to_value(80));
-	TEST_EQ(starting_handler, snow_get_current_exception_handler());
+	TEST_EQ(starting_handler, snow_current_exception_handler());
 }
 
 TEST_CASE(throws_in_ensure) {
-	SnExceptionHandler* starting_handler = snow_get_current_exception_handler();
+	SnExceptionHandler* starting_handler = snow_current_exception_handler();
 	VALUE exception = NULL;
 	
 	SnTryState wrapper, state;
@@ -118,5 +118,5 @@ TEST_CASE(throws_in_ensure) {
 	snow_end_try(&wrapper);
 	
 	TEST_EQ(exception, int_to_value(60));
-	TEST_EQ(starting_handler, snow_get_current_exception_handler());
+	TEST_EQ(starting_handler, snow_current_exception_handler());
 }

@@ -56,8 +56,8 @@ void snow_init()
 	}
 	
 	SnExceptionHandler* exception_handler = snow_create_exception_handler();
-	exception_handler->state = *main_task_base;
-	snow_set_current_exception_handler(exception_handler);
+	exception_handler->state = main_base.state;
+	snow_push_exception_handler(exception_handler);
 	
 	// create all base classes
 	SnClass* class_class;
