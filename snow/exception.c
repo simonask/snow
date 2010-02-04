@@ -70,13 +70,13 @@ void snow_try_catch_ensure(SnExceptionTryFunc try_func, SnExceptionCatchFunc cat
 }
 
 SnException* snow_current_exception() {
-	return snow_get_current_exception_handler()->exception;
+	return snow_current_exception_handler()->exception;
 }
 
 static void snow_try_finish_resumptions(SnTryState* state) {
 	ASSERT(state->started);
 	
-	snow_set_current_exception_handler(snow_get_current_exception_handler()->previous);
+	snow_pop_exception_handler();
 	state->started = false;
 	
 	if (state->exception_to_propagate)
@@ -90,7 +90,7 @@ SnExecutionState* snow_try_setup_resumptions(SnTryState* state) {
 	state->iteration_was_prepared = false;
 	
 	SnExceptionHandler* handler = snow_create_exception_handler();
-	snow_set_current_exception_handler(handler);
+	snow_push_exception_handler(handler);
 	return &handler->state;
 }
 
@@ -133,12 +133,12 @@ void snow_end_try(SnTryState* state) {
 		case SnTryResumptionStateTrying:
 			// Came through the try block cleanly; time to ensure
 			state->resumption_state = SnTryResumptionStateEnsuring;
-			snow_restore_execution_state(&snow_get_current_exception_handler()->state);
+			snow_restore_execution_state(&snow_current_exception_handler()->state);
 			break;
 		case SnTryResumptionStateCatching:
 			// Caught cleanly. Ensure.
 			state->resumption_state = SnTryResumptionStateEnsuring;
-			snow_restore_execution_state(&snow_get_current_exception_handler()->state);
+			snow_restore_execution_state(&snow_current_exception_handler()->state);
 			break;
 		case SnTryResumptionStateEnsuring:
 			// Propagate exception if due, and we're done.
@@ -149,8 +149,8 @@ void snow_end_try(SnTryState* state) {
 
 SnExceptionHandler* snow_create_exception_handler()
 {
-	SnExceptionHandler* handler = snow_gc_alloc(sizeof(SnExceptionHandler));
-	handler->previous = snow_get_current_exception_handler();
+	SnExceptionHandler* handler = (SnExceptionHandler*)snow_gc_alloc_blob(sizeof(SnExceptionHandler));
+	handler->previous = snow_current_exception_handler();
 	handler->exception = NULL;
 	return handler;
 }
