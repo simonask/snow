@@ -26,7 +26,6 @@ void snow_init_linkbuffer(SnLinkBuffer* buf, uintx page_size) {
 
 void snow_free_linkbuffer(SnLinkBuffer* buf) {
 	snow_linkbuffer_clear(buf);
-	snow_free(buf);
 }
 
 uintx snow_linkbuffer_size(SnLinkBuffer* buf) {
