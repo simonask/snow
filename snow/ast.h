@@ -7,8 +7,8 @@
 typedef enum SnAstNodeType {
 	/*
 		IMPORTANT!
-		When adding entries in this enum, remember to also add an entry in ast.c for the
-		desired size of the ast node.
+		When adding entries in this enum, remember to also add entries in ast.c for the
+		desired size and name of the ast node.
 	*/
 	SN_AST_LITERAL,
 	SN_AST_SEQUENCE,
@@ -66,5 +66,7 @@ CAPI SnAstNode* snow_ast_xor(SnAstNode* left, SnAstNode* right);
 CAPI SnAstNode* snow_ast_not(SnAstNode* expr);
 CAPI SnAstNode* snow_ast_parallel_thread(SnAstNode* seq);
 CAPI SnAstNode* snow_ast_parallel_fork(SnAstNode* seq);
+
+CAPI SnSymbol snow_ast_type_name(SnAstNodeType);
 
 #endif /* end of include guard: AST_H_48SOBLU9 */
