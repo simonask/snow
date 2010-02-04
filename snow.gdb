@@ -77,3 +77,16 @@ end
 define snow-backtrace
 	snow-return-chain
 end
+
+define snow-inspect
+	printf "%s\n", snow_inspect_value($arg0)
+end
+
+define snow-to-string
+	printf "%s\n", snow_value_to_cstr($arg0)
+end
+
+# You can't introspect variable types without grievous hacks. No comment (except this).
+define snow-inspect-symbol
+	printf "#%s\n", snow_symbol_to_cstr($arg0)
+end
