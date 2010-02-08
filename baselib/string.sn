@@ -1,0 +1,3 @@
+require("baselib/comparable")
+
+String.instance_prototype.include(Comparable)

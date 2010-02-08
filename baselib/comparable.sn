@@ -1,0 +1,9 @@
+(Comparable: Object()).eval {
+  comparator: [operator] {
+    .members[operator]: [other] {
+      (self <=> other).call_member(operator, 0)
+    }
+  }
+  
+  @(#"=", #">", #"<", #">=", #"<=").each(comparator)
+}

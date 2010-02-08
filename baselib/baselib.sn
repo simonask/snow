@@ -1,3 +1,5 @@
 require("baselib/array.sn")
 require("baselib/object.sn")
+require("baselib/string.sn")
 require("baselib/numeric.sn")
+require("baselib/comparable.sn")
