@@ -81,12 +81,26 @@ end
 define snow-inspect
 	printf "%s\n", snow_inspect_value($arg0)
 end
+document snow-inspect
+	Inspect an object.
+	.inspect is called on the object to get its human representation.
+	The argument must be a VALUE or a specific SnObjectBase subtype.
+	To inspect an SnSymbol, see snow-inspect-symbol.
+end
 
 define snow-to-string
 	printf "%s\n", snow_value_to_cstr($arg0)
+end
+document snow-to-string
+	Show the string representation of an object.
+	.to_string is called on the object to retrieve the string.
 end
 
 # You can't introspect variable types without grievous hacks. No comment (except this).
 define snow-inspect-symbol
 	printf "#%s\n", snow_symbol_to_cstr($arg0)
+end
+document snow-inspect-symbol
+	Inspect an SnSymbol.
+	To inspect a Symbol represented by a VALUE, use snow-inspect.
 end
