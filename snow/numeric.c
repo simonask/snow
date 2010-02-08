@@ -128,6 +128,18 @@ SNOW_FUNC(numeric_greater_than) {
 	}
 }
 
+SNOW_FUNC(numeric_times) {
+	// TODO: Allow negative receiver, passing indices in reverse order?
+	ASSERT(is_numeric(SELF));
+	REQUIRE_ARGS(1);
+	
+	intx max = value_to_int(SELF);
+	for (intx i = 0; i > max; ++i)
+		snow_call(NULL, ARGS[0], 1, int_to_value(i));
+	
+	return SELF;
+}
+
 SNOW_FUNC(numeric_to_string) {
 	ASSERT(is_numeric(SELF));
 	
@@ -160,6 +172,9 @@ void init_integer_class(SnClass* klass)
 	snow_define_method(klass, "**", numeric_power);
 	snow_define_method(klass, "<", numeric_less_than);
 	snow_define_method(klass, ">", numeric_greater_than);
+	
+	snow_define_method(klass, "times", numeric_times);
+	
 	snow_define_method(klass, "to_string", numeric_to_string);
 	snow_define_method(klass, "inspect", numeric_to_string);
 }
