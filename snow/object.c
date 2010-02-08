@@ -292,6 +292,13 @@ SNOW_FUNC(object_include) {
 	return boolean_to_value(snow_object_include(self, module));
 }
 
+SNOW_FUNC(object_call_member) {
+	REQUIRE_ARGS(2);
+	ASSERT_TYPE(ARGS[0], SN_SYMBOL_TYPE);
+	// FIXME: Pass the Arguments instead.
+	return snow_call_method(SELF, value_to_symbol(ARGS[0]), 1, ARGS[1]);
+}
+
 SNOW_FUNC(object_property) {
 	REQUIRE_ARGS(3);
 	
@@ -368,6 +375,7 @@ void init_object_class(SnClass* klass)
 	snow_define_method(klass, "__reset_assigned_name__", object_reset_assigned_name);
 	snow_define_method(klass, "__on_assign__", object_on_assign);
 	snow_define_method(klass, "include", object_include);
+	snow_define_method(klass, "call_member", object_call_member);
 	
 	snow_define_method(klass, "property", object_property);
 	snow_define_method(klass, "getter", object_getter);
