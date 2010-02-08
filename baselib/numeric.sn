@@ -1,0 +1,4 @@
+Integer.instance_prototype.eval {
+  .members[#"<="]: { self = it or self < it }
+  .members[#">="]: { self = it or self > it }
+}
