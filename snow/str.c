@@ -5,7 +5,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <xlocale.h>
 
 static inline size_t strlen_locale(const char* cstr_utf8, size_t num_bytes) {
