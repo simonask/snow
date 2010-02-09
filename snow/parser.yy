@@ -52,6 +52,14 @@
 #define YYERROR_VERBOSE
 #endif
 
+#undef YYMALLOC
+#undef YYREALLOC
+#undef YYFREE
+#define YYMALLOC snow_gc_alloc_blob
+#define YYREALLOC snow_gc_realloc
+#define YYFREE
+
+
 SnAstNode* snow_parse(const char* buf, struct SnParserInfo* out_info)
 {
 	SnParserState state;
@@ -61,6 +69,7 @@ SnAstNode* snow_parse(const char* buf, struct SnParserInfo* out_info)
 	state.streamname = "<TODO>";
 	state.result = NULL;
 	state.info = out_info;
+	state.string_buffer = NULL;
 	
 	yylex_init(&state.yyscanner);
 	yyset_extra(&state, state.yyscanner);

@@ -39,14 +39,13 @@ do {                                                  \
 %{
 #include "snow/intern.h"
 
-SnLinkBuffer* string_buffer = NULL;
-#define STR_CHAR(c) snow_linkbuffer_push(string_buffer, c)
-#define STR_CHARS(str) snow_linkbuffer_push_string(string_buffer, str);
-#define STR_CLEAR() snow_linkbuffer_clear(string_buffer)
+#define STR_CHAR(c) snow_linkbuffer_push(yyextra->string_buffer, c)
+#define STR_CHARS(str) snow_linkbuffer_push_string(yyextra->string_buffer, str);
+#define STR_CLEAR() snow_linkbuffer_clear(yyextra->string_buffer)
 
-#define malloc snow_malloc
-#define free snow_free
-#define realloc snow_realloc
+#define malloc snow_gc_alloc_blob
+#define realloc snow_gc_realloc
+#define free 
 
 #define YY_USER_ACTION \
 	do { \
@@ -63,13 +62,13 @@ SnLinkBuffer* string_buffer = NULL;
 	yylloc = yylloc_param;
 	yylloc->first_line = yylloc->last_line = 1;
 	yylloc->first_column = yylloc->last_column = 1;
-	if (!string_buffer)
-		string_buffer = snow_create_linkbuffer(1024);
+	if (!yyextra->string_buffer)
+		yyextra->string_buffer = snow_create_linkbuffer(1024);
 %}
 
 \.                                     { return TOK_DOT; }
 \"                                     { BEGIN(STRING_DOUBLE); STR_CLEAR(); } /* " */
-<STRING_DOUBLE>\"                      { BEGIN(INITIAL); yylval->value = snow_create_string_from_linkbuffer(string_buffer); STR_CLEAR(); return TOK_STRING; } /* " */
+<STRING_DOUBLE>\"                      { BEGIN(INITIAL); yylval->value = snow_create_string_from_linkbuffer(yyextra->string_buffer); STR_CLEAR(); return TOK_STRING; } /* " */
 <STRING_DOUBLE>\\n                     { STR_CHAR('\n'); }
 <STRING_DOUBLE>\\t                     { STR_CHAR('\t'); }
 <STRING_DOUBLE>\\r                     { STR_CHAR('\r'); }
@@ -78,16 +77,16 @@ SnLinkBuffer* string_buffer = NULL;
 <STRING_DOUBLE>\\e                     { STR_CHAR('\033'); }
 <STRING_DOUBLE>\\0[0-7]+               { STR_CHAR((char)strtoll(&yytext[1], NULL, 8)); }
 <STRING_DOUBLE>\\(.|\n)                { STR_CHAR(yytext[1]); }
-<STRING_DOUBLE>\$\{                    { BEGIN(STRING_INTERPOLATION); yylval->value = snow_create_string_from_linkbuffer(string_buffer); STR_CLEAR(); return TOK_STRING; }
+<STRING_DOUBLE>\$\{                    { BEGIN(STRING_INTERPOLATION); yylval->value = snow_create_string_from_linkbuffer(yyextra->string_buffer); STR_CLEAR(); return TOK_STRING; }
 <STRING_DOUBLE>[^\$\(\\\n\"]+          { STR_CHARS(yytext); } /* " */
 <STRING_DOUBLE>.                       { STR_CHARS(yytext); }
 
 <STRING_INTERPOLATION>[^\}]+           { STR_CHARS(yytext); }
-<STRING_INTERPOLATION>\}               { BEGIN(STRING_DOUBLE); yylval->value = snow_create_string_from_linkbuffer(string_buffer); STR_CLEAR(); return TOK_STRING; }
+<STRING_INTERPOLATION>\}               { BEGIN(STRING_DOUBLE); yylval->value = snow_create_string_from_linkbuffer(yyextra->string_buffer); STR_CLEAR(); return TOK_STRING; }
                                        /* TODO: String interpolation */
 
 \'                                     { BEGIN(STRING_SINGLE); STR_CLEAR(); } /* ' */
-<STRING_SINGLE>\'                      { BEGIN(INITIAL); yylval->value = snow_create_string_from_linkbuffer(string_buffer); STR_CLEAR(); return TOK_STRING; } /* ' */
+<STRING_SINGLE>\'                      { BEGIN(INITIAL); yylval->value = snow_create_string_from_linkbuffer(yyextra->string_buffer); STR_CLEAR(); return TOK_STRING; } /* ' */
 <STRING_SINGLE>\\n                     { STR_CHAR('\n'); }
 <STRING_SINGLE>\\t                     { STR_CHAR('\t'); }
 <STRING_SINGLE>\\r                     { STR_CHAR('\r'); }

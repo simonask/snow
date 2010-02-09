@@ -3,6 +3,7 @@
 
 #include "snow/parser.h"
 #include "snow/gc.h"
+#include "snow/linkbuffer.h"
 
 typedef struct SnParserState {
 	void* yyscanner;
@@ -12,6 +13,7 @@ typedef struct SnParserState {
 	SnAstNode* result;
 	const char* streamname;
 	SnParserInfo* info;
+	SnLinkBuffer* string_buffer;
 } SnParserState;
 
 typedef union SnTokenValue {
@@ -28,11 +30,11 @@ typedef union SnTokenValue {
 #define YYASSERT ASSERT
 
 typedef struct YYLTYPE {
-  int first_line;
-  int first_column;
-  int last_line;
-  int last_column;
-  char *filename;
+	int first_line;
+	int first_column;
+	int last_line;
+	int last_column;
+	char *filename;
 } YYLTYPE;
 # define YYLTYPE_IS_DECLARED 1
 
