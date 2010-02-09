@@ -598,16 +598,16 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			CALL(snow_create_exception_handler);
 			ASM(mov, RAX, TEMPORARY(exception_handler));
 			
-			ASM(mov_rev, RDI, TEMPORARY(exception_handler));
+			ASM(mov, RAX, RDI); // RDI <- exception_handler
 			CALL(snow_push_exception_handler);
 			
 			ASM(mov_rev, RDI, TEMPORARY(exception_handler));
 			ASM(add_id, IMMEDIATE(offsetof(SnExceptionHandler, state)), RDI);
 			CALL(snow_save_execution_state);
 			
-			ASM(mov_id, IMMEDIATE(1), RCX);
+			ASM(xor, RCX, RCX);
 			ASM(cmp, RAX, RCX);
-			LabelRef catch_jmp = ASM(j, CC_ZERO, &catch);
+			LabelRef catch_jmp = ASM(j, CC_NOT_EQUAL, &catch);
 			
 			codegen_compile_node(cgx, (SnAstNode*)node->children[0]);
 			ASM(mov, RAX, TEMPORARY(return_value));
@@ -634,12 +634,13 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				ASM(add_id, IMMEDIATE(offsetof(SnExceptionHandler, state)), RDI);
 				CALL(snow_save_execution_state);
 				
-				ASM(mov_id, IMMEDIATE(1), RCX);
+				ASM(xor, RCX, RCX);
 				ASM(cmp, RAX, RCX);
-				LabelRef catch_catch_jmp = ASM(j, CC_ZERO, &catch_catch);
+				LabelRef catch_catch_jmp = ASM(j, CC_NOT_EQUAL, &catch_catch);
 				
 				if (catch_node->children[0]) {
 					// `<identifier> = Exception.current`
+					// TODO: Do this tree-rewrite in parser.yy.
 					SnSymbol identifier = value_to_symbol(catch_node->children[0]);
 					SnAstNode* exception_getter = snow_ast_member(snow_ast_local(snow_symbol("Exception")),
 					                                              snow_symbol("current"));
