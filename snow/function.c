@@ -186,6 +186,12 @@ SNOW_FUNC(function_local_missing) {
 	return NULL;
 }
 
+SNOW_FUNC(function_get_ast) {
+	ASSERT_TYPE(SELF, SN_FUNCTION_TYPE);
+	SnFunction* self = (SnFunction*)SELF;
+	return self->desc->ast;
+}
+
 /*SNOW_FUNC(function_call_with_self) {
 	REQUIRE_ARGS(1);
 	VALUE self = ARGS[0];
@@ -196,6 +202,7 @@ SNOW_FUNC(function_local_missing) {
 
 void init_function_class(SnClass* klass)
 {
+	snow_define_property(klass, "ast", function_get_ast, NULL);
 	snow_define_method(klass, "local_missing", function_local_missing);
 //	snow_define_method(klass, "call_with_self", function_call_with_self);
 }

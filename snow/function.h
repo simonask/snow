@@ -10,6 +10,8 @@ struct SnVariableReferenceDescription {
 	uint32_t variable_index; // 0 is first variable in context, 1 is second, etc.
 };
 
+struct SnAstNode;
+
 typedef struct SnFunctionDescription {
 	// SnFunctionDescriptions may only be modified at compile-time!
 	SnObjectBase base;
@@ -17,6 +19,7 @@ typedef struct SnFunctionDescription {
 	SnSymbol name;
 	SnArray* defined_locals;
 	SnArray* argument_names; // kept separate from defined_locals, because it's used for named arguments
+	struct SnAstNode* ast;
 	uint16_t num_variable_reference_descriptions;
 	struct SnVariableReferenceDescription* variable_reference_descriptions;
 } SnFunctionDescription;

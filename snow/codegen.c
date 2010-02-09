@@ -45,6 +45,8 @@ SnFunctionDescription* snow_codegen_compile_description(SnCodegen* cg)
 	
 	CAST_DATA_TO_FUNCTION(cg->result->func, compiled_code);
 	
+	cg->result->ast = cg->root;
+	
 	return cg->result;
 }
 
