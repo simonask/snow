@@ -22,8 +22,8 @@
 %left <symbol> TOK_IDENTIFIER
 %left <symbol> TOK_PARALLEL_THREAD TOK_PARALLEL_FORK
 %left <symbol> TOK_OPERATOR_FOURTH
-%left <symbol> TOK_OPERATOR_THIRD
 %left <node> TOK_LOG_AND TOK_LOG_OR TOK_LOG_XOR TOK_LOG_NOT
+%left <symbol> TOK_OPERATOR_THIRD
 %left <symbol> TOK_OPERATOR_SECOND
 %left <symbol> TOK_OPERATOR_FIRST
 %left TOK_DOT
@@ -103,10 +103,10 @@ program: sequence TOK_EOF  %dprec 3  { state->result = $$ = snow_ast_function("<
        ;
 
 statement: expression   %dprec 1
-         | control      %dprec 1
-         | conditional  %dprec 2
-         | loop         %dprec 2
-         | try          %dprec 2
+         | control      %dprec 2
+         | conditional  %dprec 3
+         | loop         %dprec 3
+         | try          %dprec 3
          ;
 
 
@@ -279,9 +279,9 @@ atomic_expr: atomic_non_index_expr
            ;
 
 expression: assignment %dprec 9999
-          | log_operation %dprec 1
+          | log_operation %dprec 3
           | atomic_expr %dprec 1
-          | operation %dprec 1
+          | operation %dprec 2
           ;
 
 %%
