@@ -246,13 +246,28 @@ SnObjectBase* snow_gc_alloc_object(uintx size) {
 }
 
 VALUE* snow_gc_alloc_blob(uintx size) {
-	ASSERT(size % sizeof(VALUE) == 0); // blob allocation doesn't match size of roots
 	void* ptr = gc_alloc(size, GC_BLOB);
 	return (VALUE*)ptr;
 }
 
 void* snow_gc_alloc_atomic(uintx size) {
 	void* ptr = gc_alloc(size, GC_ATOMIC);
+	return ptr;
+}
+
+void* snow_gc_realloc(void* ptr, uintx size) {
+	SnGCHeap* heap = gc_find_heap(ptr);
+	ASSERT(heap); // not GC-allocated memory!
+	SnGCAllocInfo* alloc_info;
+	SnGCMetaInfo* meta_info;
+	void* ptr_start = gc_find_object_start(heap, (const byte*)ptr, &alloc_info, &meta_info);
+	ASSERT(ptr_start == ptr); // ptr is not at the beginning of the allocation!
+	if (size > alloc_info->size) {
+		void* new_ptr = gc_alloc(size, alloc_info->alloc_type);
+		if (meta_info->free_func)
+			snow_gc_set_free_func(new_ptr, meta_info->free_func);
+		ptr = new_ptr;
+	}
 	return ptr;
 }
 

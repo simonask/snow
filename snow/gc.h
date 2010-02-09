@@ -45,6 +45,12 @@ CAPI VALUE* snow_gc_alloc_blob(uintx size) ATTR_ALLOC_SIZE(1);
 CAPI void* snow_gc_alloc_atomic(uintx size) ATTR_ALLOC_SIZE(1);
 
 /*
+	snow_gc_realloc: Reallocates memory that is already GC-allocated. The semantics are the same as the
+	system-provided realloc(3).
+*/
+CAPI void* snow_gc_realloc(void* ptr, uintx size) ATTR_ALLOC_SIZE(1);
+
+/*
 	snow_gc_set_free_func: sets a finalizer function for the given pointer, which will be called when
 	the memory pointed to by that pointer is garbage collected.
 */
