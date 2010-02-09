@@ -21,12 +21,15 @@ static inline void gc_heap_init(SnGCHeap* heap) {
 	heap->start = heap->current = heap->end = NULL;
 	heap->num_objects = 0;
 	heap->flags = NULL;
-	gc_heap_clear_flags(heap);
+	heap->num_flags = 0;
 }
 
 static inline void gc_heap_finalize(SnGCHeap* heap) {
 	gc_free_chunk(heap->start, heap->end - heap->start);
+	heap->start = heap->current = heap->end = NULL;
 	snow_free(heap->flags);
+	heap->flags = NULL;
+	heap->num_flags = 0;
 }
 
 static inline bool gc_heap_contains(const SnGCHeap* heap, const void* root) {
@@ -138,6 +141,16 @@ static inline SnGCHeapListNode* gc_heap_list_erase(SnGCHeapList* list, SnGCHeapL
 	gc_heap_finalize(&node->heap);
 	snow_free(node);
 	return next;
+}
+
+static inline void gc_heap_list_clear(SnGCHeapList* list) {
+	SnGCHeapListNode* node = list->head;
+	while (node != NULL) {
+		SnGCHeapListNode* to_delete = node;
+		node = node->next;
+		snow_free(to_delete);
+	}
+	gc_heap_list_init(list);
 }
 
 static byte* gc_heap_list_alloc(SnGCHeapList* list, size_t size, uint32_t* out_object_index, size_t heap_size)
