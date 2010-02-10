@@ -131,7 +131,7 @@ static inline RM_MODE mod_for_operand(SnOp addr) {
 	if (!addr.address)
 		return RM_REGISTER;
 		
-	RM_MODE mod;
+	RM_MODE mod = RM_ADDRESS;
 	switch (addr.disp_size) {
 		case 0:
 			mod = RM_ADDRESS;
