@@ -104,8 +104,8 @@ static void* gc_alloc_chunk(size_t);
 static void gc_free_chunk(void* chunk, size_t);
 #include "snow/gcheap.h"
 
-#define GC_NURSERY_SIZE 0x20000 // 128K nurseries
-#define GC_ADULT_SIZE 0x100000 // 1M adult heaps
+#define GC_NURSERY_SIZE 0x100000 // 1 MiB nurseries
+#define GC_ADULT_SIZE 0x800000 // 8 MiB adult heaps
 #define GC_BIG_ALLOCATION_SIZE_LIMIT 0x1000 // everything above 4K will go in the "biggies" allocation list
 
 struct {
