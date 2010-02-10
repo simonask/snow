@@ -40,6 +40,7 @@ typedef struct YYLTYPE {
 
 #define YYLOC_DEFAULT(CURRENT, RHS, N) \
 	do { \
+		(CURRENT).filename = NULL; \
 		if (N) { \
 			(CURRENT).first_line = YYRHSLOC(RHS, 1).first_line; \
 			(CURRENT).first_column = YYRHSLOC(RHS, 1).first_column; \

@@ -2,10 +2,9 @@
 #include "snow/gc.h"
 #include "snow/linkbuffer.h"
 #include "snow/intern.h"
-#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <xlocale.h>
 
 static inline size_t strlen_locale(const char* cstr_utf8, size_t num_bytes) {
@@ -141,6 +140,13 @@ SNOW_FUNC(string_compare)
 	ASSERT_TYPE(ARGS[0], SN_STRING_TYPE);
 	SnString* other = (SnString*)ARGS[0];
 	return int_to_value(snow_string_compare(self, other));
+}
+
+SNOW_FUNC(string_equals)
+{
+	REQUIRE_ARGS(1);
+	VALUE comparison = snow_call_method(SELF, snow_symbol("<=>"), 1, ARGS[0]);
+	return boolean_to_value(comparison == int_to_value(0));
 }
 
 SNOW_FUNC(string_size)
@@ -289,6 +295,7 @@ void init_string_class(SnClass* klass)
 	snow_define_method(klass, "to_string", string_to_string);
 	snow_define_method(klass, "inspect", string_inspect);
 	snow_define_method(klass, "<=>", string_compare);
+	snow_define_method(klass, "=", string_equals);
 	snow_define_property(klass, "size", string_size, NULL);
 	snow_define_property(klass, "length", string_length, NULL);
 	snow_define_method(klass, "+", string_concatenate);

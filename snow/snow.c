@@ -43,9 +43,10 @@ void snow_init()
 	main_base.task_id = snow_get_current_task_id();
 	if (snow_continuation_save_execution_state(&main_base)) {
 		// UNHANDLED EXCEPTION ALERT!
-		if (task->exception)
+		VALUE exception = snow_current_exception();
+		if (exception)
 		{
-			const char* str = snow_value_to_cstr(task->exception);
+			const char* str = snow_value_to_cstr(exception);
 			fprintf(stderr, "UNHANDLED EXCEPTION: %s\nAborting.\n", str);
 		}
 		else
@@ -54,6 +55,10 @@ void snow_init()
 		}
 		exit(1);
 	}
+	
+	SnExceptionHandler* exception_handler = snow_create_exception_handler();
+	exception_handler->state = main_base.state;
+	snow_push_exception_handler(exception_handler);
 	
 	// create all base classes
 	SnClass* class_class;
@@ -269,7 +274,7 @@ VALUE snow_require(const char* _file)
 			return result;
 	}
 	
-	snow_throw_exception_with_description("Required file not found!");
+	snow_throw_exception_with_description("Required file not found: %s", _file);
 	return NULL;
 }
 
@@ -300,7 +305,7 @@ VALUE snow_call_with_args(VALUE in_self, VALUE in_closure, SnArguments* args)
 	
 	if (!snow_eval_truth(closure))
 	{
-		snow_throw_exception_with_description("Attempted to call nil.");
+		snow_throw_exception_with_description("Attempted to call %s.", closure == SN_FALSE ? "false" : "nil");
 	}
 	
 	SnSymbol call_sym = snow_symbol("__call__");

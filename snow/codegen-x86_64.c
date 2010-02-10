@@ -9,6 +9,8 @@
 #include "snow/array.h"
 #include "snow/arguments.h"
 #include "snow/linkbuffer.h"
+#include "snow/task-intern.h"
+#include "snow/exception-intern.h"
 
 #include <stddef.h>
 
@@ -302,7 +304,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			if (idx >= 0)
 			{
 				// local to this scope
-				ASM(mov, R14, RDI);
+				ASM(mov_rev, RDI, ADDRESS(R13, offsetof(SnContext, locals)));
+				//ASM(mov, R14, RDI);
 				ASM(mov_id, IMMEDIATE(idx), RSI);
 				CALL(snow_array_get);
 			}
@@ -345,7 +348,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				// assign
 				codegen_compile_node(cgx, val);
 				// result is in RAX now
-				ASM(mov, R14, RDI);
+				ASM(mov_rev, RDI, ADDRESS(R13, offsetof(SnContext, locals)));
+				//ASM(mov, R14, RDI);
 				ASM(mov_id, IMMEDIATE(idx), RSI);
 				ASM(mov, RAX, RDX);
 				CALL(snow_array_set);
@@ -376,7 +380,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 						codegen_compile_node(cgx, val);
 						// result is in RAX now
 						ASSERT(idx >= 0);
-						ASM(mov, R14, RDI);
+						//ASM(mov, R14, RDI);
+						ASM(mov_rev, RDI, ADDRESS(R13, offsetof(SnContext, locals)));
 						ASM(mov_id, IMMEDIATE(idx), RSI);
 						ASM(mov, RAX, RDX);
 						CALL(snow_array_set);
@@ -577,6 +582,142 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			ASM(link, &cond_jmp);
 			break;
 		}
+		case SN_AST_TRY:
+		{
+			SnAstNode* catch_node = node->children[1];
+			
+			Label catch = ASM_LABEL;
+			Label ensure = ASM_LABEL;
+			Label skip_propagation = ASM_LABEL;
+			LabelRef inner_ensure_jmp;
+			
+			intx return_value = RESERVE_TMP();
+			intx exception_handler = RESERVE_TMP();
+			intx exception_to_propagate = RESERVE_TMP();
+			
+			ASM(mov_id, IMMEDIATE(0), TEMPORARY(exception_to_propagate));
+			ASM(mov_id, IMMEDIATE(SN_NIL), TEMPORARY(return_value));
+			
+			CALL(snow_create_exception_handler);
+			ASM(mov, RAX, TEMPORARY(exception_handler));
+			
+			ASM(mov, RAX, RDI); // RDI <- exception_handler
+			CALL(snow_push_exception_handler);
+			
+			ASM(mov_rev, RDI, TEMPORARY(exception_handler));
+			ASM(add_id, IMMEDIATE(offsetof(SnExceptionHandler, state)), RDI);
+			CALL(snow_save_execution_state);
+			
+			ASM(xor, RCX, RCX);
+			ASM(cmp, RAX, RCX);
+			LabelRef catch_jmp = ASM(j, CC_NOT_EQUAL, &catch);
+			
+			codegen_compile_node(cgx, (SnAstNode*)node->children[0]);
+			ASM(mov, RAX, TEMPORARY(return_value));
+			LabelRef outer_ensure_jmp = ASM(jmp, &ensure);
+			
+			ASM(bind, &catch);
+			if (catch_node) {
+				Label catch_catch = ASM_LABEL;
+				LabelRef catch_condition_failed_jmp;
+				intx catch_exception_handler = RESERVE_TMP();
+				
+				CALL(snow_create_exception_handler);
+				ASM(mov, RAX, TEMPORARY(catch_exception_handler));
+				
+				// `catch_exception_handler->exception = exception_handler->exception;`
+				ASM(mov_rev, R10, TEMPORARY(exception_handler));
+				ASM(mov_rev, R11, ADDRESS(R10, offsetof(SnExceptionHandler, exception)));
+				ASM(mov, R11, ADDRESS(RAX, offsetof(SnExceptionHandler, exception)));
+				
+				ASM(mov_rev, RDI, TEMPORARY(catch_exception_handler));
+				CALL(snow_push_exception_handler);
+				
+				ASM(mov_rev, RDI, TEMPORARY(catch_exception_handler));
+				ASM(add_id, IMMEDIATE(offsetof(SnExceptionHandler, state)), RDI);
+				CALL(snow_save_execution_state);
+				
+				ASM(xor, RCX, RCX);
+				ASM(cmp, RAX, RCX);
+				LabelRef catch_catch_jmp = ASM(j, CC_NOT_EQUAL, &catch_catch);
+				
+				if (catch_node->children[0]) {
+					// `<identifier> = Exception.current`
+					// TODO: Do this tree-rewrite in parser.yy.
+					SnSymbol identifier = value_to_symbol(catch_node->children[0]);
+					SnAstNode* exception_getter = snow_ast_member(snow_ast_local(snow_symbol("Exception")),
+					                                              snow_symbol("current"));
+					SnAstNode* assignment = snow_ast_local_assign(identifier, exception_getter);
+					
+					codegen_compile_node(cgx, assignment);
+				}
+				
+				if (catch_node->children[1]) {
+					codegen_compile_node(cgx, (SnAstNode*)catch_node->children[1]);
+					ASM(mov, RAX, RDI);
+					CALL(snow_eval_truth);
+					ASM(xor, RCX, RCX);
+					ASM(cmp, RAX, RCX);
+					catch_condition_failed_jmp = ASM(j, CC_ZERO, &catch_catch);
+				}
+				
+				codegen_compile_node(cgx, (SnAstNode*)catch_node->children[2]);
+				ASM(mov, RAX, TEMPORARY(return_value));
+				CALL(snow_pop_exception_handler);
+				inner_ensure_jmp = ASM(jmp, &ensure);
+				
+				ASM(bind, &catch_catch);
+				ASM(mov_rev, R10, TEMPORARY(catch_exception_handler));
+				ASM(mov_rev, R11, ADDRESS(R10, offsetof(SnExceptionHandler, exception)));
+				ASM(mov, R11, TEMPORARY(exception_to_propagate));
+				CALL(snow_pop_exception_handler);
+				
+				ASM(link, &catch_catch_jmp);
+				if (catch_node->children[1]) ASM(link, &catch_condition_failed_jmp);
+				FREE_TMP(catch_exception_handler);
+			} else {
+				ASM(mov_rev, R10, TEMPORARY(exception_handler));
+				ASM(mov_rev, R11, ADDRESS(R10, offsetof(SnExceptionHandler, exception)));
+				ASM(mov, R11, TEMPORARY(exception_to_propagate));
+			}
+			
+			ASM(bind, &ensure);
+			ASM(mov_rev, RAX, TEMPORARY(exception_handler));
+			ASM(mov_rev, RDI, ADDRESS(RAX, offsetof(SnExceptionHandler, previous)));
+			
+			// `exception_handler->previous->exception = exception_handler->exception;`
+			ASM(mov_rev, R11, ADDRESS(RAX, offsetof(SnExceptionHandler, exception)));
+			ASM(mov, R11, ADDRESS(RDI, offsetof(SnExceptionHandler, exception)));
+			
+			CALL(snow_pop_exception_handler);
+			
+			if (node->children[2])
+				codegen_compile_node(cgx, (SnAstNode*)node->children[2]);
+			
+			ASM(mov_rev, RDI, TEMPORARY(exception_to_propagate));
+			ASM(cmp_id, IMMEDIATE(0), RDI);
+			LabelRef skip_propagation_jmp = ASM(j, CC_ZERO, &skip_propagation);
+			CALL(snow_throw_exception);
+			
+			ASM(bind, &skip_propagation);
+			CALL(snow_current_exception_handler);
+			ASM(mov_id, IMMEDIATE(0), ADDRESS(RAX, offsetof(SnExceptionHandler, exception)));
+			
+			ASM(mov_rev, RAX, TEMPORARY(return_value));
+			
+			ASM(link, &catch_jmp);
+			ASM(link, &outer_ensure_jmp);
+			ASM(link, &skip_propagation_jmp);
+			if (catch_node) ASM(link, &inner_ensure_jmp);
+			
+			FREE_TMP(return_value);
+			FREE_TMP(exception_handler);
+			FREE_TMP(exception_to_propagate);
+			break;
+		}
+		case SN_AST_CATCH:
+			TRAP(); // A catch AST node should never be codegenned.
+			break;
 		case SN_AST_AND:
 		{
 			SnAstNode* left = (SnAstNode*)node->children[0];

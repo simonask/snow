@@ -216,3 +216,19 @@ void snow_thread_returning_to_system_stack()
 		threads[ME].stack_bottom = NULL;
 }
 
+SnExceptionHandler* snow_current_exception_handler()
+{
+	return snow_get_current_task()->exception_handler;
+}
+
+void snow_push_exception_handler(SnExceptionHandler* handler)
+{
+	handler->previous = snow_current_exception_handler();
+	snow_get_current_task()->exception_handler = handler;
+}
+
+void snow_pop_exception_handler()
+{
+	SnTask* current_task = snow_get_current_task();
+	current_task->exception_handler = current_task->exception_handler->previous;
+}

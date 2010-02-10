@@ -138,6 +138,30 @@ SNOW_FUNC(_array_pop) {
 	return snow_array_pop((SnArray*)SELF);
 }
 
+SNOW_FUNC(_array_equals) {
+	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
+	REQUIRE_ARGS(1);
+	
+	if (snow_typeof(ARGS[0]) != SN_ARRAY_TYPE)
+		return SN_FALSE;
+	
+	SnArray* self = (SnArray*)SELF;
+	SnArray* other = (SnArray*)ARGS[0];
+	
+	size_t size = snow_array_size(self);
+	if (size != snow_array_size(other))
+		return SN_FALSE;
+	
+	for (size_t i = 0; i < size; ++i) {
+		VALUE left = snow_array_get(self, i), right = snow_array_get(other, i);
+		VALUE comparison = snow_call_method(left, snow_symbol("="), 1, right);
+		if (!snow_eval_truth(comparison))
+			return SN_FALSE;
+	}
+	
+	return SN_TRUE;
+}
+
 SNOW_FUNC(_array_length) {
 	ASSERT_TYPE(SELF, SN_ARRAY_TYPE);
 	return int_to_value(snow_array_size((SnArray*)SELF));
@@ -352,6 +376,7 @@ void init_array_class(SnClass* klass)
 	snow_define_method(klass, "push", _array_push);
 	snow_define_method(klass, "<<", _array_push);
 	snow_define_method(klass, "pop", _array_pop);
+	snow_define_method(klass, "=", _array_equals);
 	snow_define_method(klass, "inspect", _array_inspect);
 	snow_define_method(klass, "to_string", _array_inspect);
 	snow_define_method(klass, "each", _array_each);

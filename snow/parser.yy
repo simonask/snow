@@ -22,17 +22,17 @@
 %left <symbol> TOK_IDENTIFIER
 %left <symbol> TOK_PARALLEL_THREAD TOK_PARALLEL_FORK
 %left <symbol> TOK_OPERATOR_FOURTH
-%left <symbol> TOK_OPERATOR_THIRD
 %left <node> TOK_LOG_AND TOK_LOG_OR TOK_LOG_XOR TOK_LOG_NOT
+%left <symbol> TOK_OPERATOR_THIRD
 %left <symbol> TOK_OPERATOR_SECOND
 %left <symbol> TOK_OPERATOR_FIRST
 %left TOK_DOT
 
 %token <node> TOK_INTERPOLATION
 %token '.' ',' '[' ']' '{' '}' '(' ')' ':' '#'
-%token TOK_EOL TOK_DO TOK_UNLESS TOK_ELSE TOK_IF TOK_ELSEIF TOK_WHILE TOK_UNTIL
+%token TOK_EOL TOK_DO TOK_UNLESS TOK_ELSE TOK_IF TOK_ELSEIF TOK_WHILE TOK_UNTIL TOK_TRY TOK_CATCH TOK_ENSURE
 
-%type <node> statement conditional conditional_tail control loop
+%type <node> statement conditional conditional_tail control loop try try_catch catch_condition try_ensure
              function_call assignment operation variable log_operation member
              naked_closure closure local literal expression atomic_expr atomic_non_index_expr
              index_variable non_index_variable string_literal parallel_thread parallel_fork parallel_operation
@@ -59,6 +59,7 @@
 #define YYREALLOC snow_gc_realloc
 #define YYFREE
 
+#define YYMAXDEPTH 100000
 
 SnAstNode* snow_parse(const char* buf, struct SnParserInfo* out_info)
 {
@@ -102,9 +103,10 @@ program: sequence TOK_EOF  %dprec 3  { state->result = $$ = snow_ast_function("<
        ;
 
 statement: expression   %dprec 1
-         | control      %dprec 1
-         | conditional  %dprec 2
-         | loop         %dprec 2
+         | control      %dprec 2
+         | conditional  %dprec 3
+         | loop         %dprec 3
+         | try          %dprec 3
          ;
 
 
@@ -119,6 +121,22 @@ loop: TOK_WHILE expression eol sequence eol TOK_END  { $$ = snow_ast_loop($2, $4
     | statement TOK_UNTIL expression                 { $$ = snow_ast_loop(snow_ast_not($3), $1); }
     ;
 
+try: TOK_TRY sequence try_catch try_ensure TOK_END  { $$ = snow_ast_try($2, $3, $4); }
+   ;
+
+try_catch:                                                    { $$ = NULL; }
+         | TOK_CATCH catch_condition eol sequence             { $$ = snow_ast_catch(NULL, $2, $4); }
+         | TOK_CATCH identifier catch_condition eol sequence  { $$ = snow_ast_catch(symbol_to_value($2), $3, $5); }
+         ;
+
+catch_condition:                        { $$ = NULL; }
+               | TOK_IF expression      { $$ = $2; }
+               | TOK_UNLESS expression  { $$ = snow_ast_not($2); }
+               ;
+
+try_ensure:                      { $$ = NULL; }
+          | TOK_ENSURE sequence  { $$ = $2; }
+          ;
 
 conditional: TOK_IF expression eol sequence eol conditional_tail      { $$ = snow_ast_if_else($2, $4, $6); }
            | TOK_UNLESS expression eol sequence eol conditional_tail  { $$ = snow_ast_if_else(snow_ast_not($2), $4, $6); }
@@ -261,9 +279,9 @@ atomic_expr: atomic_non_index_expr
            ;
 
 expression: assignment %dprec 9999
-          | log_operation %dprec 1
+          | log_operation %dprec 3
           | atomic_expr %dprec 1
-          | operation %dprec 1
+          | operation %dprec 2
           ;
 
 %%

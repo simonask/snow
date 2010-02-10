@@ -2,7 +2,9 @@
 #include "snow/array.h"
 #include "snow/intern.h"
 #include "snow/str.h"
+#include "snow/linkbuffer.h"
 #include <stdarg.h>
+#include <stdio.h>
 
 // Order is crucial!
 static uintx ast_size[] = {
@@ -15,18 +17,46 @@ static uintx ast_size[] = {
 	0, //SN_AST_SELF,
 	0, //SN_AST_CURRENT_SCOPE,
 	1, //SN_AST_LOCAL,
-	3, //SN_AST_MEMBER,
+	2, //SN_AST_MEMBER,
 	2, //SN_AST_LOCAL_ASSIGNMENT,
 	3, //SN_AST_MEMBER_ASSIGNMENT,
 	3, //SN_AST_IF_ELSE,
 	2, //SN_AST_CALL,
 	2, //SN_AST_LOOP,
+	3, //SN_AST_TRY,
+	3, //SN_AST_CATCH,
 	2, //SN_AST_AND,
 	2, //SN_AST_OR,
 	2, //SN_AST_XOR,
 	1, //SN_AST_NOT,
-	1, //SN_AST_PARALLEL_THREAD
+	1, //SN_AST_PARALLEL_THREAD,
 	1, //SN_AST_PARALLEL_FORK
+};
+
+static const char* ast_name[] = {
+	"Literal",
+	"Sequence",
+	"Function",
+	"Return",
+	"Break",
+	"Continue",
+	"Self",
+	"Here",
+	"Local",
+	"Member",
+	"LocalAssignment",
+	"MemberAssignment",
+	"IfElse",
+	"Call",
+	"Loop",
+	"Try",
+	"Catch",
+	"And",
+	"Or",
+	"Xor",
+	"Not",
+	"ParallelThread",
+	"ParallelFork"
 };
 
 static SnAstNode* create_ast_node(SnAstNodeType type, ...)
@@ -96,6 +126,8 @@ SnAstNode* snow_ast_call(SnAstNode* func, SnAstNode* seq_args) {
 	return create_ast_node(SN_AST_CALL, func, seq_args);
 }
 SnAstNode* snow_ast_loop(SnAstNode* while_true, SnAstNode* body) { return create_ast_node(SN_AST_LOOP, while_true, body); }
+SnAstNode* snow_ast_try(SnAstNode* body, SnAstNode* catch, SnAstNode* ensure) { return create_ast_node(SN_AST_TRY, body, catch, ensure); }
+SnAstNode* snow_ast_catch(VALUE parameter, SnAstNode* condition, SnAstNode* body) { return create_ast_node(SN_AST_CATCH, parameter, condition, body); }
 SnAstNode* snow_ast_and(SnAstNode* left, SnAstNode* right) { return create_ast_node(SN_AST_AND, left, right); }
 SnAstNode* snow_ast_or(SnAstNode* left, SnAstNode* right)  { return create_ast_node(SN_AST_OR, left, right); }
 SnAstNode* snow_ast_xor(SnAstNode* left, SnAstNode* right) { return create_ast_node(SN_AST_XOR, left, right); }
@@ -104,7 +136,82 @@ SnAstNode* snow_ast_parallel_thread(SnAstNode* seq) { return create_ast_node(SN_
 SnAstNode* snow_ast_parallel_fork(SnAstNode* seq) { return create_ast_node(SN_AST_PARALLEL_FORK, seq); }
 
 
+SnSymbol snow_ast_type_name(SnAstNodeType type) {
+	return snow_symbol(ast_name[type]);
+}
+
+SNOW_FUNC(_ast_type) {
+	ASSERT_TYPE(SELF, SN_AST_TYPE);
+	SnAstNode* self = (SnAstNode*)SELF;
+	return symbol_to_value(snow_ast_type_name(self->type));
+}
+
+static void ast_pretty_print(VALUE root, intx indent) {
+	char indentation[(indent*4)+1];
+	memset(indentation, 0x20, sizeof(indentation));
+	indentation[indent*4] = '\0';
+	
+	printf("%s", indentation);
+	
+	if (snow_typeof(root) == SN_AST_TYPE) {
+		SnAstNode* node = (SnAstNode*)root;
+		printf("<%s ", snow_symbol_to_cstr(snow_ast_type_name(node->type)));
+		switch (node->type) {
+			case SN_AST_LITERAL:
+			case SN_AST_LOCAL:
+			{
+				printf("%s>\n", snow_inspect_value(node->children[0]));
+				break;
+			}
+			default:
+			{
+				printf("\n");
+				for (uintx i = 0; i < node->size; ++i) {
+					ast_pretty_print(node->children[i], indent+1);
+				}
+				printf("%s>\n", indentation);
+				break;
+			}
+		}
+	} else {
+		if (snow_typeof(root) == SN_ARRAY_TYPE) {
+			SnArray* array = (SnArray*)root;
+			printf("@(\n");
+			for (size_t i = 0; i < snow_array_size(array); ++i) {
+				ast_pretty_print(snow_array_get(array, i), indent+1);
+				if (i != snow_array_size(array)-1)
+					printf("%s,\n", indentation);
+			}
+			printf("%s)\n", indentation);
+		} else {
+			printf("%s\n", snow_inspect_value(root));
+		}
+	}
+}
+
+SNOW_FUNC(_ast_print) {
+	ASSERT_TYPE(SELF, SN_AST_TYPE);
+	SnAstNode* node = (SnAstNode*)SELF;
+	ast_pretty_print(node, 0);
+	return SN_NIL;
+}
+
+SNOW_FUNC(_ast_inspect) {
+	ASSERT_TYPE(SELF, SN_AST_TYPE);	
+	SnAstNode* node = (SnAstNode*)SELF;
+	return snow_format_string("<AstNode(%@)>", symbol_to_value(snow_ast_type_name(node->type)));
+}
+
+SNOW_FUNC(_ast_name) {
+	ASSERT_TYPE(SELF, SN_AST_TYPE);
+	SnAstNode* node = (SnAstNode*)SELF;
+	return symbol_to_value(snow_ast_type_name(node->type));
+}
+
 void init_ast_class(SnClass* klass)
 {
-	
+	snow_define_property(klass, "__name__", _ast_name, NULL);
+	snow_define_property(klass, "type", _ast_type, NULL);
+	snow_define_method(klass, "inspect", _ast_inspect);
+	snow_define_method(klass, "print", _ast_print);
 }

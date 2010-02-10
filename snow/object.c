@@ -317,6 +317,42 @@ SNOW_FUNC(object_property) {
 	return SELF;
 }
 
+SNOW_FUNC(object_getter) {
+	REQUIRE_ARGS(2);
+	
+	ASSERT_TYPE(ARGS[0], SN_SYMBOL_TYPE);
+	SnSymbol name = value_to_symbol(ARGS[0]);
+	
+	VALUE function = ARGS[1];
+	
+	if (!is_nil(function))
+		ASSERT_TYPE(function, SN_FUNCTION_TYPE);
+	else
+		function = NULL;
+	
+	snow_object_set_property_getter(SELF, name, function);
+	
+	return SELF;
+}
+
+SNOW_FUNC(object_setter) {
+	REQUIRE_ARGS(2);
+	
+	ASSERT_TYPE(ARGS[0], SN_SYMBOL_TYPE);
+	SnSymbol name = value_to_symbol(ARGS[0]);
+	
+	VALUE function = ARGS[1];
+	
+	if (!is_nil(function))
+		ASSERT_TYPE(function, SN_FUNCTION_TYPE);
+	else
+		function = NULL;
+	
+	snow_object_set_property_setter(SELF, name, function);
+	
+	return SELF;
+}
+
 void init_object_class(SnClass* klass)
 {
 	snow_define_method(klass, "inspect", object_inspect);
@@ -332,5 +368,8 @@ void init_object_class(SnClass* klass)
 	snow_define_method(klass, "__reset_assigned_name__", object_reset_assigned_name);
 	snow_define_method(klass, "__on_assign__", object_on_assign);
 	snow_define_method(klass, "include", object_include);
+	
 	snow_define_method(klass, "property", object_property);
+	snow_define_method(klass, "getter", object_getter);
+	snow_define_method(klass, "setter", object_setter);
 }

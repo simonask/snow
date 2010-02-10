@@ -1,0 +1,67 @@
+require("baselib/object.sn")
+
+false and Array.object_eval {
+  .reverse: {
+    result: @()
+    .each { result.unshift(it) }
+    result
+  }
+  
+  .select: [yield] {
+    result: @()
+    .each [elem, index] {
+      result << elem if yield(elem, index)
+    }
+    result
+  }
+  
+  .reject: [yield] {
+    result: @()
+    .each [elem, index] {
+      result << elem unless yield(elem, index)
+    }
+    result
+  }
+  
+  .detect: [yield] {
+    // WHY CAN'T I USE return HERE‽
+    i: 0
+    result: nil
+    while i < .length
+      if yield(self.get(i), i)
+        result: self.get(i)
+      end
+      i: i + 1
+    end
+    result
+  }
+  
+  // TODO: ARGUMENT_REFLECTION for initial_value.
+  .inject: [initial_value, yield] {
+    unless yield
+      yield: initial_value
+      initial_value: nil
+    end
+    if initial_value
+      index: 0
+      memo: initial_value
+    else
+      index: 1
+      memo: self.get(0)
+    end
+    
+    while index < .length
+      memo: yield(memo, self.get(index))
+      index: index + 1
+    end
+    
+    memo
+  }
+  
+  .sum: { self.inject(0) [memo, element] { memo + element } }
+  
+  .property(#empty?, { .length = 0 }, nil)
+  
+  .first: { .get(0) }
+  .last:  { .get(-1) }
+}

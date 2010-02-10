@@ -2,7 +2,7 @@
 #define INTERN_H_WXDJG2OI
 
 #if defined(__GNUC__) && __INCLUDE_LEVEL__ != 1
-#error Please don't include intern.h in header files.
+#error "Please don't include intern.h in header files."
 #endif
 
 #include "snow/snow.h"

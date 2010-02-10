@@ -162,10 +162,39 @@ SNOW_FUNC(arguments_map_pairs) {
 	return result;
 }
 
+SNOW_FUNC(arguments_inspect) {
+	ASSERT_TYPE(SELF, SN_ARGUMENTS_TYPE);
+	SnArguments* args = (SnArguments*)SELF;
+	
+	SnArray* parts = snow_create_array_with_size(array_size(NAMES) * 2 + 2);
+	SnString* colon = snow_create_string(":");
+	SnString* comma = snow_create_string(", ");
+	
+	snow_array_push(parts, snow_create_string("<Arguments "));
+	for (size_t i = 0; i < array_size(NAMES); ++i) {
+		VALUE name = array_get(NAMES, i);
+		VALUE value = array_get(DATA, i);
+		
+		if (i > 0)
+			snow_array_push(parts, comma);
+		
+		if (!is_nil(name)) {
+			snow_array_push(parts, name);
+			snow_array_push(parts, colon);
+		}
+		
+		snow_array_push(parts, snow_call_method(value, snow_symbol("inspect"), 0));
+	}
+	snow_array_push(parts, snow_create_string(">"));
+	
+	return snow_array_join(parts, "");
+}
+
 void init_arguments_class(SnClass* klass)
 {
 	snow_define_property(klass, "any?", arguments_any, NULL);
 	snow_define_property(klass, "unnamed", arguments_unnamed, NULL);
 	snow_define_method(klass, "detect", arguments_detect);
 	snow_define_method(klass, "map_pairs", arguments_map_pairs);
+	snow_define_method(klass, "inspect", arguments_inspect);
 }

@@ -20,6 +20,7 @@ void error(const char* fmt, ...)
 	va_end(ap);
 }
 
+#if defined(DEBUG)
 void debug(const char* fmt, ...)
 {
 	va_list ap;
@@ -27,6 +28,7 @@ void debug(const char* fmt, ...)
 	vprintf(fmt, ap);
 	va_end(ap);
 }
+#endif
 
 const char* value_to_cstr(VALUE val) {
 	VALUE converted = snow_call_method(val, snow_symbol("to_string"), 0);
