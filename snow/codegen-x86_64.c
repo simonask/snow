@@ -304,7 +304,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 			if (idx >= 0)
 			{
 				// local to this scope
-				ASM(mov, R14, RDI);
+				ASM(mov_rev, RDI, ADDRESS(R13, offsetof(SnContext, locals)));
+				//ASM(mov, R14, RDI);
 				ASM(mov_id, IMMEDIATE(idx), RSI);
 				CALL(snow_array_get);
 			}
@@ -347,7 +348,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 				// assign
 				codegen_compile_node(cgx, val);
 				// result is in RAX now
-				ASM(mov, R14, RDI);
+				ASM(mov_rev, RDI, ADDRESS(R13, offsetof(SnContext, locals)));
+				//ASM(mov, R14, RDI);
 				ASM(mov_id, IMMEDIATE(idx), RSI);
 				ASM(mov, RAX, RDX);
 				CALL(snow_array_set);
@@ -378,7 +380,8 @@ void codegen_compile_node(SnCodegenX* cgx, SnAstNode* node)
 						codegen_compile_node(cgx, val);
 						// result is in RAX now
 						ASSERT(idx >= 0);
-						ASM(mov, R14, RDI);
+						//ASM(mov, R14, RDI);
+						ASM(mov_rev, RDI, ADDRESS(R13, offsetof(SnContext, locals)));
 						ASM(mov_id, IMMEDIATE(idx), RSI);
 						ASM(mov, RAX, RDX);
 						CALL(snow_array_set);
