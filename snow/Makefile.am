@@ -1,11 +1,21 @@
 lib_LTLIBRARIES = libsnow.la
 
 if ARCH_x86_64
-SOURCES_x86_64 = arch-x86_64.c codegen-x86_64.c asm-x86_64.h continuation-intern-x86_64.c
-HEADERS_x86_64 = arch-x86_64.h
+SOURCES_ARCH = arch-x86_64.c codegen-x86_64.c asm-x86_64.h continuation-intern-x86_64.c
+HEADERS_ARCH = arch-x86_64.h
 endif
 
-libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
+if PARALLEL_IS_DISPATCH
+SOURCES_PARALLEL = task-dispatch.c
+else
+if PARALLEL_IS_OPENMP
+SOURCES_PARALLEL = task-openmp.c
+else
+SOURCES_PARALLEL = task-serial.c
+endif
+endif
+
+libsnow_la_SOURCES = $(SOURCES_ARCH) $(SOURCES_PARALLEL) \
 	arguments.c \
 	array.c \
 	ast.c \
@@ -31,11 +41,12 @@ libsnow_la_SOURCES =  $(SOURCES_x86_64) $(SOURCES_x86_32) \
 	snow.c \
 	str.c \
 	symbol.c \
-	task-openmp.c \
+	task.c \
 	pointer.c
 
+
 include_snowdir = $(includedir)/snow
-include_snow_HEADERS = $(HEADERS_x86_64) \
+include_snow_HEADERS = $(HEADERS_ARCH) \
 	arch.h \
 	arguments.h \
 	array.h \
@@ -72,6 +83,8 @@ noinst_HEADERS = \
 	debug.h \
 	task-intern.h \
 	intern.h
+
+
 
 CLEANFILES = parser.c parser.tab.h scanner.c
 

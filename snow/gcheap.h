@@ -10,6 +10,8 @@ typedef struct SnGCHeap {
 	byte* end;
 	
 	uint32_t num_objects;
+	uint32_t num_reachable;
+	uint32_t num_indefinite;
 	
 	SnGCFlags* flags;
 	uint32_t num_flags;
@@ -91,6 +93,8 @@ static inline void gc_heap_clear_flags(SnGCHeap* heap) {
 	snow_free(heap->flags);
 	heap->flags = NULL;
 	heap->num_flags = 0;
+	heap->num_indefinite = 0;
+	heap->num_reachable = 0;
 }
 
 static inline size_t gc_heap_available(const SnGCHeap* heap) {

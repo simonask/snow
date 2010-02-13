@@ -146,14 +146,14 @@ bool snow_thread_is_at_gc_barrier(size_t thread_index)
 	return threads[thread_index].gc_barrier;
 }
 
-void snow_thread_set_gc_barrier(size_t thread_index)
+void snow_thread_set_gc_barrier()
 {
-	threads[thread_index].gc_barrier = true;
+	threads[ME].gc_barrier = true;
 }
 
-void snow_thread_unset_gc_barrier(size_t thread_index)
+void snow_thread_unset_gc_barrier()
 {
-	threads[thread_index].gc_barrier = false;
+	threads[ME].gc_barrier = false;
 }
 
 bool snow_all_threads_at_gc_barrier() {
@@ -174,18 +174,6 @@ void snow_get_top_tasks(SnTask** out_tasks, size_t* out_num_threads)
 			out_tasks[(*out_num_threads)++] = threads[i].task;
 		}
 	}
-}
-
-SnContinuation* snow_get_current_continuation()
-{
-	return threads[ME].task->continuation;
-}
-
-void snow_set_current_continuation(SnContinuation* cc)
-{
-	SnTask* current_task = threads[ME].task;
-	ASSERT((uintx)current_task == cc->task_id);
-	current_task->continuation = cc;
 }
 
 void snow_abort_current_task(VALUE exception)
@@ -216,19 +204,3 @@ void snow_thread_returning_to_system_stack()
 		threads[ME].stack_bottom = NULL;
 }
 
-SnExceptionHandler* snow_current_exception_handler()
-{
-	return snow_get_current_task()->exception_handler;
-}
-
-void snow_push_exception_handler(SnExceptionHandler* handler)
-{
-	handler->previous = snow_current_exception_handler();
-	snow_get_current_task()->exception_handler = handler;
-}
-
-void snow_pop_exception_handler()
-{
-	SnTask* current_task = snow_get_current_task();
-	current_task->exception_handler = current_task->exception_handler->previous;
-}

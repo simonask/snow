@@ -18,7 +18,7 @@ TEST_CASE(parallel_for_each) {
 	}
 }
 
-
+/*
 static intx lock_test = 0;
 static SnLock lock;
 
@@ -30,9 +30,9 @@ static void lock_test_func(size_t i, void* userdata) {
 
 TEST_CASE(lock) {
 	snow_init_lock(&lock);
-	/*SnParallelCallback funcs[] = {lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func};
+	SnParallelCallback funcs[] = {lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func, lock_test_func};
 	snow_parallel_call_each(funcs, 8, NULL);
-	TEST(lock_test == 8);*/
+	TEST(lock_test == 8);
 }
 
 static intx rlock_test = 0;
@@ -53,7 +53,8 @@ static void rlock_test_func(size_t i, void* userdata) {
 
 TEST_CASE(recursive_lock) {
 	snow_init_recursive_lock(&rlock);
-/*	SnParallelCallback funcs[] = { rlock_test_func, rlock_test_func };
+	SnParallelCallback funcs[] = { rlock_test_func, rlock_test_func };
 	snow_parallel_call_each(funcs, 2, NULL);
-	TEST(rlock_test == 16);*/
+	TEST(rlock_test == 16);
 }
+*/

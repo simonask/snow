@@ -31,6 +31,7 @@ static SnClass* basic_classes[SN_TYPE_MAX];
 void snow_init()
 {
 	snow_init_gc();
+	
 	void* base;
 	GET_CALLER_BASE_PTR(base);
 	snow_init_parallel(base);
