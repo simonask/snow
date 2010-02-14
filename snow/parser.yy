@@ -57,7 +57,7 @@
 #undef YYFREE
 #define YYMALLOC snow_gc_alloc_blob
 #define YYREALLOC snow_gc_realloc
-#define YYFREE
+#define YYFREE(x) 
 
 #define YYMAXDEPTH 100000
 

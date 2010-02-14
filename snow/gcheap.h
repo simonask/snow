@@ -58,7 +58,6 @@ static inline byte* gc_heap_alloc(SnGCHeap* heap, size_t total_size, uint32_t* o
 	
 	byte* ptr = heap->current;
 	heap->current += total_size;
-	byte* object_end = heap->current;
 	*out_object_index = heap->num_objects++;
 	
 	// XXX: Unlock

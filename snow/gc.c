@@ -41,7 +41,6 @@ static void gc_major();
 static byte* gc_find_object_start(const struct SnGCHeap* heap, const byte* ptr, struct SnGCAllocInfo**, struct SnGCMetaInfo**);
 static struct SnGCHeap* gc_find_heap(const void* root);
 static bool gc_heap_contains(const struct SnGCHeap* heap, const void* root);
-static void gc_mark_stack(byte* bottom, byte* top);
 static void gc_compute_checksum(struct SnGCAllocInfo* alloc_info);
 static bool gc_check_checksum(const struct SnGCAllocInfo* alloc_info);
 static bool gc_looks_like_allocation(const byte* ptr);
