@@ -8,11 +8,7 @@ endif
 if PARALLEL_IS_DISPATCH
 SOURCES_PARALLEL = task-dispatch.c
 else
-if PARALLEL_IS_OPENMP
-SOURCES_PARALLEL = task-openmp.c
-else
 SOURCES_PARALLEL = task-serial.c
-endif
 endif
 
 libsnow_la_SOURCES = $(SOURCES_ARCH) $(SOURCES_PARALLEL) \
