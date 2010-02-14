@@ -30,3 +30,12 @@ void snow_set_current_continuation(SnContinuation* cc)
 	ASSERT((uintx)current_task == cc->task_id);
 	current_task->continuation = cc;
 }
+
+void snow_abort_current_task(VALUE exception)
+{
+	SnTask* current_task = snow_get_current_task();
+	ASSERT(current_task);
+	ASSERT(current_task->exception == NULL); // inconsistency: task should already be aborted at this point
+	current_task->exception = exception;
+	snow_continuation_resume(current_task->base);
+}

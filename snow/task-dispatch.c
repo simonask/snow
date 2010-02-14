@@ -148,14 +148,6 @@ static inline void with_each_thread_do(void(^func)(SnDispatchThreadState*)) {
 	dispatch_semaphore_signal(state_lock);
 }
 
-void snow_abort_current_task(VALUE exception)
-{
-	SnTask* current_task = snow_get_current_task();
-	ASSERT(current_task);
-	ASSERT(current_task->exception == NULL); // inconsistency: task should already be aborted at this point
-	current_task->exception = exception;
-	snow_continuation_resume(current_task->base);
-}
 
 // GC INTROSPECTION
 
