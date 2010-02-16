@@ -7,7 +7,7 @@
 struct fixed_alloc_t {
 	uintx page_size;
 	void* free_element;
-	SnLock lock;
+//	SnLock lock;
 	bool lock_initialized;
 };
 

@@ -31,6 +31,7 @@ static SnClass* basic_classes[SN_TYPE_MAX];
 void snow_init()
 {
 	snow_init_gc();
+	
 	void* base;
 	GET_CALLER_BASE_PTR(base);
 	snow_init_parallel(base);
@@ -83,6 +84,7 @@ void snow_init()
 	basic_classes[SN_BOOLEAN_TYPE] = snow_create_class("Boolean");
 	basic_classes[SN_SYMBOL_TYPE] = snow_create_class("Symbol");
 	basic_classes[SN_FLOAT_TYPE] = snow_create_class("Float");
+	basic_classes[SN_DEFERRED_TASK_TYPE] = snow_create_class("DeferredTask");
 	
 	// initialize all base classes
 	init_object_class(basic_classes[SN_OBJECT_TYPE]);
@@ -104,6 +106,7 @@ void snow_init()
 	init_boolean_class(basic_classes[SN_BOOLEAN_TYPE]);
 	init_symbol_class(basic_classes[SN_SYMBOL_TYPE]);
 	init_float_class(basic_classes[SN_FLOAT_TYPE]);
+	init_deferred_task_class(basic_classes[SN_DEFERRED_TASK_TYPE]);
 }
 
 VALUE snow_eval(const char* str)

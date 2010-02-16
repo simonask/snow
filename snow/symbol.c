@@ -7,7 +7,7 @@
 #include <string.h>
 
 static VALUE symbol_storage_key = NULL;
-static SnLock symbol_table_lock;
+//static SnLock symbol_table_lock;
 static bool symbol_table_lock_init = false;
 
 static SnArray* symbol_storage() {
@@ -20,11 +20,11 @@ SnSymbol snow_symbol(const char* cstr)
 {
 	if (!symbol_table_lock_init)
 	{
-		snow_init_lock(&symbol_table_lock);
+		//snow_init_lock(&symbol_table_lock);
 		symbol_table_lock_init = true;
 	}
 	
-	snow_lock(&symbol_table_lock);
+	//snow_lock(&symbol_table_lock);
 	
 	SnArray* storage = symbol_storage();
 	ASSERT(storage);
@@ -47,7 +47,7 @@ SnSymbol snow_symbol(const char* cstr)
 	snow_array_push(storage, str);
 	
 	out:
-	snow_unlock(&symbol_table_lock);
+	//snow_unlock(&symbol_table_lock);
 	return retval;
 }
 
@@ -69,13 +69,13 @@ const char* snow_symbol_to_cstr(SnSymbol sym)
 
 SnString* snow_symbol_to_string(SnSymbol sym)
 {
-	snow_lock(&symbol_table_lock);
+	//snow_lock(&symbol_table_lock);
 	SnArray* storage = symbol_storage();
 	ASSERT(storage);
 	ASSERT(sym < snow_array_size(storage));
 	SnString* str = snow_array_get(storage, sym);
 	ASSERT(str);
-	snow_unlock(&symbol_table_lock);
+	//snow_unlock(&symbol_table_lock);
 	return str;
 }
 

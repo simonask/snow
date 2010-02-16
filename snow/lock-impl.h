@@ -1,14 +1,10 @@
 #ifndef LOCK_IMPL_H_UNIUIKUD
 #define LOCK_IMPL_H_UNIUIKUD
 
-#include "snow/arch.h"
+/*#include "snow/arch.h"
 #include "snow/task.h"
 #include "snow/lock.h"
 #include <unistd.h>
-
-#ifndef ASSERT
-#error LOL
-#endif
 
 static inline void snow_init_lock(SnLock* lock);
 static inline bool snow_is_locked(SnLock* lock);
@@ -85,6 +81,6 @@ static inline void snow_recursive_unlock(SnRecursiveLock* lock) {
 		bool was_locked = snow_bit_test_and_clear(&lock->locked, 0);
 		ASSERT(was_locked); // not locked!
 	}
-}
+}*/
 
 #endif /* end of include guard: LOCK_H_UNIUIKUD */

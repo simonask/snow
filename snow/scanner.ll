@@ -45,7 +45,7 @@ do {                                                  \
 
 #define malloc snow_gc_alloc_blob
 #define realloc snow_gc_realloc
-#define free 
+#define free(X) 
 
 #define YY_USER_ACTION \
 	do { \

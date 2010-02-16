@@ -1,7 +1,7 @@
 #ifndef INTERN_H_WXDJG2OI
 #define INTERN_H_WXDJG2OI
 
-#if defined(__GNUC__) && __INCLUDE_LEVEL__ != 1
+#if defined(__GNUC__) && defined(__INCLUDE_LEVEL__) && __INCLUDE_LEVEL__ != 1
 #error "Please don't include intern.h in header files."
 #endif
 

@@ -1,7 +1,11 @@
 #include "snow/continuation-intern.h"
 #include "snow/arch-x86_64.h"
 
-#define NO_PROFILING __attribute__((flatten,no_instrument_function))
+#if defined(__GNUC__)
+#define NO_PROFILING __attribute__((no_instrument_function))
+#else
+#define NO_PROFILING
+#endif
 
 NOINLINE NO_PROFILING void _continuation_resume(SnContinuation* cc) {
 	SnVolatileRegisters vreg;

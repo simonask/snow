@@ -22,5 +22,6 @@ HIDDEN void init_nil_class(SnClass* klass);
 HIDDEN void init_boolean_class(SnClass* klass);
 HIDDEN void init_symbol_class(SnClass* klass);
 HIDDEN void init_float_class(SnClass* klass);
+HIDDEN void init_deferred_task_class(SnClass* klass);
 
 #endif /* end of include guard: PROTOTYPES_H_HFYBG82I */

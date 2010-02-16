@@ -3,6 +3,7 @@
 #include "snow/intern.h"
 #include "snow/continuation.h"
 #include "snow/task-intern.h"
+
 #include <pthread.h>
 #include <stdlib.h>
 #include <malloc/malloc.h>
@@ -40,7 +41,6 @@ static void gc_major();
 static byte* gc_find_object_start(const struct SnGCHeap* heap, const byte* ptr, struct SnGCAllocInfo**, struct SnGCMetaInfo**);
 static struct SnGCHeap* gc_find_heap(const void* root);
 static bool gc_heap_contains(const struct SnGCHeap* heap, const void* root);
-static void gc_mark_stack(byte* bottom, byte* top);
 static void gc_compute_checksum(struct SnGCAllocInfo* alloc_info);
 static bool gc_check_checksum(const struct SnGCAllocInfo* alloc_info);
 static bool gc_looks_like_allocation(const byte* ptr);
@@ -108,8 +108,16 @@ static void gc_free_chunk(void* chunk, size_t);
 #define GC_ADULT_SIZE 0x800000 // 8 MiB adult heaps
 #define GC_BIG_ALLOCATION_SIZE_LIMIT 0x1000 // everything above 4K will go in the "biggies" allocation list
 
+typedef struct SnGCNursery {
+	SnGCHeap heap;
+	struct SnGCNursery* next;
+	struct SnGCNursery* previous;
+} SnGCNursery;
+
 struct {
-	SnGCHeap nurseries[SNOW_MAX_CONCURRENT_TASKS];
+	pthread_mutex_t nursery_lock;
+	pthread_key_t nursery_key;
+	SnGCNursery* nursery_head;
 	
 	SnGCHeapList adults;
 	SnGCHeapList biggies;
@@ -135,10 +143,47 @@ struct {
 	} info;
 } GC;
 
-#define MY_NURSERY (&GC.nurseries[snow_get_current_thread_index()])
+static SnGCNursery* add_nursery() {
+	SnGCNursery* nursery = (SnGCNursery*)snow_malloc(sizeof(SnGCNursery));
+	gc_heap_init(&nursery->heap);
+	pthread_setspecific(GC.nursery_key, nursery);
+	nursery->previous = NULL;
+	
+	pthread_mutex_lock(&GC.nursery_lock);
+	nursery->next = GC.nursery_head;
+	if (nursery->next) {
+		ASSERT(nursery->next->previous == NULL);
+		nursery->next->previous = nursery;
+	}
+	GC.nursery_head = nursery;
+	pthread_mutex_unlock(&GC.nursery_lock);
+	return nursery;
+}
+
+static inline SnGCHeap* gc_my_nursery() {
+	SnGCNursery* nursery = (SnGCNursery*)pthread_getspecific(GC.nursery_key);
+	if (!nursery) {
+		nursery = add_nursery();
+	}
+	return &nursery->heap;
+}
+
+static void gc_finalize_nursery(void* _nursery) {
+	SnGCNursery* nursery = (SnGCNursery*)_nursery;
+	pthread_mutex_lock(&GC.nursery_lock);
+	gc_heap_list_push_heap(&GC.adults, &nursery->heap);
+	if (nursery->previous) nursery->previous->next = nursery->next;
+	if (nursery->next) nursery->next->previous = nursery->previous;
+	if (GC.nursery_head == nursery) GC.nursery_head = nursery->next;
+	pthread_mutex_unlock(&GC.nursery_lock);
+	snow_free(nursery);
+}
 
 void snow_init_gc() {
 	memset(&GC, 0, sizeof(GC));
+	pthread_key_create(&GC.nursery_key, gc_finalize_nursery);
+	int n = pthread_mutex_init(&GC.nursery_lock, NULL);
+	ASSERT(n == 0);
 	gc_heap_list_init(&GC.adults);
 	gc_heap_list_init(&GC.biggies);
 	gc_heap_list_init(&GC.unkillables);
@@ -225,10 +270,10 @@ static inline void* gc_alloc(size_t size, SnGCAllocType alloc_type) {
 	}
 	else
 	{
-		ptr = gc_heap_alloc(MY_NURSERY, total_size, &object_index, GC_NURSERY_SIZE);
+		ptr = gc_heap_alloc(gc_my_nursery(), total_size, &object_index, GC_NURSERY_SIZE);
 		if (!ptr) {
 			snow_gc();
-			ptr = gc_heap_alloc(MY_NURSERY, total_size, &object_index, GC_NURSERY_SIZE);
+			ptr = gc_heap_alloc(gc_my_nursery(), total_size, &object_index, GC_NURSERY_SIZE);
 			ASSERT(ptr); // garbage collection didn't free up enough space!
 		}
 	}
@@ -307,11 +352,17 @@ static inline bool gc_maybe_contains(const void* root) {
 SnGCHeap* gc_find_heap(const void* root) {
 	if (!gc_maybe_contains(root)) return NULL;
 	
-	for (uint32_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
-		if (gc_heap_contains(GC.nurseries + i, root)) return GC.nurseries + i;
-	}
-	
 	SnGCHeap* heap = NULL;
+	pthread_mutex_lock(&GC.nursery_lock);
+	for (SnGCNursery* nursery = GC.nursery_head; nursery != NULL; nursery = nursery->next) {
+		if (gc_heap_contains(&nursery->heap, root)) {
+			heap = &nursery->heap;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&GC.nursery_lock);
+	if (heap) return heap;
+	
 	heap = gc_heap_list_find_heap(&GC.adults, root);
 	if (heap) return heap;
 	heap = gc_heap_list_find_heap(&GC.biggies, root);
@@ -322,29 +373,15 @@ SnGCHeap* gc_find_heap(const void* root) {
 	return heap;
 }
 
-bool _snow_gc_task_at_barrier() {
-	return snow_thread_is_at_gc_barrier(snow_get_current_thread_index());
-}
-
-void _snow_gc_task_set_barrier() {
-	snow_thread_set_gc_barrier(snow_get_current_thread_index());
-}
-
-void _snow_gc_task_unset_barrier() {
-	snow_thread_unset_gc_barrier(snow_get_current_thread_index());
-}
-
 void snow_gc() {
+	ASSERT(!_snow_gc_is_collecting);
 	_snow_gc_is_collecting = true;
 	snow_gc_barrier_enter();
-	void* sp;
-	GET_STACK_PTR(sp);
-	snow_thread_departing_from_system_stack(sp); // register extents for ourselves
 	
 	uintx mem_before = GC.info.total_mem_usage;
 	
 	// wait for other threads to reach barriers
-	while (!snow_all_threads_at_gc_barrier()) { snow_task_yield(); }
+	snow_set_gc_barriers();
 	
 	if (GC.num_minor_collections_since_last_major_collection > 10) {
 		// TODO: Better heuristics for when to perform major collections
@@ -366,8 +403,8 @@ void snow_gc() {
 	
 	gc_clear_statistics();
 	
-	snow_thread_returning_to_system_stack();
 	_snow_gc_is_collecting = false;
+	snow_unset_gc_barriers();
 	snow_gc_barrier_leave();
 }
 
@@ -394,16 +431,15 @@ void gc_with_definite_roots_do(SnGCAction action) {
 	}
 }
 
+static void do_task_stack(SnTask* task, void* userdata) {
+	SnGCAction action;
+	CAST_DATA_TO_FUNCTION(action, userdata);
+	ASSERT(task->stack_top && task->stack_bottom); // a task is alive during GC?!?!
+	gc_with_stack_do((byte*)task->stack_bottom, (byte*)task->stack_top, action);
+}
+
 void gc_with_everything_do(SnGCAction action) {
-	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
-		void* stack_top;
-		void* stack_bottom;
-		snow_get_thread_stack_extents(i, &stack_top, &stack_bottom);
-		ASSERT((stack_top && stack_bottom) || (!stack_top && !stack_bottom)); // stack extent calculation mismatch!
-		if (stack_top && stack_bottom) {
-			gc_with_stack_do((byte*)stack_bottom, (byte*)stack_top, action);
-		}
-	}
+	snow_with_each_task_do(do_task_stack, action);
 	
 	gc_with_definite_roots_do(action);
 }
@@ -511,8 +547,9 @@ void gc_with_object_do(VALUE object, SnGCAllocInfo* alloc_info, SnGCMetaInfo* me
 }
 
 static inline void gc_clear_flags() {
-	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
-		gc_heap_clear_flags(GC.nurseries + i);
+	// only called during collection, no need to acquire locks
+	for (SnGCNursery* nursery = GC.nursery_head; nursery != NULL; nursery = nursery->next) {
+		gc_heap_clear_flags(&nursery->heap);
 	}
 	gc_heap_list_clear_flags(&GC.adults);
 	gc_heap_list_clear_flags(&GC.biggies);
@@ -544,48 +581,42 @@ static inline void gc_invalidate_transplanted(SnGCHeap* heap, byte* object, SnGC
 	}
 }
 
-struct sweep_state_t {
-	SnGCHeapList* transplant_to;
-	uint32_t num_indefinites;
-};
-
 static inline void gc_transplant_or_finalize_object(SnGCHeap* heap, byte* object, SnGCAllocInfo* alloc_info, SnGCMetaInfo* meta_info, void* userdata) {
-	struct sweep_state_t* state = (struct sweep_state_t*)userdata;
-	
+	SnGCHeapList* transplant_to = (SnGCHeapList*)userdata;
 	SnGCFlags flags = gc_heap_get_flags(heap, alloc_info->object_index);
 	if (flags & GC_MARK) {
 		if (flags & GC_INDEFINITE) {
 			// indefinitely referenced, can't transplant the object :(
-			++state->num_indefinites;
 		} else {
-			gc_transplant(object, alloc_info, meta_info, state->transplant_to);
+			gc_transplant(object, alloc_info, meta_info, transplant_to);
 			gc_heap_set_flags(heap, alloc_info->object_index, GC_TRANSPLANTED);
+			--heap->num_reachable;
 		}
 	} else {
 		gc_finalize_object(object, alloc_info, meta_info);
 	}
 }
 
-static inline void gc_sweep_heap(SnGCHeap* heap, uint32_t* out_num_indefinites, SnGCHeapList* transplant_to) {
-	struct sweep_state_t state = { transplant_to, 0 };
-	gc_with_each_object_in_heap_do(heap, gc_transplant_or_finalize_object, &state);
-	*out_num_indefinites = state.num_indefinites;
+static inline void gc_sweep_heap(SnGCHeap* heap, SnGCHeapList* transplant_to) {
+	gc_with_each_object_in_heap_do(heap, gc_transplant_or_finalize_object, transplant_to);
 }
 
-static inline void gc_sweep_nurseries(uint32_t* num_indefinites_per_nursery_heap) {
-	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
-		if (GC.nurseries[i].start == NULL) continue;
-		
-		SnGCHeap* heap = GC.nurseries + i;
-		gc_sweep_heap(heap, num_indefinites_per_nursery_heap + i, &GC.adults);
+static inline void gc_sweep_nurseries() {
+	// only called during collection, no need to acquire locks
+	for (SnGCNursery* nursery = GC.nursery_head; nursery != NULL; nursery = nursery->next) {
+		SnGCHeap* heap = &nursery->heap;
+		if (heap->start == NULL) continue;
+
+		gc_sweep_heap(heap, &GC.adults);
 	}
 }
 
-static inline void gc_reset_or_save_nurseries(uint32_t* num_indefinites_per_nursery_heap) {
-	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
-		SnGCHeap* heap = GC.nurseries + i;
+static inline void gc_reset_or_save_nurseries() {
+	// only called during collection, no need to acquire locks
+	for (SnGCNursery* nursery = GC.nursery_head; nursery != NULL; nursery = nursery->next) {
+		SnGCHeap* heap = &nursery->heap;
 		
-		if (num_indefinites_per_nursery_heap[i] > 0) {
+		if (heap->num_indefinite > 0) {
 			gc_heap_list_push_heap(&GC.unkillables, heap);
 			memset(heap, 0, sizeof(SnGCHeap));
 		} else {
@@ -595,18 +626,13 @@ static inline void gc_reset_or_save_nurseries(uint32_t* num_indefinites_per_nurs
 }
 
 void gc_minor() {
-	ASSERT(snow_all_threads_at_gc_barrier());
-	
 	gc_with_everything_do(gc_mark_root);
-	
-	uint32_t num_indefinites[SNOW_MAX_CONCURRENT_TASKS];
-	memset(num_indefinites, 0, SNOW_MAX_CONCURRENT_TASKS*sizeof(uint32_t));
-	
-	gc_sweep_nurseries(num_indefinites);
+
+	gc_sweep_nurseries();
 
 	gc_with_everything_do(gc_update_root);
 	
-	gc_reset_or_save_nurseries(num_indefinites);
+	gc_reset_or_save_nurseries();
 	
 	// At this point, the "unkillable" heaps may still contain transplanted objects, so mark them as invalid pointers
 	for (SnGCHeapListNode* node = GC.unkillables.head; node != NULL; node = node->next) {
@@ -615,8 +641,6 @@ void gc_minor() {
 }
 
 void gc_major() {
-	ASSERT(snow_all_threads_at_gc_barrier());
-	
 	// TODO: This can be more efficient -- is it really necessary to run a full minor collection?
 	
 	gc_minor();
@@ -625,10 +649,6 @@ void gc_major() {
 	gc_with_everything_do(gc_mark_root);
 	
 	// now all objects are in the adult, unkillable, or big heaps, so deal with them with different strategies
-	for (size_t i = 0; i < SNOW_MAX_CONCURRENT_TASKS; ++i) {
-		// make sure that all nursery heaps are empty at this point
-		ASSERT(GC.nurseries[i].start == GC.nurseries[i].current);
-	}
 	
 	// compact the adult heaps by reallocating all reachable adult objects
 	SnGCHeapList new_adults;
@@ -637,9 +657,8 @@ void gc_major() {
 	gc_heap_list_init(&new_unkillables);
 	for (SnGCHeapListNode* node = GC.adults.head; node != NULL;) {
 		SnGCHeap* heap = &node->heap;
-		uint32_t num_indefinites = 0;
-		gc_sweep_heap(heap, &num_indefinites, &new_adults);
-		if (num_indefinites > 0) {
+		gc_sweep_heap(heap, &new_adults);
+		if (heap->num_indefinite > 0) {
 			// something was not put in new_adults
 			gc_heap_list_push_heap(&new_unkillables, heap);
 		} else {
@@ -655,9 +674,8 @@ void gc_major() {
 	// check unkillables for reachable objects -- don't touch them if there are reachable objects
 	for (SnGCHeapListNode* node = GC.unkillables.head; node != NULL;) {
 		SnGCHeap* heap = &node->heap;
-		uint32_t num_indefinites = 0;
-		gc_sweep_heap(heap, &num_indefinites, &GC.adults);
-		if (num_indefinites > 0) {
+		gc_sweep_heap(heap, &GC.adults);
+		if (heap->num_indefinite > 0) {
 			node = node->next;
 		} else {
 			// no indefinites, so no objects at all
@@ -728,10 +746,14 @@ void gc_mark_root(VALUE* root_p, bool on_stack) {
 		if (flags != new_flags) {
 			gc_heap_set_flags(heap, alloc_info->object_index, new_flags);
 			
-			if (new_flags & GC_INDEFINITE)
+			if (new_flags & GC_INDEFINITE) {
+				++heap->num_indefinite;
 				++GC.stats.indefinites;
-			if (new_flags & GC_MARK)
+			}
+			if (new_flags & GC_MARK) {
+				++heap->num_reachable;
 				++GC.stats.survived;
+			}
 		}
 		
 		if (!(flags & GC_MARK)) {

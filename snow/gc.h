@@ -70,35 +70,6 @@ CAPI uintx snow_gc_allocated_size(const void* data);
 extern volatile bool _snow_gc_is_collecting;
 static inline bool snow_gc_is_collecting() { return _snow_gc_is_collecting; }
 
-CAPI bool _snow_gc_task_at_barrier();
-CAPI void _snow_gc_task_set_barrier();
-CAPI void _snow_gc_task_unset_barrier();
-
-/*
-	snow_gc_barrier_enter: Tell the GC that it is safe to perform a collection between this call and a
-	call to snow_gc_barrier_leave.
-	
-	CAUTION: Accessing any GC-allocated memory between snow_gc_barrier_enter() and
-	snow_gc_barrier_leave() will cause undefined behavior. Calling snow_gc_barrier_enter() without
-	calling snow_gc_barrier_leave() will cause undefined behavior. Calling snow_gc_barrier_leave()
-	without having called snow_gc_barrier_enter() beforehand will cause undefined behavior.
-*/
-static inline void snow_gc_barrier_enter() {
-	if (snow_gc_is_collecting()) _snow_gc_task_set_barrier();
-}
-
-/*
-	snow_gc_barrier_leave: Tell the GC that it is no longer safe to perform a collection. If a
-	collection is in progress, this thread will wait until the collection is done before returning
-	from snow_gc_barrier_leave.
-	
-	See snow_gc_barrier_enter for warnings and cautions about this.
-*/
-static inline void snow_gc_barrier_leave() {
-	while (snow_gc_is_collecting() && _snow_gc_task_at_barrier()) snow_task_yield();
-	_snow_gc_task_unset_barrier();
-}
-
 /*
 	snow_gc_barrier: Insert GC barrier, which gives the GC a chance to temporarily stop the thread
 	while performing a collection. Insert calls to this function in busy loops and functions that
@@ -109,9 +80,8 @@ static inline void snow_gc_barrier() {
 		SnExecutionState state;
 		if (snow_save_execution_state(&state))
 			return;
-		_snow_gc_task_set_barrier();
-		while (snow_gc_is_collecting()) snow_task_yield();
-		_snow_gc_task_unset_barrier();
+		snow_gc_barrier_enter();
+		snow_gc_barrier_leave();
 		snow_restore_execution_state(&state);
 	}
 }

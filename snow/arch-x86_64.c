@@ -10,8 +10,8 @@ bool snow_save_execution_state(SnExecutionState* state)
 		// rbp stored on the stack
 		"movq (%%rbp), %%rcx\n"
 		"movq %%rcx, 8(%%rax)\n"
-		// rsp is rsp+0x10, since the stack size of this function is 0 + size of link space (saved %rbp and %rsp)
-		"movq %%rsp, 16(%%rax)\n"
+		// rsp of caller is rbp + size of link area
+		"movq %%rbp, 16(%%rax)\n"
 		"addq $0x10, 16(%%rax)\n"
 		// other regs
 		"movq %%r12, 24(%%rax)\n"
@@ -45,7 +45,7 @@ void snow_restore_execution_state(SnExecutionState* state)
 		// return value for snow_save_execution_state
 		"movq $1, %%rax\n"
 		// perform the jump
-		"jmpq *%%r11"
+		"jmpq *%%r11\n"
 	:: "r"(state)
 	: "%rax", "%r8", "%rdi"
 	);

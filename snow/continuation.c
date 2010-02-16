@@ -126,9 +126,9 @@ void snow_continuation_resume(SnContinuation* cc)
 	}
 	
 	if (snow_task_is_base_continuation(cc)) {
-		snow_thread_returning_to_system_stack();
+//		snow_thread_returning_to_system_stack();
 	} else {
-		snow_thread_departing_from_system_stack();
+//		snow_thread_departing_from_system_stack();
 	}
 	
 	_continuation_resume(cc);

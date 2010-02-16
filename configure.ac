@@ -6,15 +6,11 @@ AC_CONFIG_HEADERS(config.h)
 
 AC_CANONICAL_HOST()
 
-AC_PROG_CC([ gcc-mp-4.4 gcc ])
-
-AM_PROG_AS([ gcc-mp-4.4 gcc ])
-
-AM_PROG_LD([ gcc-mp-4.4 gcc ])
-
-AC_PROG_LEX([ flex ])
-
-AC_PROG_YACC([ bison ])
+AC_PROG_CC([clang gcc])
+AM_PROG_AS([clang gcc])
+AM_PROG_LD([ld])
+AC_PROG_LEX([flex])
+AC_PROG_YACC([bison])
 
 AM_PROG_LIBTOOL
 LT_INIT([dlopen,shared])
@@ -35,13 +31,47 @@ esac
 AM_CONDITIONAL(ARCH_x86_64, test "x$ARCH" = xx86_64)
 AM_CONDITIONAL(ARCH_x86_32, test "x$ARCH" = xx86_32)
 
-_DEBUG_CFLAGS="-O0 -g -pg -DDEBUG"
-_RELEASE_CFLAGS="-Os -pipe -Wdisabled-optimization"
-_WARNING_CFLAGS="-Wall -Werror=shadow -pedantic-errors -Werror -Wall -Wno-unused"
+AC_CHECK_HEADER(dispatch/dispatch.h,
+	[
+		if test $CC = "clang"; then
+			# Only use GCD if clang exists
+			PARALLEL_FRAMEWORK="dispatch"
+			AC_DEFINE([PARALLEL_IS_DISPATCH], [1], [Whether or not the parallel framework in use is Grand Central Dispatch.])
+		else
+			echo "WARNING: Grand Central Dispatch found, but not using Clang. Disabling parallelism."
+		fi
+	],
+	[
+		echo "Parallelism disabled (parallel operations will run in serial)."
+	]
+)
 
-CFLAGS="-std=c99 -fopenmp $ARCH_CFLAGS $_WARNING_CFLAGS $_DEBUG_CFLAGS"
+AM_CONDITIONAL(PARALLEL_IS_DISPATCH, test "x$PARALLEL_FRAMEWORK" = xdispatch)
+AM_CONDITIONAL(PARALLEL_IS_DISABLED, test "x$PARALLEL_FRAMEWORK" = x)
+
+GCC_DEBUG_CFLAGS="-O0 -g -pg -DDEBUG"
+GCC_RELEASE_CFLAGS="-Os -pipe -Wdisabled-optimization"
+GCC_WARNING_CFLAGS="-pedantic-errors -Wall -Werror -Wno-unused"
+GCC_CFLAGS="-std=c99 $ARCH_CFLAGS $GCC_WARNING_CFLAGS $GCC_DEBUG_CFLAGS"
+
+CLANG_DEBUG_CFLAGS="-O0 -g -DDEBUG"
+CLANG_RELEASE_CFLAGS="-Os -Wdisabled-optimization"
+CLANG_WARNING_CFLAGS="-Wall -Werror -Wno-error=unused-value"
+CLANG_CFLAGS="-std=c99 -fblocks $PARALLEL_CFLAGS $ARCH_CFLAGS $CLANG_WARNING_CFLAGS $CLANG_DEBUG_CFLAGS"
+
+case $CC in
+	clang*)
+		echo "Using Clang compiler."
+		CFLAGS="$CLANG_CFLAGS"
+	;;
+	gcc*)
+		echo "Using GCC compiler."
+		CFLAGS="$GCC_CFLAGS"
+	;;
+esac
+
 CCASFLAGS="$CFLAGS"
-LDFLAGS="-Wl,-all_load -ldl -lm"
+LDFLAGS="$PARALLEL_LDFLAGS -Wl,-all_load -ldl -lm"
 
 AC_PROG_LIBTOOL
 

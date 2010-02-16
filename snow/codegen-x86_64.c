@@ -54,7 +54,7 @@ void codegen_free_tmp(SnCodegenX* cgx, intx tmp)
 	snow_array_push(cgx->tmp_freelist, int_to_value(tmp));
 }
 
-#define ASM(instr, ...) asm_##instr(cgx->base.buffer, ##__VA_ARGS__)
+#define ASM(instr, ...) asm_##instr(cgx->base.buffer, __VA_ARGS__)
 #define ASM_S(instr) asm_##instr(cgx->base.buffer)
 #define ASM_LABEL ASM_S(label)
 #define RESERVE_TMP() codegen_reserve_tmp(cgx)
