@@ -3,6 +3,7 @@
 #include "snow/continuation.h"
 #include "snow/intern.h"
 #include "snow/exception-intern.h"
+#include "snow/class.h"
 
 #include <dispatch/dispatch.h>
 #include <dispatch/group.h>
@@ -128,8 +129,6 @@ static void collect_exceptions_and_rethrow(SnTask* tasks, size_t num_tasks)
 
 void snow_parallel_for_each(void* data, size_t element_size, size_t num_elements, SnParallelForEachCallback func, void* userdata)
 {
-	SnTask* task = snow_get_current_task();
-	ASSERT(task->stack_bottom == NULL);
 	snow_gc_barrier_enter();
 	
 	SnTask _tasks[num_elements];
@@ -193,4 +192,61 @@ void snow_with_each_task_do(SnTaskIteratorFunc func, void* userdata) {
 			func(task, userdata);
 		}
 	});
+}
+
+static void deferred_task_finalize(void* _task) {
+	SnDeferredTask* task = (SnDeferredTask*)_task;
+	dispatch_group_t group = (dispatch_group_t)task->private;
+	dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+	dispatch_release(group);
+}
+
+SnDeferredTask* snow_deferred_call(VALUE closure) {
+	__block SnDeferredTask* task = (SnDeferredTask*)snow_alloc_any_object(SN_DEFERRED_TASK_TYPE, sizeof(SnDeferredTask));
+	snow_gc_set_free_func(task, deferred_task_finalize);
+	task->closure = closure;
+	task->result = NULL;
+	dispatch_group_t group = dispatch_group_create();
+	task->private = group;
+	task->task = NULL;
+	dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+	snow_gc_barrier_enter();
+	dispatch_group_async(group, q, ^{
+		SnTask t;
+		memset(&t, 0, sizeof(t));
+		task->task = &t;
+		perform_task(task->task, ^{
+			volatile SnDeferredTask* my_task = task; // root for gc
+			my_task->result = snow_call(NULL, closure, 0);
+		});
+		task->task = NULL;
+	});
+	snow_gc_barrier_leave();
+	return task;
+}
+
+VALUE snow_deferred_task_wait(SnDeferredTask* task) {
+	// TODO: add custom timeout
+	dispatch_group_wait((dispatch_group_t)task->private, DISPATCH_TIME_FOREVER);
+	return task->result;
+}
+
+/*
+	SNOW API
+*/
+
+SNOW_FUNC(deferred_task_new) {
+	REQUIRE_ARGS(1);
+	return snow_deferred_call(ARGS[0]);
+}
+
+SNOW_FUNC(deferred_task_wait) {
+	ASSERT_TYPE(SELF, SN_DEFERRED_TASK_TYPE);
+	return snow_deferred_task_wait((SnDeferredTask*)SELF);
+}
+
+void init_deferred_task_class(SnClass* klass) {
+	snow_define_class_method(klass, "__call__", deferred_task_new);
+	snow_define_method(klass, "wait", deferred_task_wait);
+	snow_define_property(klass, "result", deferred_task_wait, NULL);
 }

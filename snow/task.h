@@ -2,12 +2,26 @@
 #define TASK_H_EVOMPGLT
 
 #include "snow/basic.h"
+#include "snow/object.h"
 #include <unistd.h>
 
 CAPI void snow_init_parallel(void* stack_top);
 
 typedef void(*SnParallelForEachCallback)(void* data, size_t element_size, size_t index, void* userdata);
 CAPI void snow_parallel_for_each(void* data, size_t element_size, size_t num_elements, SnParallelForEachCallback func, void* userdata);
+
+struct SnTask;
+typedef struct SnDeferredTask {
+	SnObjectBase base;
+	VALUE closure;
+	VALUE result;
+	
+	void* private;
+	struct SnTask* task;
+} SnDeferredTask;
+
+CAPI SnDeferredTask* snow_deferred_call(VALUE closure);
+CAPI VALUE snow_deferred_task_wait(SnDeferredTask* task);
 
 /*
 	snow_gc_barrier_enter: Tell the GC that it is safe to perform a collection between this call and a
