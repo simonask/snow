@@ -5,9 +5,10 @@
 #include "snow/array.h"
 #include "snow/lock.h"
 #include <string.h>
+#include <pthread.h>
 
 static VALUE symbol_storage_key = NULL;
-//static SnLock symbol_table_lock;
+static pthread_mutex_t symbol_table_lock;
 static bool symbol_table_lock_init = false;
 
 static SnArray* symbol_storage() {
@@ -20,11 +21,11 @@ SnSymbol snow_symbol(const char* cstr)
 {
 	if (!symbol_table_lock_init)
 	{
-		//snow_init_lock(&symbol_table_lock);
+		pthread_mutex_init(&symbol_table_lock, NULL);
 		symbol_table_lock_init = true;
 	}
 	
-	//snow_lock(&symbol_table_lock);
+	pthread_mutex_lock(&symbol_table_lock);
 	
 	SnArray* storage = symbol_storage();
 	ASSERT(storage);
@@ -47,7 +48,7 @@ SnSymbol snow_symbol(const char* cstr)
 	snow_array_push(storage, str);
 	
 	out:
-	//snow_unlock(&symbol_table_lock);
+	pthread_mutex_unlock(&symbol_table_lock);
 	return retval;
 }
 
@@ -69,13 +70,13 @@ const char* snow_symbol_to_cstr(SnSymbol sym)
 
 SnString* snow_symbol_to_string(SnSymbol sym)
 {
-	//snow_lock(&symbol_table_lock);
+	pthread_mutex_lock(&symbol_table_lock);
 	SnArray* storage = symbol_storage();
 	ASSERT(storage);
 	ASSERT(sym < snow_array_size(storage));
 	SnString* str = snow_array_get(storage, sym);
 	ASSERT(str);
-	//snow_unlock(&symbol_table_lock);
+	pthread_mutex_unlock(&symbol_table_lock);
 	return str;
 }
 

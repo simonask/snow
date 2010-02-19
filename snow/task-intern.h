@@ -23,6 +23,8 @@ CAPI void snow_with_each_task_do(SnTaskIteratorFunc func, void* userdata);
 
 CAPI void snow_set_gc_barriers();   // locks all gc barriers across all threads
 CAPI void snow_unset_gc_barriers(); // unlocks all gc barriers
+CAPI void snow_task_pause();        // pause for garbage collection
+CAPI void snow_task_resume();       // resume after gc
 
 CAPI void snow_set_current_continuation(struct SnContinuation* cc);
 CAPI void snow_abort_current_task(VALUE exception);

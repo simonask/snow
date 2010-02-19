@@ -17,7 +17,7 @@ typedef struct SnDispatchThreadState {
 } SnDispatchThreadState;
 
 static pthread_key_t state_key;
-static dispatch_semaphore_t state_lock;
+static dispatch_semaphore_t state_lock = NULL;
 static SnDispatchThreadState* state = NULL;
 
 static SnDispatchThreadState* init_thread() {
@@ -42,8 +42,9 @@ static SnDispatchThreadState* init_thread() {
 }
 
 static void finalize_thread(void* _state) {
-	dispatch_semaphore_wait(state_lock, DISPATCH_TIME_FOREVER);
 	SnDispatchThreadState* s = (SnDispatchThreadState*)_state;
+	dispatch_semaphore_signal(s->gc_barrier); // when finalizing a thread during gc, we don't want to wait for this.
+	dispatch_semaphore_wait(state_lock, DISPATCH_TIME_FOREVER);
 	if (s->next) s->next->previous = s->previous;
 	if (s->previous) s->previous->next = s->next;
 	state = s->next;
@@ -79,14 +80,15 @@ uintx snow_get_current_task_id() {
 
 static inline void perform_task(SnTask* task, void(^func)()) {
 	SnDispatchThreadState* s = get_state();
+	SnTask* parent_task = s->current_task;
+	
+	if (parent_task) {
+		snow_task_pause();
+	}
 	
 	GET_STACK_PTR(task->stack_top);
-	task->previous = s->current_task;
+	task->previous = parent_task;
 	s->current_task = task;
-	
-	if (task->previous != NULL) {
-		snow_gc_barrier_leave(); // we're being invoked on the same thread as our caller, so leave the barrier
-	}
 	
 	SnContinuation base;
 	snow_continuation_init(&base, NULL, NULL);
@@ -101,11 +103,12 @@ static inline void perform_task(SnTask* task, void(^func)()) {
 		func();
 	}
 	
-	if (task->previous != NULL) {
-		snow_gc_barrier_enter(); // see above
-	}
-	
 	s->current_task = task->previous;
+	ASSERT(s->current_task == parent_task); // stack corruption?
+	
+	if (parent_task) {
+		snow_task_resume();
+	}
 }
 
 static void collect_exceptions_and_rethrow(SnTask* tasks, size_t num_tasks)
@@ -128,61 +131,80 @@ static void collect_exceptions_and_rethrow(SnTask* tasks, size_t num_tasks)
 
 void snow_parallel_for_each(void* data, size_t element_size, size_t num_elements, SnParallelForEachCallback func, void* userdata)
 {
-	snow_gc_barrier_enter();
-	
 	SnTask _tasks[num_elements];
 	memset(_tasks, 0, sizeof(_tasks));
 	SnTask* tasks = _tasks;
 	
-	dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-	dispatch_apply(num_elements, q, ^(size_t i) {
-		perform_task(tasks + i, ^{
-			func(data, element_size, i, userdata);
-		});
-	});
+	SnTask* current_task = get_state()->current_task;
 	
-	snow_gc_barrier_leave();
+	if (current_task->previous) {
+		// already in parallel, don't spawn further threads
+		for (size_t i = 0; i < num_elements; ++i) {
+			perform_task(tasks + i, ^{
+				func(data, element_size, i, userdata);
+			});
+		}
+	} else {
+		dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+		dispatch_apply(num_elements, q, ^(size_t i) {
+			perform_task(tasks + i, ^{
+				func(data, element_size, i, userdata);
+			});
+		});
+	}
 	
 	collect_exceptions_and_rethrow(tasks, num_elements);
 }
 
 static inline void with_each_thread_do(void(^func)(SnDispatchThreadState*)) {
-	dispatch_semaphore_wait(state_lock, DISPATCH_TIME_FOREVER);
 	for (SnDispatchThreadState* s = state; s != NULL; s = s->next) {
 		func(s);
 	}
-	dispatch_semaphore_signal(state_lock);
 }
 
 
 // GC INTROSPECTION
 
-void snow_gc_barrier_enter() {
+void snow_task_pause() {
 	SnTask* task = snow_get_current_task();
+	ASSERT(task->stack_bottom == NULL); // pausing already hibernated task!
 	GET_STACK_PTR(task->stack_bottom);
+}
+
+void snow_task_resume() {
+	SnTask* task = snow_get_current_task();
+	ASSERT(task->stack_bottom != NULL); // resuming non-hibernated task!
+	task->stack_bottom = NULL;
+}
+
+void snow_gc_barrier_enter() {
+	snow_task_pause();
 	dispatch_semaphore_signal(get_state()->gc_barrier);
 }
 
 void snow_gc_barrier_leave() {
 	dispatch_semaphore_wait(get_state()->gc_barrier, DISPATCH_TIME_FOREVER);
-	SnTask* task = snow_get_current_task();
-	task->stack_bottom = NULL;
+	snow_task_resume();
 }
 
 void snow_set_gc_barriers() {
+	dispatch_semaphore_wait(state_lock, DISPATCH_TIME_FOREVER);
+	SnDispatchThreadState* me = get_state();
 	with_each_thread_do(^(SnDispatchThreadState* s) {
-		if (s->current_task) {
+		if (s != me && s->current_task) {
 			dispatch_semaphore_wait(s->gc_barrier, DISPATCH_TIME_FOREVER); // TODO: Emit a warning if this is taking too long.
 		}
 	});
 }
 
 void snow_unset_gc_barriers() {
+	SnDispatchThreadState* me = get_state();
 	with_each_thread_do(^(SnDispatchThreadState* s) {
-		if (s->current_task) {
+		if (s != me && s->current_task) {
 			dispatch_semaphore_signal(s->gc_barrier);
 		}
 	});
+	dispatch_semaphore_signal(state_lock);
 }
 
 void snow_with_each_task_do(SnTaskIteratorFunc func, void* userdata) {

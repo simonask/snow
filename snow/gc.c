@@ -115,6 +115,8 @@ typedef struct SnGCNursery {
 } SnGCNursery;
 
 struct {
+	pthread_mutex_t gc_lock;
+	
 	pthread_mutex_t nursery_lock;
 	pthread_key_t nursery_key;
 	SnGCNursery* nursery_head;
@@ -181,9 +183,11 @@ static void gc_finalize_nursery(void* _nursery) {
 
 void snow_init_gc() {
 	memset(&GC, 0, sizeof(GC));
+	
+	pthread_mutex_init(&GC.gc_lock, NULL);
+	
 	pthread_key_create(&GC.nursery_key, gc_finalize_nursery);
-	int n = pthread_mutex_init(&GC.nursery_lock, NULL);
-	ASSERT(n == 0);
+	pthread_mutex_init(&GC.nursery_lock, NULL);
 	gc_heap_list_init(&GC.adults);
 	gc_heap_list_init(&GC.biggies);
 	gc_heap_list_init(&GC.unkillables);
@@ -374,14 +378,22 @@ SnGCHeap* gc_find_heap(const void* root) {
 }
 
 void snow_gc() {
+	if (pthread_mutex_trylock(&GC.gc_lock)) {
+		// GC already taking place! wait for it to finish.
+		snow_gc_barrier_enter();
+		pthread_mutex_lock(&GC.gc_lock);
+		pthread_mutex_unlock(&GC.gc_lock);
+		snow_gc_barrier_leave();
+		return;
+	}
+	
+	snow_set_gc_barriers();
+	snow_task_pause();
+	
 	ASSERT(!_snow_gc_is_collecting);
 	_snow_gc_is_collecting = true;
-	snow_gc_barrier_enter();
 	
 	uintx mem_before = GC.info.total_mem_usage;
-	
-	// wait for other threads to reach barriers
-	snow_set_gc_barriers();
 	
 	if (GC.num_minor_collections_since_last_major_collection > 10) {
 		// TODO: Better heuristics for when to perform major collections
@@ -404,8 +416,9 @@ void snow_gc() {
 	gc_clear_statistics();
 	
 	_snow_gc_is_collecting = false;
+	pthread_mutex_unlock(&GC.gc_lock);
 	snow_unset_gc_barriers();
-	snow_gc_barrier_leave();
+	snow_task_resume();
 }
 
 void gc_with_stack_do(byte* bottom, byte* top, SnGCAction action) {
