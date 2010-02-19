@@ -268,6 +268,8 @@ static inline void* gc_alloc(size_t size, SnGCAllocType alloc_type) {
 	size_t rounded_size = snow_gc_round(size);
 	size_t total_size = gc_calculate_total_size(rounded_size);
 	
+	DTRACE_PROBE(GC_ALLOC(size));
+	
 	if (total_size > GC_BIG_ALLOCATION_SIZE_LIMIT) {
 		ptr = gc_heap_list_alloc(&GC.biggies, total_size, &object_index, total_size);
 		ASSERT(ptr); // big allocation failed!
@@ -393,17 +395,16 @@ void snow_gc() {
 	ASSERT(!_snow_gc_is_collecting);
 	_snow_gc_is_collecting = true;
 	
+	DTRACE_PROBE(GC());
 	uintx mem_before = GC.info.total_mem_usage;
 	
 	if (GC.num_minor_collections_since_last_major_collection > 10) {
 		// TODO: Better heuristics for when to perform major collections
 		gc_major();
 		GC.num_minor_collections_since_last_major_collection = 0;
-		gc_print_statistics("major");
 	} else {
 		gc_minor();
 		++GC.num_minor_collections_since_last_major_collection;
-		gc_print_statistics("minor");
 	}
 	
 	gc_clear_flags();
@@ -411,7 +412,7 @@ void snow_gc() {
 	uintx mem_after = GC.info.total_mem_usage;
 	double mem_diff_mb = ((double)mem_before - (double)mem_after) / (1024.0*1024.0);
 	
-	debug("GC: collection freed up %.2lf MiB (total GC memory usage: %.2lf MiB)\n", mem_diff_mb, ((double)GC.info.total_mem_usage)/(1024.0*1024.0));
+	DTRACE_PROBE(GC_FINISHED(GC.info.total_mem_usage, (int64_t)mem_after - mem_before))
 	
 	gc_clear_statistics();
 	
@@ -639,6 +640,8 @@ static inline void gc_reset_or_save_nurseries() {
 }
 
 void gc_minor() {
+	DTRACE_PROBE(GC_MINOR());
+	
 	gc_with_everything_do(gc_mark_root);
 
 	gc_sweep_nurseries();
@@ -654,6 +657,8 @@ void gc_minor() {
 }
 
 void gc_major() {
+	DTRACE_PROBE(GC_MAJOR());
+	
 	// TODO: This can be more efficient -- is it really necessary to run a full minor collection?
 	
 	gc_minor();

@@ -49,6 +49,15 @@ AC_CHECK_HEADER(dispatch/dispatch.h,
 AM_CONDITIONAL(PARALLEL_IS_DISPATCH, test "x$PARALLEL_FRAMEWORK" = xdispatch)
 AM_CONDITIONAL(PARALLEL_IS_DISABLED, test "x$PARALLEL_FRAMEWORK" = x)
 
+AC_CHECK_HEADER(dtrace.h,
+	[
+		AC_DEFINE([DTRACE], [1], [Compile Snow with DTrace hooks.])
+	],
+	[
+		echo "DTrace not found, disabling instrumentation."
+	]
+)
+
 GCC_DEBUG_CFLAGS="-O0 -g -pg -DDEBUG"
 GCC_RELEASE_CFLAGS="-Os -pipe -Wdisabled-optimization"
 GCC_WARNING_CFLAGS="-pedantic-errors -Wall -Werror -Wno-unused"

@@ -91,6 +91,13 @@ static inline SnObjectType snow_typeof(VALUE val)
 	return 0;
 }
 
+#ifdef DTRACE
+#define DTRACE_PROBE(X) SNOWPROBE_ ## X
+#include "snow_provider.h"
+#else
+#define DTRACE_PROBE(X) 
+#endif
+
 
 // API convenience
 
