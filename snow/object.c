@@ -191,6 +191,10 @@ SNOW_FUNC(object_inspect) {
 	return snow_create_string(cstr);
 }
 
+SNOW_FUNC(object_to_string) {
+	return snow_call_method(SELF, snow_symbol("inspect"), 0);
+}
+
 SNOW_FUNC(object_eval) {
 	SnArguments* call_arguments = snow_create_arguments_with_size(0);
 	
@@ -360,10 +364,9 @@ SNOW_FUNC(object_setter) {
 	return SELF;
 }
 
-void init_object_class(SnClass* klass)
-{
+void init_object_class(SnClass* klass) {
 	snow_define_method(klass, "inspect", object_inspect);
-	snow_define_method(klass, "to_string", object_inspect);
+	snow_define_method(klass, "to_string", object_to_string);
 	snow_define_method(klass, "eval", object_eval);
 	snow_define_method(klass, "is_a?", object_is_a);
 	snow_define_method(klass, "is_an?", object_is_a);
