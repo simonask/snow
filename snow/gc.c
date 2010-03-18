@@ -439,7 +439,7 @@ static void do_task_stack(SnTask* task, void* userdata) {
 }
 
 void gc_with_everything_do(SnGCAction action) {
-	snow_with_each_task_do(do_task_stack, action);
+	snow_with_each_task_do(do_task_stack, (void *)action);
 	
 	gc_with_definite_roots_do(action);
 }

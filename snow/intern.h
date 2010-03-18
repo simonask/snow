@@ -88,7 +88,7 @@ static inline SnObjectType snow_typeof(VALUE val)
 	if (is_symbol(val)) return SN_SYMBOL_TYPE;
 	if (is_float(val)) return SN_FLOAT_TYPE;
 	TRAP(); // unknown type?
-	return 0;
+	return (SnObjectType)0;
 }
 
 

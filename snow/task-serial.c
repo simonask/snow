@@ -1,3 +1,4 @@
+#include "snow.h"
 #include "snow/task.h"
 #include "snow/task-intern.h"
 #include "snow/array.h"
@@ -100,7 +101,7 @@ SnDeferredTask* snow_deferred_call(VALUE closure) {
 	SnDeferredTask* task = (SnDeferredTask*)snow_alloc_any_object(SN_DEFERRED_TASK_TYPE, sizeof(SnDeferredTask));
 	task->closure = closure;
 	task->result = NULL;
-	task->private = NULL;
+	task->_private = NULL;
 	task->task = NULL;
 	return task;
 }

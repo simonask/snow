@@ -14,7 +14,7 @@
 #define MAKE_VERSION(major, minor, patch) (major * 1000000 + minor * 1000 + patch)
 #define GCC_VERSION MAKE_VERSION(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
 
-#ifdef __cplusplus__
+#ifdef __cplusplus
 #define CAPI extern "C"
 #else
 #define CAPI 

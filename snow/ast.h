@@ -58,7 +58,7 @@ CAPI SnAstNode* snow_ast_member_assign(SnAstNode* member, SnAstNode* node);
 CAPI SnAstNode* snow_ast_if_else(SnAstNode* expr, SnAstNode* body, SnAstNode* else_body);
 CAPI SnAstNode* snow_ast_call(SnAstNode* func, SnAstNode* seq_args);
 CAPI SnAstNode* snow_ast_loop(SnAstNode* while_true, SnAstNode* body);
-CAPI SnAstNode* snow_ast_try(SnAstNode* body, SnAstNode* catch, SnAstNode* ensure);
+CAPI SnAstNode* snow_ast_try(SnAstNode* body, SnAstNode* _catch, SnAstNode* ensure);
 CAPI SnAstNode* snow_ast_catch(VALUE parameter, SnAstNode* condition, SnAstNode* body);
 CAPI SnAstNode* snow_ast_and(SnAstNode* left, SnAstNode* right);
 CAPI SnAstNode* snow_ast_or(SnAstNode* left, SnAstNode* right);

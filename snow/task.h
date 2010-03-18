@@ -16,7 +16,7 @@ typedef struct SnDeferredTask {
 	VALUE closure;
 	VALUE result;
 	
-	void* private;
+	void* _private;
 	struct SnTask* task;
 } SnDeferredTask;
 

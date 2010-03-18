@@ -195,7 +195,7 @@ void snow_with_each_task_do(SnTaskIteratorFunc func, void* userdata) {
 
 static void deferred_task_finalize(void* _task) {
 	SnDeferredTask* task = (SnDeferredTask*)_task;
-	dispatch_group_t group = (dispatch_group_t)task->private;
+	dispatch_group_t group = (dispatch_group_t)task->_private;
 	dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
 	dispatch_release(group);
 }
@@ -206,7 +206,7 @@ SnDeferredTask* snow_deferred_call(VALUE closure) {
 	task->closure = closure;
 	task->result = NULL;
 	dispatch_group_t group = dispatch_group_create();
-	task->private = group;
+	task->_private = group;
 	task->task = NULL;
 	dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 	snow_gc_barrier_enter();
@@ -226,7 +226,7 @@ SnDeferredTask* snow_deferred_call(VALUE closure) {
 
 VALUE snow_deferred_task_wait(SnDeferredTask* task) {
 	// TODO: add custom timeout
-	dispatch_group_wait((dispatch_group_t)task->private, DISPATCH_TIME_FOREVER);
+	dispatch_group_wait((dispatch_group_t)task->_private, DISPATCH_TIME_FOREVER);
 	return task->result;
 }
 
