@@ -178,8 +178,8 @@ variable: non_index_variable
         | index_variable
         ;
 
-argument_list: expression                    { $$ = snow_ast_sequence(1, $1); }
-             | argument_list ',' expression  { $$ = $1; snow_ast_sequence_push($$, $3); }
+argument_list: expression                               { $$ = snow_ast_sequence(1, $1); }
+             | argument_list ',' ignore_eol expression  { $$ = $1; snow_ast_sequence_push($$, $4); }
              ;
 
 arguments: '(' ')'                { $$ = snow_ast_sequence(0); }
