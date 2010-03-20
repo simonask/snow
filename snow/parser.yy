@@ -182,8 +182,8 @@ argument_list: expression                               { $$ = snow_ast_sequence
              | argument_list ',' ignore_eol expression  { $$ = $1; snow_ast_sequence_push($$, $4); }
              ;
 
-arguments: '(' ')'                { $$ = snow_ast_sequence(0); }
-         | '(' argument_list ')'  { $$ = $2; }
+arguments: '(' ignore_eol ')'                           { $$ = snow_ast_sequence(0); }
+         | '(' ignore_eol argument_list ignore_eol ')'  { $$ = $3; }
          ;
 
 index_arguments: '[' argument_list ']'  { $$ = $2; }
