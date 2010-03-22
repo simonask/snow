@@ -103,6 +103,10 @@ static inline SnObjectType snow_typeof(VALUE val)
 #define ARG_BY_NAME(NAME) ARG_BY_SYM(snow_symbol(NAME))
 #define NUM_ARGS (_context->args ? _context->args->data.size : 0)
 #define REQUIRE_ARGS(N) do { if (_context->args->data.size < (N)) snow_throw_exception_with_description("Expected %d argument%s for function call.", (N), (N) == 1 ? "" : "s"); } while (0)
+#define SYM(NAME) snow_symbol(#NAME)
+#define VSYM(NAME) snow_vsymbol(#NAME)
+#define GLOBAL(NAME) snow_get_global(SYM(NAME))
+#define GET_MEMBER(OBJECT, MEMBER_NAME) snow_get_member(OBJECT, S(MEMBER_NAME))
 
 // Implementations that may depend on the definitions above
 #include "snow/lock-impl.h"
