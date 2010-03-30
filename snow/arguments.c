@@ -11,8 +11,8 @@ SnArguments* snow_create_arguments_with_size(uint32_t size)
 {
 	SnArguments* args = SNOW_GC_ALLOC_OBJECT(SnArguments);
 	if (size) {
-		DATA = snow_create_array_with_size(size);
-		NAMES = snow_create_array_with_size(size);
+		DATA = snow_create_fixed_array(size);
+		NAMES = snow_create_fixed_array(size);
 	} else {
 		DATA = NULL;
 		NAMES = NULL;

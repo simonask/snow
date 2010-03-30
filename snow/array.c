@@ -16,9 +16,13 @@ SnArray* snow_create_array() {
 	return array;
 }
 
-void SnArray_finalize(SnArray* array) {
-	snow_free(array->data);
-	snow_rwlock_destroy(array->lock);
+SnArray* snow_create_fixed_array(uintx sz) {
+	SnArray* array = SNOW_GC_ALLOC_OBJECT(SnArray);
+	array->data = sz ? (VALUE*)snow_malloc(sizeof(VALUE)*sz) : NULL;
+	array->size = 0;
+	array->alloc_size = sz;
+	array->lock = NULL; // fixed arrays don't need locks => faster!
+	return array;
 }
 
 SnArray* snow_create_array_with_size(uintx size) {
@@ -28,6 +32,11 @@ SnArray* snow_create_array_with_size(uintx size) {
 		array->alloc_size = size;
 	}
 	return array;
+}
+
+void SnArray_finalize(SnArray* array) {
+	snow_free(array->data);
+	snow_rwlock_destroy(array->lock);
 }
 
 SnArray* snow_copy_array(VALUE* data, uintx size) {
@@ -43,6 +52,7 @@ void snow_array_grow(SnArray* array, intx new_size)
 {
 	if (new_size > array->alloc_size)
 	{
+		ASSERT(array->lock); // can't grow a fixed array beyond preallocated size! TODO: Make this an exception.
 		snow_rwlock_write(array->lock);
 		array->data = snow_realloc(array->data, sizeof(VALUE)*new_size);
 		array->alloc_size = new_size;

@@ -581,8 +581,10 @@ void snow_free(void* ptr)
 		alloc_info->free_rip = rip;
 		#endif
 		
+		#ifdef DEBUG
 		uintx size = allocated_size_of(ptr);
 		memset(ptr, 0xef, size);
+		#endif
 		
 		#if DEBUG_MALLOC
 		verify_heap();

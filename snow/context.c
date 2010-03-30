@@ -25,7 +25,7 @@ SnContext* snow_create_context_for_function(SnFunction* func)
 	SnContext* ctx = SNOW_GC_ALLOC_OBJECT(SnContext);
 	ctx->function = func;
 	ctx->self = NULL;
-	ctx->locals = snow_create_array_with_size(snow_array_size(func->desc->defined_locals));
+	ctx->locals = snow_create_fixed_array(snow_array_size(func->desc->defined_locals) + 1); // + 1 for `it'
 	ctx->args = NULL;
 	return ctx;
 }

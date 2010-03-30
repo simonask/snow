@@ -280,6 +280,8 @@ VALUE snow_call_va(VALUE self, VALUE closure, uintx num_args, va_list* ap)
 	return snow_call_with_args(self, closure, args);
 }
 
+static VALUE call_sym = NULL;
+
 VALUE snow_call_with_args(VALUE in_self, VALUE in_closure, SnArguments* args)
 {
 	VALUE self = in_self;
@@ -290,11 +292,12 @@ VALUE snow_call_with_args(VALUE in_self, VALUE in_closure, SnArguments* args)
 		snow_throw_exception_with_description("Attempted to call %s.", closure == SN_FALSE ? "false" : "nil");
 	}
 	
-	SnSymbol call_sym = snow_symbol("__call__");
+	if (!call_sym) call_sym = snow_symbol_to_value(snow_symbol("__call__"));
+
 	while (snow_typeof(closure) != SnFunctionType)
 	{
 		self = closure;
-		closure = snow_get_member(closure, call_sym);
+		closure = snow_get_member(closure, snow_value_to_symbol(call_sym));
 		if (!closure) snow_throw_exception_with_description("Attempted to call nil.");
 	}
 	

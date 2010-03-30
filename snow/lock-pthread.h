@@ -8,11 +8,26 @@ typedef struct SnLock {
 	pthread_mutex_t m;
 } SnLock;
 
-static inline void snow_lock_init(SnLock* lock) { pthread_mutex_init(&lock->m, NULL); }
-static inline void snow_lock_finalize(SnLock* lock) { int r = pthread_mutex_destroy(&lock->m); ASSERT(r == 0); }
-static inline bool snow_try_lock(SnLock* lock) { return pthread_mutex_trylock(&lock->m) == 0; }
-static inline void snow_lock(SnLock* lock) { pthread_mutex_lock(&lock->m); }
-static inline void snow_unlock(SnLock* lock) { pthread_mutex_unlock(&lock->m); }
+static inline void snow_lock_init(SnLock* lock) {
+	if (!lock) return;
+	pthread_mutex_init(&lock->m, NULL);
+}
+static inline void snow_lock_finalize(SnLock* lock) {
+	if (!lock) return;
+	int r = pthread_mutex_destroy(&lock->m); ASSERT(r == 0);
+}
+static inline bool snow_try_lock(SnLock* lock) {
+	if (!lock) return true;
+	return pthread_mutex_trylock(&lock->m) == 0;
+}
+static inline void snow_lock(SnLock* lock) {
+	if (!lock) return;
+	pthread_mutex_lock(&lock->m);
+}
+static inline void snow_unlock(SnLock* lock) {
+	if (!lock) return;
+	pthread_mutex_unlock(&lock->m);
+}
 
 static inline SnLock* snow_lock_create() {
 	SnLock* lock = (SnLock*)snow_malloc(sizeof(SnLock));
@@ -21,6 +36,7 @@ static inline SnLock* snow_lock_create() {
 }
 
 static inline void snow_lock_destroy(SnLock* lock) {
+	if (!lock) return;
 	snow_lock_finalize(lock);
 	snow_free(lock);
 }
@@ -29,13 +45,34 @@ typedef struct SnRWLock {
 	pthread_rwlock_t m;
 } SnRWLock;
 
-static inline void snow_rwlock_init(SnRWLock* lock) { pthread_rwlock_init(&lock->m, NULL); }
-static inline void snow_rwlock_finalize(SnRWLock* lock) { int r = pthread_rwlock_destroy(&lock->m); ASSERT(r == 0); }
-static inline bool snow_rwlock_try_read(SnRWLock* lock) { return pthread_rwlock_tryrdlock(&lock->m) == 0; }
-static inline void snow_rwlock_read(SnRWLock* lock) { pthread_rwlock_rdlock(&lock->m); }
-static inline bool snow_rwlock_try_write(SnRWLock* lock) { return pthread_rwlock_trywrlock(&lock->m) == 0; }
-static inline void snow_rwlock_write(SnRWLock* lock) { pthread_rwlock_wrlock(&lock->m); }
-static inline void snow_rwlock_unlock(SnRWLock* lock) { pthread_rwlock_unlock(&lock->m); }
+static inline void snow_rwlock_init(SnRWLock* lock) {
+	if (!lock) return;
+	pthread_rwlock_init(&lock->m, NULL);
+}
+static inline void snow_rwlock_finalize(SnRWLock* lock) {
+	if (!lock) return;
+	int r = pthread_rwlock_destroy(&lock->m); ASSERT(r == 0);
+}
+static inline bool snow_rwlock_try_read(SnRWLock* lock) {
+	if (!lock) return true;
+	return pthread_rwlock_tryrdlock(&lock->m) == 0;
+}
+static inline void snow_rwlock_read(SnRWLock* lock) {
+	if (!lock) return;
+	pthread_rwlock_rdlock(&lock->m);
+}
+static inline bool snow_rwlock_try_write(SnRWLock* lock) {
+	if (!lock) return true;
+	return pthread_rwlock_trywrlock(&lock->m) == 0;
+}
+static inline void snow_rwlock_write(SnRWLock* lock) {
+	if (!lock) return;
+	pthread_rwlock_wrlock(&lock->m);
+}
+static inline void snow_rwlock_unlock(SnRWLock* lock) {
+	if (!lock) return;
+	pthread_rwlock_unlock(&lock->m);
+}
 
 static inline SnRWLock* snow_rwlock_create() {
 	SnRWLock* lock = (SnRWLock*)snow_malloc(sizeof(SnRWLock));
@@ -44,6 +81,7 @@ static inline SnRWLock* snow_rwlock_create() {
 }
 
 static inline void snow_rwlock_destroy(SnRWLock* lock) {
+	if (!lock) return;
 	snow_rwlock_finalize(lock);
 	snow_free(lock);
 }

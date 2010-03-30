@@ -121,7 +121,7 @@ static inline SnString* call_inspect(VALUE self) {
 SNOW_FUNC(map_inspect) {
 	ASSERT_TYPE(SELF, SnMapType);
 	SnMap* self = (SnMap*)SELF;
-	SnArray* strings = snow_create_array_with_size(self->size);
+	SnArray* strings = snow_create_fixed_array(self->size);
 	for (size_t i = 0; i < self->size; ++i) {
 		SnString* key = call_inspect(self->data[i*2]);
 		SnString* value = call_inspect(self->data[i*2+1]);

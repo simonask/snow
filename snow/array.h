@@ -7,6 +7,7 @@
 
 CAPI SnArray* snow_create_array();
 CAPI SnArray* snow_create_array_with_size(uintx sz);
+CAPI SnArray* snow_create_fixed_array(uintx sz);
 CAPI SnArray* snow_copy_array(VALUE* data, uintx len);
 CAPI VALUE snow_array_get(SnArray*, intx);
 CAPI VALUE snow_array_set(SnArray*, intx, VALUE);

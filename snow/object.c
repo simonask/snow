@@ -219,14 +219,17 @@ SNOW_FUNC(object_inspect) {
 }
 
 SNOW_FUNC(object_eval) {
-	SnArguments* call_arguments = snow_create_arguments_with_size(0);
-	
 	SnArray* closures = snow_get_member(_context->args, snow_symbol("unnamed"));
 	ASSERT_TYPE(closures, SnArrayType);
 	
 	VALUE argument = ARG_BY_NAME("argument");
-	if (argument)
+	SnArguments* call_arguments;
+	if (argument) {
+		call_arguments = snow_create_arguments_with_size(1);
 		snow_arguments_push(call_arguments, argument);
+	} else {
+		call_arguments = snow_create_arguments_with_size(0);
+	}
 	
 	VALUE return_value = SN_NIL;
 	for (uintx i = 0; i < snow_array_size(closures); ++i)

@@ -188,7 +188,7 @@ static inline SnString* call_to_string(VALUE self) {
 }
 
 SNOW_FUNC(string_buffer_initialize) {
-	SnArray* strings = snow_create_array_with_size(NUM_ARGS);
+	SnArray* strings = snow_create_fixed_array(NUM_ARGS);
 	for (size_t i = 0; i < NUM_ARGS; ++i) {
 		snow_array_push(strings, call_to_string(ARGS[i]));
 	}

@@ -102,7 +102,7 @@ SNOW_FUNC(file_read_bytes) {
 		byte buffer[num_bytes];
 		size_t n = fread(buffer, 1, num_bytes, priv->fp);
 		if (!n && !feof(priv->fp)) throw_errno();
-		SnArray* array = snow_create_array_with_size(n);
+		SnArray* array = snow_create_fixed_array(n);
 		for (size_t i = 0; i < n; ++i) {
 			snow_array_push(array, snow_int_to_value(buffer[i]));
 		}
