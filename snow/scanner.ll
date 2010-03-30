@@ -43,9 +43,9 @@ do {                                                  \
 #define STR_CHARS(str) snow_linkbuffer_push_string(yyextra->string_buffer, str);
 #define STR_CLEAR() snow_linkbuffer_clear(yyextra->string_buffer)
 
-#define malloc snow_gc_alloc_blob
-#define realloc snow_gc_realloc
-#define free(X) 
+#define malloc snow_malloc
+#define realloc snow_realloc
+#define free(X) snow_free(X)
 
 #define YY_USER_ACTION \
 	do { \
@@ -104,10 +104,10 @@ do {                                                  \
 <COMMENT>.                             { /* Do absolutely nothing. */ }
 
                                        
-[0-9]+                                 { yylval->value = int_to_value(strtoll(yytext, NULL, 10)); return TOK_INTEGER; }
-0b[01]+                                { yylval->value = int_to_value(strtoll(&yytext[2], NULL, 2)); return TOK_INTEGER; }
-0x[0-9a-fA-F]+                         { yylval->value = int_to_value(strtoll(&yytext[2], NULL, 16)); return TOK_INTEGER; }
-[0-9]+\.[0-9]+                         { yylval->value = float_to_value(strtof(yytext, NULL)); return TOK_FLOAT; }
+[0-9]+                                 { yylval->value = snow_int_to_value(strtoll(yytext, NULL, 10)); return TOK_INTEGER; }
+0b[01]+                                { yylval->value = snow_int_to_value(strtoll(&yytext[2], NULL, 2)); return TOK_INTEGER; }
+0x[0-9a-fA-F]+                         { yylval->value = snow_int_to_value(strtoll(&yytext[2], NULL, 16)); return TOK_INTEGER; }
+[0-9]+\.[0-9]+                         { yylval->value = snow_float_to_value(strtof(yytext, NULL)); return TOK_FLOAT; }
 
 self                                   { yylval->node = snow_ast_self(); return TOK_SELF; }
 if                                     { return TOK_IF; }

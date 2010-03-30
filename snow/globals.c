@@ -30,7 +30,7 @@ SNOW_FUNC(_print) {
 
 SNOW_FUNC(_require) {
 	REQUIRE_ARGS(1);
-	ASSERT_TYPE(ARGS[0], SN_STRING_TYPE);
+	ASSERT_TYPE(ARGS[0], SnStringType);
 	SnString* file = (SnString*)ARGS[0];
 	return snow_require(snow_string_cstr(file));
 }
@@ -44,28 +44,28 @@ SNOW_FUNC(_throw) {
 void snow_init_globals(SnContext* ctx)
 {
 	// base classes
-	for (intx i = SN_NORMAL_OBJECT_TYPE_BASE; i < SN_NORMAL_OBJECT_TYPE_MAX; ++i)
+	for (intx i = SnNormalObjectTypesMin+1; i < SnNormalObjectTypesMax; ++i)
 	{
 		SnClass* klass = snow_get_class(i);
-		ASSERT_TYPE(klass, SN_CLASS_TYPE);
+		ASSERT_TYPE(klass, SnClassType);
 		set_global(ctx, klass->name, klass);
 	}
-	for (intx i = SN_THIN_OBJECT_TYPE_BASE; i < SN_THIN_OBJECT_TYPE_MAX; ++i)
+	for (intx i = SnThinObjectTypesMin+1; i < SnThinObjectTypesMax; ++i)
 	{
 		SnClass* klass = snow_get_class(i);
-		ASSERT_TYPE(klass, SN_CLASS_TYPE);
+		ASSERT_TYPE(klass, SnClassType);
 		set_global(ctx, klass->name, klass);
 	}
-	for (intx i = SN_IMMEDIATE_TYPE_BASE; i < SN_IMMEDIATE_TYPE_MAX; ++i)
+	for (intx i = SnImmediateTypesMin+1; i < SnImmediateTypesMax; ++i)
 	{
 		SnClass* klass = snow_get_class(i);
-		ASSERT_TYPE(klass, SN_CLASS_TYPE);
+		ASSERT_TYPE(klass, SnClassType);
 		set_global(ctx, klass->name, klass);
 	}
 	
 	
 	// others
-	set_global(ctx, snow_symbol("@"), snow_get_class(SN_ARRAY_TYPE));
+	set_global(ctx, snow_symbol("@"), snow_get_class(SnArrayType));
 	set_global(ctx, snow_symbol("LOAD_PATHS"), snow_get_load_paths());
 	set_global(ctx, snow_symbol("ARGV"), snow_create_array());
 	set_global(ctx, snow_symbol("require"), snow_create_function_with_name(_require, "require"));

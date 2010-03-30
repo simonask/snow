@@ -17,22 +17,7 @@
 	function's scope, see function.h how to call it without allocating the context.
 */
 
-struct SnFunction;
-
-typedef struct SnContext {
-	SnObjectBase base;
-	struct SnContext* static_parent;
-	struct SnFunction* function;
-	VALUE self;
-	SnArray* local_names;
-	SnArray* locals;
-	SnArguments* args;
-} SnContext;
-
-
-typedef VALUE(*SnFunctionPtr)(struct SnContext*);
-
-CAPI SnContext* snow_create_context(SnContext* static_parent);
+CAPI SnContext* snow_create_context();
 CAPI SnContext* snow_create_context_for_function(struct SnFunction* func);
 CAPI SnContext* snow_global_context();
 CAPI VALUE snow_context_get_local(SnContext*, SnSymbol)                      ATTR_HOT;

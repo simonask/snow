@@ -6,26 +6,26 @@
 #include "snow/arguments.h"
 
 
-SnContext* snow_create_context(SnContext* static_parent)
+SnContext* snow_create_context()
 {
-	SnContext* ctx = (SnContext*)snow_alloc_any_object(SN_CONTEXT_TYPE, sizeof(SnContext));
-	ctx->static_parent = static_parent;
+	SnContext* ctx = SNOW_GC_ALLOC_OBJECT(SnContext);
 	ctx->function = NULL;
 	ctx->self = NULL;
-	ctx->local_names = NULL;
 	ctx->locals = snow_create_array();
 	ctx->args = NULL;
 	return ctx;
 }
 
+void SnContext_finalize(SnContext* context) {
+	// nothing
+}
+
 SnContext* snow_create_context_for_function(SnFunction* func)
 {
-	SnContext* ctx = (SnContext*)snow_alloc_any_object(SN_CONTEXT_TYPE, sizeof(SnContext));
-	ctx->static_parent = func->declaration_context;
+	SnContext* ctx = SNOW_GC_ALLOC_OBJECT(SnContext);
 	ctx->function = func;
 	ctx->self = NULL;
-	ctx->local_names = func->desc->defined_locals;
-	ctx->locals = snow_create_array_with_size(snow_array_size(ctx->local_names));
+	ctx->locals = snow_create_array_with_size(snow_array_size(func->desc->defined_locals));
 	ctx->args = NULL;
 	return ctx;
 }
@@ -36,7 +36,7 @@ SnContext* snow_global_context()
 {
 	if (!global_context_key)
 	{
-		SnContext* ctx = snow_create_context(NULL);
+		SnContext* ctx = snow_create_context();
 		global_context_key = snow_store_add(ctx);
 		
 		snow_init_globals(ctx);
@@ -56,7 +56,7 @@ VALUE snow_context_get_local(SnContext* ctx, SnSymbol sym)
 			return val;
 		
 		last_ctx = ctx;
-		ctx = ctx->static_parent;
+		ctx = ctx->function ? ctx->function->declaration_context : NULL;
 	}
 	
 	SnContext* global = snow_global_context();
@@ -71,10 +71,10 @@ VALUE snow_context_get_local(SnContext* ctx, SnSymbol sym)
 
 VALUE snow_context_get_local_local(SnContext* ctx, SnSymbol sym)
 {
-	if (ctx->local_names && ctx->locals)
+	if (ctx->function && ctx->function->desc->defined_locals && ctx->locals)
 	{
-		VALUE vsym = symbol_to_value(sym);
-		int idx = snow_array_find(ctx->local_names, vsym);
+		VALUE vsym = snow_symbol_to_value(sym);
+		int idx = snow_array_find(ctx->function->desc->defined_locals, vsym);
 		if (idx >= 0)
 			return snow_array_get(ctx->locals, idx);
 	}
@@ -83,20 +83,20 @@ VALUE snow_context_get_local_local(SnContext* ctx, SnSymbol sym)
 
 VALUE snow_context_set_local(SnContext* ctx, SnSymbol sym, VALUE val)
 {
-	VALUE vsym = symbol_to_value(sym);
+	VALUE vsym = snow_symbol_to_value(sym);
 	
 	SnContext* backup = ctx; // ctx is used below for iteration
 	
 	while (ctx)
 	{
-		if (ctx->local_names && ctx->locals)
+		if (ctx->function && ctx->function->desc->defined_locals && ctx->locals)
 		{
-			intx idx = snow_array_find(ctx->local_names, vsym);
+			intx idx = snow_array_find(ctx->function->desc->defined_locals, vsym);
 			if (idx >= 0)
 				return snow_array_set(ctx->locals, idx, val);
 		}
 		
-		ctx = ctx->static_parent;
+		ctx = ctx->function ? ctx->function->declaration_context : NULL;
 	}
 	
 	return snow_context_set_local_local(backup, sym, val);
@@ -104,39 +104,36 @@ VALUE snow_context_set_local(SnContext* ctx, SnSymbol sym, VALUE val)
 
 VALUE snow_context_set_local_local(SnContext* ctx, SnSymbol sym, VALUE val)
 {
-	VALUE vsym = symbol_to_value(sym);
+	VALUE vsym = snow_symbol_to_value(sym);
 	
-	if (!ctx->local_names)
-	{
-		ASSERT(!ctx->function); // please use snow_create_context_for_function
-		ctx->local_names = snow_create_array();
-	}
+	if (!ctx->function)
+		ctx->function = snow_create_function(NULL);
 	
 	if (!ctx->locals)
 		ctx->locals = snow_create_array();
 	
-	intx idx = snow_array_find_or_add(ctx->local_names, vsym);
+	intx idx = snow_array_find_or_add(ctx->function->desc->defined_locals, vsym);
 	return snow_array_set(ctx->locals, idx, val);
 }
 
 VALUE snow_context_local_missing(SnContext* ctx, SnSymbol name)
 {
 	SnObject* func = (SnObject*)ctx->function;
-	if (!func) func = snow_get_prototype(SN_FUNCTION_TYPE);
-	return snow_call_method(func, snow_symbol("local_missing"), 2, symbol_to_value(name), ctx->self);
+	if (!func) func = snow_get_prototype(SnFunctionType);
+	return snow_call_method(func, snow_symbol("local_missing"), 2, snow_symbol_to_value(name), ctx->self);
 }
 
 SNOW_FUNC(context_get_function) {
-	ASSERT_TYPE(SELF, SN_CONTEXT_TYPE);
+	ASSERT_TYPE(SELF, SnContextType);
 	return ((SnContext*)SELF)->function;
 }
 
 SNOW_FUNC(context_get_arguments) {
-	ASSERT_TYPE(SELF, SN_CONTEXT_TYPE);
+	ASSERT_TYPE(SELF, SnContextType);
 	return ((SnContext*)SELF)->args;
 }
 
-void init_context_class(SnClass* klass)
+void SnContext_init_class(SnClass* klass)
 {
 	snow_define_property(klass, "function", context_get_function, NULL);
 	snow_define_property(klass, "arguments", context_get_arguments, NULL);

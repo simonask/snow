@@ -3,8 +3,6 @@
 
 #include "snow/basic.h"
 
-typedef uintx SnSymbol;
-
 struct SnString;
 
 CAPI SnSymbol snow_symbol(const char* string);

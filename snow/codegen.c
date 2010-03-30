@@ -2,7 +2,7 @@
 #include "snow/codegen-intern.h"
 #include "snow/linkbuffer.h"
 #include "snow/intern.h"
-#include "snow/array-intern.h"
+#include "snow/array.h"
 #include <limits.h>
 #ifndef PAGESIZE
 #define PAGESIZE 4096
@@ -13,7 +13,7 @@
 void codegen_init(SnCodegen* cg, SnAstNode* root, SnCodegen* parent)
 {
 	cg->result = NULL;
-	array_init(&cg->variable_reference_names);
+	cg->variable_reference_names = snow_create_array();
 	cg->parent = parent;
 	cg->root = root;
 	cg->buffer = snow_create_linkbuffer(1024);
@@ -53,8 +53,8 @@ SnFunctionDescription* snow_codegen_compile_description(SnCodegen* cg)
 bool codegen_variable_reference(SnCodegen* codegen, SnSymbol variable_name, uint32_t* out_reference_index)
 {
 	// check if we've already found the name, and reuse if so
-	VALUE vsym = symbol_to_value(variable_name);
-	intx idx = array_find(&codegen->variable_reference_names, vsym);
+	VALUE vsym = snow_symbol_to_value(variable_name);
+	intx idx = snow_array_find(codegen->variable_reference_names, vsym);
 	if (idx >= 0)
 	{
 		*out_reference_index = idx;
@@ -80,13 +80,13 @@ bool codegen_variable_reference(SnCodegen* codegen, SnSymbol variable_name, uint
 	
 	// .. then add it to the list, and set the out_reference_index to the index of the index (!)
 	*out_reference_index = snow_function_description_add_variable_reference(codegen->result, context_level, variable_index);
-	ASSERT(array_size(&codegen->variable_reference_names) == *out_reference_index);
-	array_push(&codegen->variable_reference_names, vsym);
+	ASSERT(snow_array_size(codegen->variable_reference_names) == *out_reference_index);
+	snow_array_push(codegen->variable_reference_names, vsym);
 	
 	return true;
 }
 
-void init_codegen_class(SnClass* klass)
+void SnCodegen_init_class(SnClass* klass)
 {
 	
 }

@@ -2,7 +2,7 @@
 #define FIXED_ALLOC_H_7VP6DMRX
 
 #include "snow/basic.h"
-#include "snow/lock.h"
+//#include "snow/lock.h"
 
 struct fixed_alloc_t {
 	uintx page_size;

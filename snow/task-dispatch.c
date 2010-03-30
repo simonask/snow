@@ -1,6 +1,7 @@
 #include "snow/task.h"
 #include "snow/task-intern.h"
 #include "snow/continuation.h"
+#include "snow/continuation-intern.h"
 #include "snow/intern.h"
 #include "snow/exception-intern.h"
 
@@ -94,8 +95,8 @@ static inline void perform_task(SnTask* task, void(^func)()) {
 	snow_continuation_init(&base, NULL, NULL);
 	
 	task->base = &base;
-	task->base->task_id = (uintx)task;
-	task->base->running = true;
+	//task->base->task_id = (uintx)task;
+	task->base->internal->running = true;
 	task->continuation = task->base;
 	
 	if (!snow_continuation_save_execution_state(task->base))
@@ -215,20 +216,12 @@ void snow_with_each_task_do(SnTaskIteratorFunc func, void* userdata) {
 	});
 }
 
-static void deferred_task_finalize(void* _task) {
-	SnDeferredTask* task = (SnDeferredTask*)_task;
-	dispatch_group_t group = (dispatch_group_t)task->private;
-	dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
-	dispatch_release(group);
-}
-
 SnDeferredTask* snow_deferred_call(VALUE closure) {
-	__block SnDeferredTask* task = (SnDeferredTask*)snow_alloc_any_object(SN_DEFERRED_TASK_TYPE, sizeof(SnDeferredTask));
-	snow_gc_set_free_func(task, deferred_task_finalize);
+	__block SnDeferredTask* task = SNOW_GC_ALLOC_OBJECT(SnDeferredTask);
 	task->closure = closure;
 	task->result = NULL;
 	dispatch_group_t group = dispatch_group_create();
-	task->private = group;
+	task->internal = group;
 	task->task = NULL;
 	dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 	snow_gc_barrier_enter();
@@ -248,7 +241,13 @@ SnDeferredTask* snow_deferred_call(VALUE closure) {
 
 VALUE snow_deferred_task_wait(SnDeferredTask* task) {
 	// TODO: add custom timeout
-	dispatch_group_wait((dispatch_group_t)task->private, DISPATCH_TIME_FOREVER);
+	dispatch_group_wait((dispatch_group_t)task->internal, DISPATCH_TIME_FOREVER);
 	return task->result;
+}
+
+void SnDeferredTask_finalize(SnDeferredTask* task) {
+	dispatch_group_t group = (dispatch_group_t)task->internal;
+	dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+	dispatch_release(group);
 }
 

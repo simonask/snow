@@ -59,21 +59,30 @@ static const char* ast_name[] = {
 	"ParallelFork"
 };
 
-static SnAstNode* create_ast_node(SnAstNodeType type, ...)
+static SnAstNode* create_ast_node(SnAstNodeTypes type, ...)
 {
-	SnAstNode* node = (SnAstNode*)snow_alloc_any_object(SN_AST_TYPE, sizeof(SnAstNode) + ast_size[type]*sizeof(VALUE));
-	node->type = type;
-	node->size = ast_size[type];
+	SnAstNode* node = SNOW_GC_ALLOC_OBJECT(SnAstNode);
+	node->node_type = type;
+	node->child0 = node->child1 = node->child2 = node->child3 = NULL;
 	
+	size_t size = ast_size[type];
 	va_list ap;
 	va_start(ap, type);
-	uintx i;
-	for (i = 0; i < node->size; ++i) {
-		node->children[i] = va_arg(ap, VALUE);
-	}
+	if (size >= 1)
+		node->child0 = va_arg(ap, VALUE);
+	if (size >= 2)
+		node->child1 = va_arg(ap, VALUE);
+	if (size >= 3)
+		node->child2 = va_arg(ap, VALUE);
+	if (size >= 4)
+		node->child3 = va_arg(ap, VALUE);
 	va_end(ap);
 	
 	return node;
+}
+
+void SnAstNode_finalize(SnAstNode* node) {
+	// nothing
 }
 
 SnAstNode* snow_ast_literal(VALUE val) {
@@ -82,7 +91,7 @@ SnAstNode* snow_ast_literal(VALUE val) {
 
 SnAstNode* snow_ast_sequence(uintx num, ...) {
 	SnAstNode* seq = create_ast_node(SN_AST_SEQUENCE, snow_create_array_with_size(num));
-	SnArray* ar = (SnArray*)seq->children[0];
+	SnArray* ar = (SnArray*)seq->child0;
 	va_list ap;
 	va_start(ap, num);
 	for (uintx i = 0; i < num; ++i) {
@@ -93,15 +102,15 @@ SnAstNode* snow_ast_sequence(uintx num, ...) {
 }
 
 void snow_ast_sequence_push(SnAstNode* seq, VALUE val) {
-	ASSERT(seq->type == SN_AST_SEQUENCE);
-	ASSERT(seq->children[0]);
-	ASSERT_TYPE(seq->children[0], SN_ARRAY_TYPE);
-	snow_array_push((SnArray*)seq->children[0], val);
+	ASSERT(seq->node_type == SN_AST_SEQUENCE);
+	ASSERT(seq->child0);
+	ASSERT_TYPE(seq->child0, SnArrayType);
+	snow_array_push((SnArray*)seq->child0, val);
 }
 
 SnAstNode* snow_ast_function(const char* name, const char* file, SnAstNode* seq_args, SnAstNode* seq_def) {
-	ASSERT(!seq_args || (seq_args->type == SN_AST_SEQUENCE));
-	ASSERT(seq_def->type == SN_AST_SEQUENCE);
+	ASSERT(!seq_args || (seq_args->node_type == SN_AST_SEQUENCE));
+	ASSERT(seq_def->node_type == SN_AST_SEQUENCE);
 	return create_ast_node(SN_AST_FUNCTION, snow_create_string(name), snow_create_string(file), seq_args, seq_def);
 }
 
@@ -113,16 +122,16 @@ SnAstNode* snow_ast_break() { return create_ast_node(SN_AST_BREAK); }
 SnAstNode* snow_ast_continue() { return create_ast_node(SN_AST_CONTINUE); }
 SnAstNode* snow_ast_self() { return create_ast_node(SN_AST_SELF); }
 SnAstNode* snow_ast_current_scope() { return create_ast_node(SN_AST_CURRENT_SCOPE); }
-SnAstNode* snow_ast_local(SnSymbol sym) { return create_ast_node(SN_AST_LOCAL, symbol_to_value(sym)); }
-SnAstNode* snow_ast_member(SnAstNode* self, SnSymbol member) { return create_ast_node(SN_AST_MEMBER, self, symbol_to_value(member)); }
-SnAstNode* snow_ast_local_assign(SnSymbol sym, SnAstNode* node) { return create_ast_node(SN_AST_LOCAL_ASSIGNMENT, symbol_to_value(sym), node); }
+SnAstNode* snow_ast_local(SnSymbol sym) { return create_ast_node(SN_AST_LOCAL, snow_symbol_to_value(sym)); }
+SnAstNode* snow_ast_member(SnAstNode* self, SnSymbol member) { return create_ast_node(SN_AST_MEMBER, self, snow_symbol_to_value(member)); }
+SnAstNode* snow_ast_local_assign(SnSymbol sym, SnAstNode* node) { return create_ast_node(SN_AST_LOCAL_ASSIGNMENT, snow_symbol_to_value(sym), node); }
 SnAstNode* snow_ast_member_assign(SnAstNode* member, SnAstNode* node) {
-	ASSERT(member->type == SN_AST_MEMBER);
+	ASSERT(member->node_type == SN_AST_MEMBER);
 	return create_ast_node(SN_AST_MEMBER_ASSIGNMENT, member, node);
 }
 SnAstNode* snow_ast_if_else(SnAstNode* expr, SnAstNode* body, SnAstNode* else_body) { return create_ast_node(SN_AST_IF_ELSE, expr, body, else_body); }
 SnAstNode* snow_ast_call(SnAstNode* func, SnAstNode* seq_args) {
-	ASSERT(!seq_args || (seq_args->type == SN_AST_SEQUENCE));
+	ASSERT(!seq_args || (seq_args->node_type == SN_AST_SEQUENCE));
 	return create_ast_node(SN_AST_CALL, func, seq_args);
 }
 SnAstNode* snow_ast_loop(SnAstNode* while_true, SnAstNode* body) { return create_ast_node(SN_AST_LOOP, while_true, body); }
@@ -135,15 +144,24 @@ SnAstNode* snow_ast_not(SnAstNode* expr) { return create_ast_node(SN_AST_NOT, ex
 SnAstNode* snow_ast_parallel_thread(SnAstNode* seq) { return create_ast_node(SN_AST_PARALLEL_THREAD, seq); }
 SnAstNode* snow_ast_parallel_fork(SnAstNode* seq) { return create_ast_node(SN_AST_PARALLEL_FORK, seq); }
 
-
-SnSymbol snow_ast_type_name(SnAstNodeType type) {
+SnSymbol snow_ast_type_name(SnAstNodeTypes type) {
 	return snow_symbol(ast_name[type]);
 }
 
+VALUE snow_ast_node_get_child(SnAstNode* node, size_t child) {
+	ASSERT(child < 4);
+	return (&node->child0)[child];
+}
+
+void snow_ast_node_set_child(SnAstNode* node, size_t child, VALUE val) {
+	ASSERT(child < 4);
+	(&node->child0)[child] = val;
+}
+
 SNOW_FUNC(_ast_type) {
-	ASSERT_TYPE(SELF, SN_AST_TYPE);
+	ASSERT_TYPE(SELF, SnAstNodeType);
 	SnAstNode* self = (SnAstNode*)SELF;
-	return symbol_to_value(snow_ast_type_name(self->type));
+	return snow_symbol_to_value(snow_ast_type_name(self->node_type));
 }
 
 static void ast_pretty_print(VALUE root, intx indent) {
@@ -153,28 +171,29 @@ static void ast_pretty_print(VALUE root, intx indent) {
 	
 	printf("%s", indentation);
 	
-	if (snow_typeof(root) == SN_AST_TYPE) {
+	if (snow_typeof(root) == SnAstNodeType) {
 		SnAstNode* node = (SnAstNode*)root;
-		printf("<%s ", snow_symbol_to_cstr(snow_ast_type_name(node->type)));
-		switch (node->type) {
+		printf("<%s ", snow_symbol_to_cstr(snow_ast_type_name(node->node_type)));
+		switch (node->node_type) {
 			case SN_AST_LITERAL:
 			case SN_AST_LOCAL:
 			{
-				printf("%s>\n", snow_inspect_value(node->children[0]));
+				printf("%s>\n", snow_inspect_value(node->child0));
 				break;
 			}
 			default:
 			{
 				printf("\n");
-				for (uintx i = 0; i < node->size; ++i) {
-					ast_pretty_print(node->children[i], indent+1);
+				VALUE* p = &node->child0;
+				for (uintx i = 0; i < ast_size[node->node_type]; ++i) {
+					ast_pretty_print(p[i], indent+1);
 				}
 				printf("%s>\n", indentation);
 				break;
 			}
 		}
 	} else {
-		if (snow_typeof(root) == SN_ARRAY_TYPE) {
+		if (snow_typeof(root) == SnArrayType) {
 			SnArray* array = (SnArray*)root;
 			printf("@(\n");
 			for (size_t i = 0; i < snow_array_size(array); ++i) {
@@ -190,25 +209,25 @@ static void ast_pretty_print(VALUE root, intx indent) {
 }
 
 SNOW_FUNC(_ast_print) {
-	ASSERT_TYPE(SELF, SN_AST_TYPE);
+	ASSERT_TYPE(SELF, SnAstNodeType);
 	SnAstNode* node = (SnAstNode*)SELF;
 	ast_pretty_print(node, 0);
 	return SN_NIL;
 }
 
 SNOW_FUNC(_ast_inspect) {
-	ASSERT_TYPE(SELF, SN_AST_TYPE);	
+	ASSERT_TYPE(SELF, SnAstNodeType);	
 	SnAstNode* node = (SnAstNode*)SELF;
-	return snow_format_string("<AstNode(%@)>", symbol_to_value(snow_ast_type_name(node->type)));
+	return snow_format_string("<AstNode(%@)>", snow_symbol_to_value(snow_ast_type_name(node->node_type)));
 }
 
 SNOW_FUNC(_ast_name) {
-	ASSERT_TYPE(SELF, SN_AST_TYPE);
+	ASSERT_TYPE(SELF, SnAstNodeType);
 	SnAstNode* node = (SnAstNode*)SELF;
-	return symbol_to_value(snow_ast_type_name(node->type));
+	return snow_symbol_to_value(snow_ast_type_name(node->node_type));
 }
 
-void init_ast_class(SnClass* klass)
+void SnAstNode_init_class(SnClass* klass)
 {
 	snow_define_property(klass, "__name__", _ast_name, NULL);
 	snow_define_property(klass, "type", _ast_type, NULL);

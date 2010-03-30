@@ -33,12 +33,11 @@ CAPI VALUE snow_get_global_from_context(SnSymbol name, struct SnContext*)       
 CAPI VALUE snow_set_global(SnSymbol name, VALUE val)                                     ATTR_HOT;
 CAPI VALUE snow_set_global_from_context(SnSymbol name, VALUE val, struct SnContext*)     ATTR_HOT;
 CAPI VALUE snow_get_unspecified_local_from_context(SnSymbol name, struct SnContext*)     ATTR_HOT;
-CAPI SnClass* snow_get_class(SnObjectType);
+CAPI SnClass* snow_get_class(SnValueType);
 CAPI SnClass** snow_get_basic_types();
-CAPI SnObject* snow_get_prototype(SnObjectType);
+CAPI SnObject* snow_get_prototype(SnValueType);
 CAPI const char* snow_value_to_cstr(VALUE val);
 CAPI const char* snow_inspect_value(VALUE val);
-CAPI bool snow_eval_truth(VALUE val)                                                     ATTR_HOT;
 CAPI bool snow_is_normal_object(VALUE val) /* only true for derivates of SnObject */     ATTR_HOT;
 CAPI bool snow_prototype_chain_contains(VALUE val, SnObject* proto);
 CAPI int snow_compare_objects(VALUE a, VALUE b)                                          ATTR_HOT;

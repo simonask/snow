@@ -6,7 +6,7 @@
 #include "snow/function.h"
 #include "snow/gc.h"
 #include "snow/continuation.h"
-#include "snow/classes.h"
+#include "snow/continuation-intern.h"
 #include "snow/parser.h"
 #include "snow/debug.h"
 #include "snow/linkbuffer.h"
@@ -14,6 +14,7 @@
 #include "snow/task-intern.h"
 #include "snow/exception-intern.h"
 #include "snow/library.h"
+#include "snow/objects.h"
 #include "config.h"
 
 #include <stdarg.h>
@@ -26,10 +27,18 @@
 
 static SnObject* get_closest_object(VALUE)        ATTR_HOT;
 
-static SnClass* basic_classes[SN_TYPE_MAX];
+static SnClass* normal_classes[SnNormalObjectTypesMax-SnNormalObjectTypesMin-1];
+static SnClass* thin_classes[SnThinObjectTypesMax-SnThinObjectTypesMin-1];
+static SnClass* immediate_classes[SnImmediateTypesMax-SnImmediateTypesMin-1];
+static SnClass** basic_classes[] = { normal_classes, thin_classes, immediate_classes };
 
-void snow_init()
-{
+// declare basic class initializers
+#define SN_BEGIN_CLASS(NAME)            extern void NAME ## _init_class(SnClass*);
+#define SN_BEGIN_THIN_CLASS(NAME)       extern void NAME ## _init_class(SnClass*);
+#define SN_DECLARE_IMMEDIATE_TYPE(NAME) extern void NAME ## _init_class(SnClass*);
+#include "objects-decl.h"
+
+void snow_init() {
 	snow_init_gc();
 	
 	void* base;
@@ -41,7 +50,7 @@ void snow_init()
 	snow_continuation_init(&main_base, NULL, NULL);
 	SnTask* task = snow_get_current_task();
 	task->base = &main_base;
-	main_base.task_id = snow_get_current_task_id();
+//	main_base.task_id = snow_get_current_task_id();
 	if (snow_continuation_save_execution_state(&main_base)) {
 		// UNHANDLED EXCEPTION ALERT!
 		VALUE exception = snow_current_exception();
@@ -58,55 +67,25 @@ void snow_init()
 	}
 	
 	SnExceptionHandler* exception_handler = snow_create_exception_handler();
-	exception_handler->state = main_base.state;
+	exception_handler->state = main_base.internal->state;
 	snow_push_exception_handler(exception_handler);
 	
-	// create all base classes
-	SnClass* class_class;
-	snow_init_class_class(&class_class);
-	basic_classes[SN_CLASS_TYPE] = class_class;
-	
-	basic_classes[SN_OBJECT_TYPE] = snow_create_class("Object");
-	basic_classes[SN_CONTINUATION_TYPE] = snow_create_class("Continuation");
-	basic_classes[SN_CONTEXT_TYPE] = snow_create_class("Context");
-	basic_classes[SN_ARGUMENTS_TYPE] = snow_create_class("Arguments");
-	basic_classes[SN_FUNCTION_TYPE] = snow_create_class("Function");
-	basic_classes[SN_FUNCTION_DESCRIPTION_TYPE] = snow_create_class("FunctionDescription");
-	basic_classes[SN_STRING_TYPE] = snow_create_class("String");
-	basic_classes[SN_ARRAY_TYPE] = snow_create_class("Array");
-	basic_classes[SN_MAP_TYPE] = snow_create_class("Map");
-	basic_classes[SN_POINTER_TYPE] = snow_create_class("Pointer");
-	basic_classes[SN_EXCEPTION_TYPE] = snow_create_class("Exception");
-	basic_classes[SN_CODEGEN_TYPE] = snow_create_class("Codegen");
-	basic_classes[SN_AST_TYPE] = snow_create_class("AstNode");
-	basic_classes[SN_INTEGER_TYPE] = snow_create_class("Integer");
-	basic_classes[SN_NIL_TYPE] = snow_create_class("Nil");
-	basic_classes[SN_BOOLEAN_TYPE] = snow_create_class("Boolean");
-	basic_classes[SN_SYMBOL_TYPE] = snow_create_class("Symbol");
-	basic_classes[SN_FLOAT_TYPE] = snow_create_class("Float");
-	basic_classes[SN_DEFERRED_TASK_TYPE] = snow_create_class("DeferredTask");
-	
-	// initialize all base classes
-	init_object_class(basic_classes[SN_OBJECT_TYPE]);
-	init_class_class(basic_classes[SN_CLASS_TYPE]);
-	init_continuation_class(basic_classes[SN_CONTINUATION_TYPE]);
-	init_context_class(basic_classes[SN_CONTEXT_TYPE]);
-	init_arguments_class(basic_classes[SN_ARGUMENTS_TYPE]);
-	init_function_class(basic_classes[SN_FUNCTION_TYPE]);
-	init_function_description_class(basic_classes[SN_FUNCTION_DESCRIPTION_TYPE]);
-	init_string_class(basic_classes[SN_STRING_TYPE]);
-	init_array_class(basic_classes[SN_ARRAY_TYPE]);
-	init_map_class(basic_classes[SN_MAP_TYPE]);
-	init_pointer_class(basic_classes[SN_POINTER_TYPE]);
-	init_exception_class(basic_classes[SN_EXCEPTION_TYPE]);
-	init_codegen_class(basic_classes[SN_CODEGEN_TYPE]);
-	init_ast_class(basic_classes[SN_AST_TYPE]);
-	init_integer_class(basic_classes[SN_INTEGER_TYPE]);
-	init_nil_class(basic_classes[SN_NIL_TYPE]);
-	init_boolean_class(basic_classes[SN_BOOLEAN_TYPE]);
-	init_symbol_class(basic_classes[SN_SYMBOL_TYPE]);
-	init_float_class(basic_classes[SN_FLOAT_TYPE]);
-	init_deferred_task_class(basic_classes[SN_DEFERRED_TASK_TYPE]);
+	// create all basic classes
+	#define SN_BEGIN_CLASS(NAME)            normal_classes[(NAME ## Type) - SnNormalObjectTypesMin - 1] = snow_create_basic_class(#NAME + 2, NAME ## Type);
+	#define SN_BEGIN_THIN_CLASS(NAME)       thin_classes[(NAME ## Type) - SnThinObjectTypesMin - 1] = snow_create_basic_class(#NAME + 2, NAME ## Type);
+	#define SN_DECLARE_IMMEDIATE_TYPE(NAME) immediate_classes[(NAME ## Type) - SnImmediateTypesMin - 1] = snow_create_basic_class(#NAME + 2, NAME ## Type);
+	#include "objects-decl.h"
+	// set the class prototype for basic classes
+	SnObject* class_prototype = normal_classes[SnClassType - SnNormalObjectTypesMin - 1]->instance_prototype;
+	#define SN_BEGIN_CLASS(NAME)            normal_classes[(NAME ## Type) - SnNormalObjectTypesMin - 1]->base.prototype = class_prototype;
+	#define SN_BEGIN_THIN_CLASS(NAME)       thin_classes[(NAME ## Type) - SnThinObjectTypesMin - 1]->base.prototype = class_prototype;
+	#define SN_DECLARE_IMMEDIATE_TYPE(NAME) immediate_classes[(NAME ## Type) - SnImmediateTypesMin - 1]->base.prototype = class_prototype;
+	#include "objects-decl.h"
+	// call initializers
+	#define SN_BEGIN_CLASS(NAME)            NAME ## _init_class(normal_classes[(NAME ## Type) - SnNormalObjectTypesMin - 1]);
+	#define SN_BEGIN_THIN_CLASS(NAME)       NAME ## _init_class(thin_classes[(NAME ## Type) - SnThinObjectTypesMin - 1]);
+	#define SN_DECLARE_IMMEDIATE_TYPE(NAME) NAME ## _init_class(immediate_classes[(NAME ## Type) - SnImmediateTypesMin - 1]);
+	#include "objects-decl.h"
 }
 
 VALUE snow_eval(const char* str)
@@ -312,7 +291,7 @@ VALUE snow_call_with_args(VALUE in_self, VALUE in_closure, SnArguments* args)
 	}
 	
 	SnSymbol call_sym = snow_symbol("__call__");
-	while (snow_typeof(closure) != SN_FUNCTION_TYPE)
+	while (snow_typeof(closure) != SnFunctionType)
 	{
 		self = closure;
 		closure = snow_get_member(closure, call_sym);
@@ -348,7 +327,7 @@ typedef struct ParallelThreadInvocationData {
 static void invoke_parallel_thread_function(void* _functions, size_t element_size, size_t idx, void* _userdata) {
 	ParallelThreadInvocationData* userdata = (ParallelThreadInvocationData*)_userdata;
 	SnFunctionDescription* desc = ((SnFunctionDescription**)_functions)[idx];
-	ASSERT_TYPE(desc, SN_FUNCTION_DESCRIPTION_TYPE);
+	ASSERT_TYPE(desc, SnFunctionDescriptionType);
 	SnFunction* func = snow_create_function_from_description(desc);
 	snow_function_declared_in_context(func, userdata->context);
 	SnContext* context = snow_create_context_for_function(func);
@@ -380,11 +359,11 @@ VALUE snow_invoke_parallel_forks(SnArray* functions, SnContext* context)
 		pid_t pid = fork();
 		if (pid) {
 			// main process: Collect the pid in the result array, and continue.
-			pids[i] = int_to_value(pid);
+			pids[i] = snow_int_to_value(pid);
 		} else {
 			// child process: Execute the function, and then exit.
 			SnFunctionDescription* desc = (SnFunctionDescription*)snow_array_get(functions, i);
-			ASSERT_TYPE(desc, SN_FUNCTION_DESCRIPTION_TYPE);
+			ASSERT_TYPE(desc, SnFunctionDescriptionType);
 			SnFunction* func = snow_create_function_from_description(desc);
 			snow_function_declared_in_context(func, context);
 			SnContext* ctx = snow_create_context_for_function(func);
@@ -412,7 +391,7 @@ VALUE snow_get_member_with_fallback(VALUE self, SnSymbol sym)
 	if (!member) {
 		VALUE member_missing = snow_object_get_member(closest_object, self, snow_symbol("member_missing"));
 		if (member_missing) {
-			member = snow_call(self, member_missing, 1, symbol_to_value(sym));
+			member = snow_call(self, member_missing, 1, snow_symbol_to_value(sym));
 			if (member == SN_NIL) member = NULL;
 		}
 	}
@@ -428,7 +407,7 @@ VALUE snow_get_member_for_method_call(VALUE self, SnSymbol sym)
 
 VALUE snow_set_member(VALUE self, SnSymbol sym, VALUE val)
 {
-	ASSERT(is_object(self));
+	ASSERT(snow_is_object(self));
 	SnObject* object = (SnObject*)self;
 	ASSERT(snow_is_normal_object(object));
 	return snow_object_set_member(object, self, sym, val);
@@ -477,9 +456,9 @@ VALUE snow_get_unspecified_local_from_context(SnSymbol name, SnContext* from)
 
 inline SnObject* get_closest_object(VALUE self)
 {
-	if (is_object(self))
+	if (snow_is_object(self))
 	{
-		SnObjectBase* base = (SnObjectBase*)self;
+		SnAnyObject* base = (SnAnyObject*)self;
 		uintx mask = base->type & SN_TYPE_MASK;
 		switch (mask)
 		{
@@ -491,21 +470,18 @@ inline SnObject* get_closest_object(VALUE self)
 				TRAP(); // Unknown object type ... what's going on?
 		}
 	}
-	return basic_classes[snow_typeof(self)]->instance_prototype;
+	return snow_get_class(snow_typeof(self))->instance_prototype;
 }
 
-SnClass* snow_get_class(SnObjectType type) {
-	ASSERT(type >= 0 && type < SN_TYPE_MAX);
-	return basic_classes[type];
+SnClass* snow_get_class(SnValueType type) {
+	uintx min = (type & SN_TYPE_MASK);
+	uintx kind = (min >> 12) - 1;
+	ASSERT(kind < 3);
+	return basic_classes[kind][type - min - 1];
 }
 
-SnClass** snow_get_basic_types() {
-	return basic_classes;
-}
-
-SnObject* snow_get_prototype(SnObjectType type) {
-	ASSERT(type >= 0 && type < SN_TYPE_MAX);
-	return basic_classes[type]->instance_prototype;
+SnObject* snow_get_prototype(SnValueType type) {
+	return snow_get_class(type)->instance_prototype;
 }
 
 const char* snow_value_to_cstr(VALUE val)
@@ -519,7 +495,7 @@ const char* snow_value_to_cstr(VALUE val)
 	}
 	
 	SnString* str = (SnString*)snow_call_method(snow_call_method(val, to_string, 0), to_string, 0);
-	ASSERT_TYPE(str, SN_STRING_TYPE);
+	ASSERT_TYPE(str, SnStringType);
 	return snow_string_cstr(str);
 }
 
@@ -534,19 +510,14 @@ const char* snow_inspect_value(VALUE val)
 	}
 	
 	SnString* str = (SnString*)snow_call_method(snow_call_method(val, inspect, 0), snow_symbol("to_string"), 0);
-	ASSERT_TYPE(str, SN_STRING_TYPE);
+	ASSERT_TYPE(str, SnStringType);
 	return snow_string_cstr(str);
 }
 
-bool snow_eval_truth(VALUE val) {
-	// WARNING: This is explicitly inlined in codegens. If you change this, you must also change each codegen that inlines this.
-	return !(!val || val == SN_NIL || val == SN_FALSE);
-}
-
 bool snow_is_normal_object(VALUE val) {
-	if (is_object(val)) {
-		SnObjectType type = snow_typeof(val);
-		return type >= SN_NORMAL_OBJECT_TYPE_BASE && type < SN_NORMAL_OBJECT_TYPE_MAX;
+	if (snow_is_object(val)) {
+		SnValueType type = snow_typeof(val);
+		return type == SnObjectType || (type > SnNormalObjectTypesMin && type < SnNormalObjectTypesMax);
 	}
 	return false;
 }
@@ -567,8 +538,8 @@ bool snow_prototype_chain_contains(VALUE val, SnObject* proto) {
 int snow_compare_objects(VALUE a, VALUE b)
 {
 	VALUE n = snow_call_method(a, snow_symbol("<=>"), 1, b);
-	ASSERT(is_integer(n));
-	return value_to_int(n);
+	ASSERT(snow_is_integer(n));
+	return snow_value_to_int(n);
 }
 
 bool snow_is_object_assigned(VALUE val)
@@ -585,7 +556,7 @@ VALUE snow_set_object_assigned(VALUE val, SnSymbol sym, VALUE member_of)
 	if (!snow_is_object_assigned(val)) {
 		SnObject* object = (SnObject*)val;
 		object->flags |= SN_FLAG_ASSIGNED;
-		snow_call_method(object, snow_symbol("__on_assign__"), 2, symbol_to_value(sym), member_of);
+		snow_call_method(object, snow_symbol("__on_assign__"), 2, snow_symbol_to_value(sym), member_of);
 	}
 	return val;
 }
@@ -610,13 +581,13 @@ VALUE snow_store_add(VALUE val) {
 	SnArray* store = *_snow_store_ptr();
 	intx key = snow_array_size(store);
 	snow_array_push(store, val);
-	return int_to_value(key);
+	return snow_int_to_value(key);
 }
 
 VALUE snow_store_get(VALUE key) {
-	ASSERT(is_integer(key));
+	ASSERT(snow_is_integer(key));
 	SnArray* store = *_snow_store_ptr();
-	intx nkey = value_to_int(key);
+	intx nkey = snow_value_to_int(key);
 	VALUE val = snow_array_get(store, nkey);
 	return val;
 }

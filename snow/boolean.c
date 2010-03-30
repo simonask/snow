@@ -7,7 +7,7 @@ SNOW_FUNC(boolean_to_string) {
 	return snow_create_string("false");
 }
 
-void init_boolean_class(SnClass* klass)
+void SnBoolean_init_class(SnClass* klass)
 {
 	snow_define_method(klass, "to_string", boolean_to_string);
 	snow_define_method(klass, "inspect", boolean_to_string);

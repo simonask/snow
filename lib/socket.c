@@ -16,7 +16,7 @@ static inline void throw_errno(const char* msg) {
 }
 
 static void socket_gc_free_failsafe(VALUE self) {
-	int descriptor = value_to_int(snow_get_member(self, snow_symbol("_fd")));
+	int descriptor = snow_value_to_int(snow_get_member(self, snow_symbol("_fd")));
 	close(descriptor); // don't care about failure
 }
 
@@ -25,11 +25,11 @@ SNOW_FUNC(socket_initialize)
 	REQUIRE_ARGS(2);
 	VALUE vhost = ARG_BY_NAME_AT("host", 0);
 	VALUE vport = ARG_BY_NAME_AT("port", 1);
-	ASSERT_TYPE(vhost, SN_STRING_TYPE);
-	ASSERT_TYPE(vport, SN_INTEGER_TYPE);
+	ASSERT_TYPE(vhost, SnStringType);
+	ASSERT_TYPE(vport, SnIntegerType);
 	
 	const char* host = snow_string_cstr(vhost);
-	        int port = value_to_int(vport);
+	        int port = snow_value_to_int(vport);
 	
 	int descriptor = socket(AF_INET, SOCK_STREAM, 0);
 	if (descriptor == -1)
@@ -50,7 +50,7 @@ SNOW_FUNC(socket_initialize)
 	if (success == -1)
 		throw_errno("Socket connection failed");
 	
-	snow_set_member(SELF, snow_symbol("_fd"), int_to_value(descriptor));
+	snow_set_member(SELF, snow_symbol("_fd"), snow_int_to_value(descriptor));
 	snow_set_member(SELF, snow_symbol("host"), ARGS[0]);
 	snow_set_member(SELF, snow_symbol("port"), ARGS[1]);
 	
@@ -61,10 +61,10 @@ SNOW_FUNC(socket_initialize)
 
 SNOW_FUNC(socket_receive) {
 	REQUIRE_ARGS(1);
-	ASSERT_TYPE(ARGS[0], SN_INTEGER_TYPE);
+	ASSERT_TYPE(ARGS[0], SnIntegerType);
 	
-	int descriptor = value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
-	int buffer_length = value_to_int(ARGS[0]);
+	int descriptor = snow_value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
+	int buffer_length = snow_value_to_int(ARGS[0]);
 	char buffer[buffer_length];
 	
 	ssize_t read_bytes = recv(descriptor, buffer, buffer_length, 0);
@@ -75,9 +75,9 @@ SNOW_FUNC(socket_receive) {
 
 SNOW_FUNC(socket_send) {
 	REQUIRE_ARGS(1);
-	ASSERT_TYPE(ARGS[0], SN_STRING_TYPE);
+	ASSERT_TYPE(ARGS[0], SnStringType);
 	
-	int descriptor = value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
+	int descriptor = snow_value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
 	const char* data = snow_string_cstr(ARGS[0]);
 	if (send(descriptor, data, snow_string_length(ARGS[0]), 0) < 0) throw_errno("Could not send");
 	
@@ -85,7 +85,7 @@ SNOW_FUNC(socket_send) {
 }
 
 SNOW_FUNC(socket_close) {
-	int descriptor = value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
+	int descriptor = snow_value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
 	if (close(descriptor) != 0) throw_errno("Could not close socket");
 	return SN_NIL;
 }
@@ -94,10 +94,10 @@ SNOW_FUNC(server_initialize) {
 	REQUIRE_ARGS(1);
 	VALUE vport = ARG_BY_NAME_AT("port", 0);
 	VALUE vhost = ARG_BY_NAME_AT("host", 1);
-	ASSERT_TYPE(vport, SN_INTEGER_TYPE);
+	ASSERT_TYPE(vport, SnIntegerType);
 	
 	const char* host = vhost ? snow_value_to_cstr(vhost) : "0.0.0.0";
-	        int port = value_to_int(vport);
+	        int port = snow_value_to_int(vport);
 	
 	int descriptor = socket(AF_INET, SOCK_STREAM, 0);
 	if (descriptor == -1)
@@ -118,7 +118,7 @@ SNOW_FUNC(server_initialize) {
 	
 	if (listen(descriptor, 16)) throw_errno("Could not listen for connections");
 	
-	snow_set_member(SELF, snow_symbol("_fd"), int_to_value(descriptor));
+	snow_set_member(SELF, snow_symbol("_fd"), snow_int_to_value(descriptor));
 	snow_set_member(SELF, snow_symbol("host"), ARGS[0]);
 	snow_set_member(SELF, snow_symbol("port"), ARGS[1]);
 	snow_gc_set_free_func(SELF, socket_gc_free_failsafe); // XXX: free func can be reused because both Socket and Server name their socket descriptor "_fd".
@@ -126,7 +126,7 @@ SNOW_FUNC(server_initialize) {
 }
 
 SNOW_FUNC(server_accept) {
-	int server_descriptor = value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
+	int server_descriptor = snow_value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
 	
 	struct sockaddr_in addr;
 	socklen_t addr_len = sizeof(addr);
@@ -136,15 +136,15 @@ SNOW_FUNC(server_accept) {
 	
 	SnClass* Socket = snow_get_global(snow_symbol("Socket"));
 	VALUE client = snow_create_object(Socket->instance_prototype);
-	snow_set_member(client, snow_symbol("_fd"), int_to_value(client_descriptor));
+	snow_set_member(client, snow_symbol("_fd"), snow_int_to_value(client_descriptor));
 	snow_set_member(client, snow_symbol("host"), snow_create_string(inet_ntoa(addr.sin_addr)));
-	snow_set_member(client, snow_symbol("port"), int_to_value(ntohs(addr.sin_port)));
+	snow_set_member(client, snow_symbol("port"), snow_int_to_value(ntohs(addr.sin_port)));
 	snow_gc_set_free_func(client, socket_gc_free_failsafe);
 	return client;
 }
 
 SNOW_FUNC(server_stop) {
-	int server_descriptor = value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
+	int server_descriptor = snow_value_to_int(snow_get_member(SELF, snow_symbol("_fd")));
 	if (close(server_descriptor)) throw_errno("Could not stop server");
 	return SN_NIL;
 }

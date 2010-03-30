@@ -16,46 +16,50 @@ static FIXED_ALLOCATOR(stack_alloc, CONTINUATION_STACK_SIZE);
 
 SnContinuation* snow_create_continuation(SnFunctionPtr func, SnContext* context)
 {
-	SnContinuation* cc = (SnContinuation*)snow_alloc_any_object(SN_CONTINUATION_TYPE, sizeof(SnContinuation));
+	SnContinuation* cc = SNOW_GC_ALLOC_OBJECT(SnContinuation);
 	snow_continuation_init(cc, func, context);
-	snow_gc_set_free_func(cc, continuation_gc_cleanup);
 	return cc;
+}
+
+void SnContinuation_finalize(SnContinuation* cc) {
+	snow_continuation_cleanup(cc);
+	snow_free(cc->internal);
 }
 
 void snow_continuation_init(SnContinuation* cc, SnFunctionPtr func, SnContext* context)
 {
 	cc->function = func;
-	cc->stack_lo = NULL;
-	cc->stack_hi = NULL;
-	cc->running = false;
-	cc->interruptible = true;
+	cc->internal = (SnContinuationInternal*)snow_malloc(sizeof(SnContinuationInternal));
+	cc->internal->stack_lo = NULL;
+	cc->internal->stack_hi = NULL;
+	cc->internal->running = false;
 	cc->return_to = NULL;
 	cc->please_clean = NULL;
 	cc->context = context;
 	cc->return_val = NULL;
-	cc->task_id = snow_get_current_task_id();
+	//cc->task_id = snow_get_current_task_id();
 }
 
 void snow_continuation_cleanup(SnContinuation* cc)
 {
-	ASSERT(!cc->running);
+	ASSERT(!cc->internal->running);
 	
-	fixed_free(&stack_alloc, cc->stack_lo);
-	cc->stack_lo = NULL;
-	cc->stack_hi = NULL;
+	fixed_free(&stack_alloc, cc->internal->stack_lo);
+	cc->internal->stack_lo = NULL;
+	cc->internal->stack_hi = NULL;
 }
 
 static void continuation_init_stack(SnContinuation* cc)
 {
-	ASSERT(!cc->stack_lo);
-	cc->stack_lo = (byte*)fixed_alloc(&stack_alloc);
-	cc->stack_hi = cc->stack_lo + CONTINUATION_STACK_SIZE;
+	ASSERT(!cc->internal->stack_lo);
+	cc->internal->stack_lo = (byte*)fixed_alloc(&stack_alloc);
+	cc->internal->stack_hi = cc->internal->stack_lo + CONTINUATION_STACK_SIZE;
 }
 
 static void continuation_gc_cleanup(VALUE vcc)
 {
 	SnContinuation* cc = (SnContinuation*)vcc;
-	ASSERT_TYPE(cc, SN_CONTINUATION_TYPE);
+	ASSERT_TYPE(cc, SnContinuationType);
 	snow_continuation_cleanup(cc);
 }
 
@@ -84,22 +88,20 @@ VALUE snow_continuation_call(SnContinuation* cc, SnContinuation* return_to)
 
 void snow_continuation_yield(SnContinuation* cc, VALUE val)
 {
-	ASSERT(cc->interruptible);
 	if (snow_continuation_save_execution_state(cc)) {
 		TRAP();
 		// was restarted after yield
 		return;
 	}
 	cc->return_val = val;
-	ASSERT(cc->return_to->running);
+	ASSERT(cc->return_to->internal->running);
 	ASSERT(!cc->return_to->please_clean);
 	snow_continuation_resume(cc->return_to);
 }
 
 void snow_continuation_return(SnContinuation* cc, VALUE val)
 {
-	ASSERT(cc->interruptible);
-	cc->running = false;
+	cc->internal->running = false;
 	cc->return_val = val;
 	
 	// continuations cannot clean up themselves without messing up their
@@ -107,22 +109,22 @@ void snow_continuation_return(SnContinuation* cc, VALUE val)
 	ASSERT(!cc->return_to->please_clean);
 	cc->return_to->please_clean = cc;
 	
-	ASSERT(cc->return_to->running);
+	ASSERT(cc->return_to->internal->running);
 	snow_continuation_resume(cc->return_to);
 }
 
 void snow_continuation_resume(SnContinuation* cc)
 {
 	SnContinuation* current = snow_get_current_continuation();
-	ASSERT(cc->task_id == current->task_id); // can't resume continuations across threads/tasks
+	//ASSERT(cc->task_id == current->task_id); // can't resume continuations across threads/tasks
 	snow_set_current_continuation(cc);
 	
-	if (!cc->running)
+	if (!cc->internal->running)
 	{
 		snow_continuation_cleanup(cc);
 		continuation_init_stack(cc);
 		_continuation_reset(cc);
-		cc->running = true;
+		cc->internal->running = true;
 	}
 	
 	if (snow_task_is_base_continuation(cc)) {
@@ -136,12 +138,12 @@ void snow_continuation_resume(SnContinuation* cc)
 
 void snow_continuation_get_stack_bounds(SnContinuation* cc, byte** lo, byte** hi)
 {
-	*hi = cc->stack_hi;
+	*hi = cc->internal->stack_hi;
 	// TODO: Specialise per arch
-	*lo = cc->state.rsp;
+	*lo = cc->internal->state.rsp;
 }
 
-void init_continuation_class(SnClass* klass)
+void SnContinuation_init_class(SnClass* klass)
 {
 	
 }

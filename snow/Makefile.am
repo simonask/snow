@@ -49,7 +49,8 @@ include_snow_HEADERS = $(HEADERS_ARCH) \
 	ast.h \
 	basic.h \
 	class.h \
-	classes.h \
+	objects.h \
+	objects-decl.h \
 	codegen.h \
 	context.h \
 	continuation.h \

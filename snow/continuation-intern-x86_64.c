@@ -10,7 +10,7 @@
 NOINLINE NO_PROFILING void _continuation_resume(SnContinuation* cc) {
 	SnVolatileRegisters vreg;
 	vreg.rdi = cc->context;
-	snow_restore_execution_state_with_volatile_registers(&cc->state, &vreg);
+	snow_restore_execution_state_with_volatile_registers(&cc->internal->state, &vreg);
 	TRAP(); // should never be reached
 }
 
@@ -34,11 +34,11 @@ void NO_PROFILING _continuation_return_handler() {
 }
 
 void _continuation_reset(SnContinuation* cc) {
-	(*(void**)(cc->stack_hi-0x8)) = cc; // self-reference for return bouncer
-	(*(void**)(cc->stack_hi-0x10)) = NULL; // rbp for return bouncer
-	CAST_FUNCTION_TO_DATA((*(void**)(cc->stack_hi-0x18)), _continuation_return_handler); // bouncer
-	cc->state.rsp = cc->stack_hi - 0x18; // alignment, bounce space
-	cc->state.rbp = cc->state.rsp;
-	cc->running = false;
-	cc->state.rip = (void(*)())cc->function;
+	(*(void**)(cc->internal->stack_hi-0x8)) = cc; // self-reference for return bouncer
+	(*(void**)(cc->internal->stack_hi-0x10)) = NULL; // rbp for return bouncer
+	CAST_FUNCTION_TO_DATA((*(void**)(cc->internal->stack_hi-0x18)), _continuation_return_handler); // bouncer
+	cc->internal->state.rsp = cc->internal->stack_hi - 0x18; // alignment, bounce space
+	cc->internal->state.rbp = cc->internal->state.rsp;
+	cc->internal->running = false;
+	cc->internal->state.rip = (void(*)())cc->function;
 }

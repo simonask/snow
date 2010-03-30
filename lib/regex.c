@@ -13,12 +13,13 @@ static void regex_free(void* ptr)
 {
 	RegExInternal* intern = (RegExInternal*)ptr;
 	regfree(&intern->regex);
+	snow_free(intern);
 }
 
 
 SNOW_FUNC(regex_initialize)
 {
-	RegExInternal* intern = (RegExInternal*)snow_gc_alloc_atomic(sizeof(RegExInternal));
+	RegExInternal* intern = (RegExInternal*)snow_malloc(sizeof(RegExInternal));
 	if (regcomp(&intern->regex, "PATTERN", REG_EXTENDED) != 0) {
 		snow_throw_exception_with_description("STUB ERROR MESSAGE -- failed to compile regex.");
 	}
@@ -31,7 +32,7 @@ SNOW_FUNC(regex_initialize)
 
 static void regex_init(SnContext* global_context)
 {
-	SnClass* RegEx = snow_create_class("RegEx");
+	SnClass* RegEx = snow_create_class("RegEx", NULL);
 	snow_define_method(RegEx, "initialize", regex_initialize);
 	
 	snow_set_global(snow_symbol("RegEx"), RegEx);

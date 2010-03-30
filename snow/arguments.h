@@ -4,12 +4,6 @@
 #include "snow/object.h"
 #include "snow/map.h"
 
-typedef struct SnArguments {
-	SnObjectBase base;
-	struct array_t names;
-	struct array_t data;
-} SnArguments;
-
 CAPI SnArguments* snow_create_arguments_with_size(uint32_t size);
 CAPI VALUE snow_arguments_set_by_index(SnArguments*, uintx idx, VALUE val);
 CAPI VALUE snow_arguments_push(SnArguments*, VALUE val)                         ATTR_HOT;

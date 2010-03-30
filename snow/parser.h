@@ -8,6 +8,6 @@ typedef struct SnParserInfo {
 	uintx num_functions;
 } SnParserInfo;
 
-CAPI SnAstNode* snow_parse(const char* buffer, struct SnParserInfo* out_info);
+CAPI struct SnAstNode* snow_parse(const char* buffer, struct SnParserInfo* out_info);
 
 #endif /* end of include guard: PARSER_H_R3XQLOW1 */

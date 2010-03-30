@@ -4,13 +4,6 @@
 #include "snow/basic.h"
 #include "snow/object.h"
 
-typedef struct SnString {
-	SnObjectBase base;
-	char* data;
-	uint32_t size;   // bytes
-	uint32_t length; // characters
-} SnString;
-
 struct SnLinkBuffer;
 
 CAPI SnString* snow_create_string(const char* cstr_utf8);

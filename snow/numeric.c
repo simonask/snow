@@ -10,138 +10,138 @@
 #include <math.h>
 
 SNOW_FUNC(numeric_plus) {
-	ASSERT(is_numeric(SELF));
+	ASSERT(snow_is_numeric(SELF));
 	REQUIRE_ARGS(1);
-	ASSERT(is_numeric(ARGS[0]));
+	ASSERT(snow_is_numeric(ARGS[0]));
 	
-	if (is_integer(SELF) && is_integer(ARGS[0])) {
-		return int_to_value(value_to_int(SELF) + value_to_int(ARGS[0]));
+	if (snow_is_integer(SELF) && snow_is_integer(ARGS[0])) {
+		return snow_int_to_value(snow_value_to_int(SELF) + snow_value_to_int(ARGS[0]));
 	} else {
-		float a = is_integer(SELF) ? (float)value_to_int(SELF) : value_to_float(SELF);
-		float b = is_integer(ARGS[0]) ? (float)value_to_int(ARGS[0]) : value_to_float(ARGS[0]);
-		return float_to_value(a + b);
+		float a = snow_is_integer(SELF) ? (float)snow_value_to_int(SELF) : snow_value_to_float(SELF);
+		float b = snow_is_integer(ARGS[0]) ? (float)snow_value_to_int(ARGS[0]) : snow_value_to_float(ARGS[0]);
+		return snow_float_to_value(a + b);
 	}
 }
 
 SNOW_FUNC(numeric_minus) {
-	ASSERT(is_numeric(SELF));
+	ASSERT(snow_is_numeric(SELF));
 	
 	if (NUM_ARGS >= 1)
 	{
-		ASSERT(is_numeric(ARGS[0]));
-		if (is_integer(SELF) && is_integer(ARGS[0])) {
-			return int_to_value(value_to_int(SELF) - value_to_int(ARGS[0]));
+		ASSERT(snow_is_numeric(ARGS[0]));
+		if (snow_is_integer(SELF) && snow_is_integer(ARGS[0])) {
+			return snow_int_to_value(snow_value_to_int(SELF) - snow_value_to_int(ARGS[0]));
 		} else {
-			float a = is_integer(SELF) ? (float)value_to_int(SELF) : value_to_float(SELF);
-			float b = is_integer(ARGS[0]) ? (float)value_to_int(ARGS[0]) : value_to_float(ARGS[0]);
-			return float_to_value(a - b);
+			float a = snow_is_integer(SELF) ? (float)snow_value_to_int(SELF) : snow_value_to_float(SELF);
+			float b = snow_is_integer(ARGS[0]) ? (float)snow_value_to_int(ARGS[0]) : snow_value_to_float(ARGS[0]);
+			return snow_float_to_value(a - b);
 		}
 	}
 	else
 	{
-		if (is_integer(SELF)) return int_to_value(-value_to_int(SELF));
-		else return float_to_value(-value_to_float(SELF));
+		if (snow_is_integer(SELF)) return snow_int_to_value(-snow_value_to_int(SELF));
+		else return snow_float_to_value(-snow_value_to_float(SELF));
 	}
 }
 
 SNOW_FUNC(numeric_multiply) {
-	ASSERT(is_numeric(SELF));
+	ASSERT(snow_is_numeric(SELF));
 	REQUIRE_ARGS(1);
-	ASSERT(is_numeric(ARGS[0]));
+	ASSERT(snow_is_numeric(ARGS[0]));
 	
-	if (is_integer(SELF) && is_integer(ARGS[0])) {
-		return int_to_value(value_to_int(SELF) * value_to_int(ARGS[0]));
+	if (snow_is_integer(SELF) && snow_is_integer(ARGS[0])) {
+		return snow_int_to_value(snow_value_to_int(SELF) * snow_value_to_int(ARGS[0]));
 	} else {
-		float a = is_integer(SELF) ? (float)value_to_int(SELF) : value_to_float(SELF);
-		float b = is_integer(ARGS[0]) ? (float)value_to_int(ARGS[0]) : value_to_float(ARGS[0]);
-		return float_to_value(a * b);
+		float a = snow_is_integer(SELF) ? (float)snow_value_to_int(SELF) : snow_value_to_float(SELF);
+		float b = snow_is_integer(ARGS[0]) ? (float)snow_value_to_int(ARGS[0]) : snow_value_to_float(ARGS[0]);
+		return snow_float_to_value(a * b);
 	}
 }
 
 SNOW_FUNC(numeric_divide) {
-	ASSERT(is_numeric(SELF));
+	ASSERT(snow_is_numeric(SELF));
 	REQUIRE_ARGS(1);
-	ASSERT(is_numeric(ARGS[0]));
+	ASSERT(snow_is_numeric(ARGS[0]));
 	
-	if (is_integer(SELF) && is_integer(ARGS[0])) {
-		return int_to_value(value_to_int(SELF) / value_to_int(ARGS[0]));
+	if (snow_is_integer(SELF) && snow_is_integer(ARGS[0])) {
+		return snow_int_to_value(snow_value_to_int(SELF) / snow_value_to_int(ARGS[0]));
 	} else {
-		float a = is_integer(SELF) ? (float)value_to_int(SELF) : value_to_float(SELF);
-		float b = is_integer(ARGS[0]) ? (float)value_to_int(ARGS[0]) : value_to_float(ARGS[0]);
-		return float_to_value(a / b);
+		float a = snow_is_integer(SELF) ? (float)snow_value_to_int(SELF) : snow_value_to_float(SELF);
+		float b = snow_is_integer(ARGS[0]) ? (float)snow_value_to_int(ARGS[0]) : snow_value_to_float(ARGS[0]);
+		return snow_float_to_value(a / b);
 	}
 }
 
 SNOW_FUNC(numeric_modulo) {
-	ASSERT(is_numeric(SELF));
+	ASSERT(snow_is_numeric(SELF));
 	REQUIRE_ARGS(1);
-	ASSERT(is_numeric(ARGS[0]));
+	ASSERT(snow_is_numeric(ARGS[0]));
 	
-	if (is_integer(SELF) && is_integer(ARGS[0])) {
-		return int_to_value(value_to_int(SELF) % value_to_int(ARGS[0]));
+	if (snow_is_integer(SELF) && snow_is_integer(ARGS[0])) {
+		return snow_int_to_value(snow_value_to_int(SELF) % snow_value_to_int(ARGS[0]));
 	} else {
-		float a = is_integer(SELF) ? (float)value_to_int(SELF) : value_to_float(SELF);
-		float b = is_integer(ARGS[0]) ? (float)value_to_int(ARGS[0]) : value_to_float(ARGS[0]);
-		return float_to_value(fmodf(a, b));
+		float a = snow_is_integer(SELF) ? (float)snow_value_to_int(SELF) : snow_value_to_float(SELF);
+		float b = snow_is_integer(ARGS[0]) ? (float)snow_value_to_int(ARGS[0]) : snow_value_to_float(ARGS[0]);
+		return snow_float_to_value(fmodf(a, b));
 	}
 }
 
 SNOW_FUNC(numeric_power) {
-	ASSERT(is_numeric(SELF));
+	ASSERT(snow_is_numeric(SELF));
 	REQUIRE_ARGS(1);
-	ASSERT(is_numeric(ARGS[0]));
+	ASSERT(snow_is_numeric(ARGS[0]));
 	
-	if (is_integer(SELF) && is_integer(ARGS[0])) {
-		return int_to_value((intx)pow((double)value_to_int(SELF), (double)value_to_int(ARGS[0])));
+	if (snow_is_integer(SELF) && snow_is_integer(ARGS[0])) {
+		return snow_int_to_value((intx)pow((double)snow_value_to_int(SELF), (double)snow_value_to_int(ARGS[0])));
 	} else {
-		float a = is_integer(SELF) ? (float)value_to_int(SELF) : value_to_float(SELF);
-		float b = is_integer(ARGS[0]) ? (float)value_to_int(ARGS[0]) : value_to_float(ARGS[0]);
-		return float_to_value(powf(a, b));
+		float a = snow_is_integer(SELF) ? (float)snow_value_to_int(SELF) : snow_value_to_float(SELF);
+		float b = snow_is_integer(ARGS[0]) ? (float)snow_value_to_int(ARGS[0]) : snow_value_to_float(ARGS[0]);
+		return snow_float_to_value(powf(a, b));
 	}
 }
 
 SNOW_FUNC(numeric_less_than) {
-	ASSERT(is_numeric(SELF));
+	ASSERT(snow_is_numeric(SELF));
 	REQUIRE_ARGS(1);
-	ASSERT(is_numeric(ARGS[0]));
+	ASSERT(snow_is_numeric(ARGS[0]));
 	
-	if (is_integer(SELF) && is_integer(ARGS[0])) {
-		return boolean_to_value(value_to_int(SELF) < value_to_int(ARGS[0]));
+	if (snow_is_integer(SELF) && snow_is_integer(ARGS[0])) {
+		return snow_boolean_to_value(snow_value_to_int(SELF) < snow_value_to_int(ARGS[0]));
 	} else {
-		float a = is_integer(SELF) ? (float)value_to_int(SELF) : value_to_float(SELF);
-		float b = is_integer(ARGS[0]) ? (float)value_to_int(ARGS[0]) : value_to_float(ARGS[0]);
-		return boolean_to_value(a < b);
+		float a = snow_is_integer(SELF) ? (float)snow_value_to_int(SELF) : snow_value_to_float(SELF);
+		float b = snow_is_integer(ARGS[0]) ? (float)snow_value_to_int(ARGS[0]) : snow_value_to_float(ARGS[0]);
+		return snow_boolean_to_value(a < b);
 	}
 }
 
 SNOW_FUNC(numeric_greater_than) {
-	ASSERT(is_numeric(SELF));
+	ASSERT(snow_is_numeric(SELF));
 	REQUIRE_ARGS(1);
-	ASSERT(is_numeric(ARGS[0]));
+	ASSERT(snow_is_numeric(ARGS[0]));
 	
-	if (is_integer(SELF) && is_integer(ARGS[0])) {
-		return boolean_to_value(value_to_int(SELF) > value_to_int(ARGS[0]));
+	if (snow_is_integer(SELF) && snow_is_integer(ARGS[0])) {
+		return snow_boolean_to_value(snow_value_to_int(SELF) > snow_value_to_int(ARGS[0]));
 	} else {
-		float a = is_integer(SELF) ? (float)value_to_int(SELF) : value_to_float(SELF);
-		float b = is_integer(ARGS[0]) ? (float)value_to_int(ARGS[0]) : value_to_float(ARGS[0]);
-		return boolean_to_value(a > b);
+		float a = snow_is_integer(SELF) ? (float)snow_value_to_int(SELF) : snow_value_to_float(SELF);
+		float b = snow_is_integer(ARGS[0]) ? (float)snow_value_to_int(ARGS[0]) : snow_value_to_float(ARGS[0]);
+		return snow_boolean_to_value(a > b);
 	}
 }
 
 SNOW_FUNC(numeric_to_string) {
-	ASSERT(is_numeric(SELF));
+	ASSERT(snow_is_numeric(SELF));
 	
 	char r[32];	// should be enough to hold all 64-bit ints and 32-bit floats
 	
-	if (is_integer(SELF)) {
-		intx n = value_to_int(SELF);
+	if (snow_is_integer(SELF)) {
+		intx n = snow_value_to_int(SELF);
 		#ifdef ARCH_IS_64_BIT
 		snprintf(r, 32, "%lld", n);
 		#else
 		snprintf(r, 32, "%d", n);
 		#endif
-	} else if (is_float(SELF)) {
-		float f = value_to_float(SELF);
+	} else if (snow_is_float(SELF)) {
+		float f = snow_value_to_float(SELF);
 		snprintf(r, 32, "%f", f);
 	}
 	else
@@ -150,7 +150,7 @@ SNOW_FUNC(numeric_to_string) {
 	return snow_create_string(r);
 }
 
-void init_integer_class(SnClass* klass)
+void SnInteger_init_class(SnClass* klass)
 {
 	snow_define_method(klass, "+", numeric_plus);
 	snow_define_method(klass, "-", numeric_minus);
@@ -164,7 +164,7 @@ void init_integer_class(SnClass* klass)
 	snow_define_method(klass, "inspect", numeric_to_string);
 }
 
-void init_float_class(SnClass* klass)
+void SnFloat_init_class(SnClass* klass)
 {
 	
 }

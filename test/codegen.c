@@ -6,8 +6,8 @@
 TEST_CASE(simple_add) {
 	SnAstNode* def = snow_ast_function("<no name>", "<no file>", snow_ast_sequence(0),
 		snow_ast_sequence(3,
-			snow_ast_local_assign(snow_symbol("a"), snow_ast_literal(int_to_value(123))),
-			snow_ast_local_assign(snow_symbol("b"), snow_ast_literal(int_to_value(456))),
+			snow_ast_local_assign(snow_symbol("a"), snow_ast_literal(snow_int_to_value(123))),
+			snow_ast_local_assign(snow_symbol("b"), snow_ast_literal(snow_int_to_value(456))),
 			snow_ast_call(snow_ast_member(snow_ast_local(snow_symbol("a")), snow_symbol("+")), snow_ast_sequence(1, snow_ast_local(snow_symbol("b"))))
 		)
 	);
@@ -15,17 +15,17 @@ TEST_CASE(simple_add) {
 	SnFunction* func = snow_codegen_compile(cg);
 	VALUE ret = snow_call(NULL, func, 0);
 	
-	TEST(value_to_int(ret) == 579);
+	TEST(snow_value_to_int(ret) == 579);
 }
 
 TEST_CASE(simple_closure) {
 	SnAstNode* def = snow_ast_function("<no name>", "<no file>", snow_ast_sequence(0),
 		snow_ast_sequence(3,
-			snow_ast_local_assign(snow_symbol("a"), snow_ast_literal(int_to_value(123))),
+			snow_ast_local_assign(snow_symbol("a"), snow_ast_literal(snow_int_to_value(123))),
 			snow_ast_local_assign(snow_symbol("func"),
 				snow_ast_function("<no name>", "<no file>", snow_ast_sequence(0),
 					snow_ast_sequence(2,
-						snow_ast_local_assign(snow_symbol("b"), snow_ast_literal(int_to_value(456))),
+						snow_ast_local_assign(snow_symbol("b"), snow_ast_literal(snow_int_to_value(456))),
 						snow_ast_call(snow_ast_member(snow_ast_local(snow_symbol("b")), snow_symbol("+")), snow_ast_sequence(1, snow_ast_local(snow_symbol("a"))))
 					)
 				)
@@ -37,8 +37,8 @@ TEST_CASE(simple_closure) {
 	SnCodegen* cg = snow_create_codegen(def, NULL);
 	SnFunction* f = snow_codegen_compile(cg);
 	VALUE ret = snow_call(NULL, f, 0);
-	TEST(is_integer(ret));
-	TEST(value_to_int(ret) == 579);
+	TEST(snow_is_integer(ret));
+	TEST(snow_value_to_int(ret) == 579);
 }
 
 /*TEST_CASE(object_get) {

@@ -6,20 +6,22 @@
 
 #include <stdio.h>
 
-typedef struct SnMapTuple {
-	VALUE key, value;
-} SnMapTuple;
-
 SnMap* snow_create_map()
 {
-	SnMap* map = (SnMap*)snow_alloc_any_object(SN_MAP_TYPE, sizeof(SnMap));
+	SnMap* map = SNOW_GC_ALLOC_OBJECT(SnMap);
 	map->size = 0;
 	map->data = NULL;
 	map->compare = snow_map_compare_default;
+	map->lock = snow_rwlock_create();
 	return map;
 }
 
-SnMap* snow_create_map_with_compare(SnMapCompare cmp)
+void SnMap_finalize(SnMap* map) {
+	snow_rwlock_destroy(map->lock);
+	snow_free(map->data);
+}
+
+SnMap* snow_create_map_with_compare(SnCompareFunc cmp)
 {
 	SnMap* map = snow_create_map();
 	map->compare = cmp;
@@ -38,11 +40,9 @@ bool snow_map_contains(SnMap* map, VALUE key)
 
 VALUE snow_map_get(SnMap* map, VALUE key)
 {
-	uintx i;
-	SnMapTuple* tuples = map->data;
-	for (i = 0; i < map->size; ++i) {
-		if (map->compare(tuples[i].key, key) == 0)
-			return tuples[i].value;
+	for (uintx i = 0; i < map->size; ++i) {
+		if (map->compare(map->data[i*2], key) == 0)
+			return map->data[i*2+1];
 	}
 	return NULL;
 }
@@ -50,24 +50,19 @@ VALUE snow_map_get(SnMap* map, VALUE key)
 void snow_map_set(SnMap* map, VALUE key, VALUE value)
 {
 	ASSERT(key && "Cannot use NULL as key in Snow maps!");
-	uintx i;
-	SnMapTuple* tuples = map->data;
-	for (i = 0; i < map->size; ++i) {
-		if (map->compare(tuples[i].key, key) == 0)
+	for (uintx i = 0; i < map->size; ++i) {
+		if (map->compare(map->data[i*2], key) == 0)
 		{
-			tuples[i].value = value;
+			map->data[i*2+1] = value;
 			return;
 		}
 	}
 	
 	// TODO: preallocate
-	void* new_data = snow_gc_alloc_blob(sizeof(SnMapTuple) * (map->size + 1));
-	memcpy(new_data, map->data, map->size * sizeof(SnMapTuple));
-	i = map->size++;
-	map->data = new_data;
-	tuples = map->data;
-	tuples[i].key = key;
-	tuples[i].value = value;
+	map->data = (VALUE*)snow_realloc(map->data, sizeof(VALUE)*2*(map->size+1));
+	uintx i = map->size++;
+	map->data[i*2] = key;
+	map->data[i*2+1] = value;
 }
 
 int snow_map_compare_default(VALUE a, VALUE b)
@@ -82,42 +77,34 @@ SNOW_FUNC(map_new) {
 }
 
 SNOW_FUNC(map_keys) {
-	ASSERT_TYPE(SELF, SN_MAP_TYPE);
+	ASSERT_TYPE(SELF, SnMapType);
 	SnMap* self = (SnMap*)SELF;
-	SnMapTuple* tuples = self->data;
-	SnArray* keys = snow_create_array();
-	
-	uintx i;
-	for (i = 0; i < self->size; ++i) {
-		snow_array_push(keys, tuples[i].key);
+	SnArray* keys = snow_create_array_with_size(self->size);
+	for (uintx i = 0; i < self->size; ++i) {
+		snow_array_push(keys, self->data[i*2]);
 	}
-	
 	return keys;
 }
 
 SNOW_FUNC(map_values) {
-	ASSERT_TYPE(SELF, SN_MAP_TYPE);
+	ASSERT_TYPE(SELF, SnMapType);
 	SnMap* self = (SnMap*)SELF;
-	SnMapTuple* tuples = self->data;
-	SnArray* values = snow_create_array();
-	
-	uintx i;
-	for (i = 0; i < self->size; ++i) {
-		snow_array_push(values, tuples[i].value);
+	SnArray* values = snow_create_array_with_size(self->size);
+	for (uintx i = 0; i < self->size; ++i) {
+		snow_array_push(values, self->data[i*2+1]);
 	}
-	
 	return values;
 }
 
 SNOW_FUNC(map_get) {
 	REQUIRE_ARGS(1);
-	ASSERT_TYPE(SELF, SN_MAP_TYPE);
+	ASSERT_TYPE(SELF, SnMapType);
 	return snow_map_get(SELF, ARGS[0]);
 }
 
 SNOW_FUNC(map_set) {
 	REQUIRE_ARGS(2);
-	ASSERT_TYPE(SELF, SN_MAP_TYPE);
+	ASSERT_TYPE(SELF, SnMapType);
 	snow_map_set(SELF, ARGS[0], ARGS[1]);
 	return ARGS[1];
 }
@@ -127,17 +114,17 @@ static inline SnString* call_inspect(VALUE self) {
 	static SnSymbol inspect;
 	if (!got_sym) { inspect = snow_symbol("inspect"); got_sym = true; }
 	SnString* str = snow_call_method(self, inspect, 0);
-	ASSERT_TYPE(str, SN_STRING_TYPE);
+	ASSERT_TYPE(str, SnStringType);
 	return str;
 }
 
 SNOW_FUNC(map_inspect) {
-	ASSERT_TYPE(SELF, SN_MAP_TYPE);
+	ASSERT_TYPE(SELF, SnMapType);
 	SnMap* self = (SnMap*)SELF;
 	SnArray* strings = snow_create_array_with_size(self->size);
 	for (size_t i = 0; i < self->size; ++i) {
-		SnString* key = call_inspect(self->data[i].key);
-		SnString* value = call_inspect(self->data[i].value);
+		SnString* key = call_inspect(self->data[i*2]);
+		SnString* value = call_inspect(self->data[i*2+1]);
 		char* str;
 		asprintf(&str, "%s => %s", snow_string_cstr(key), snow_string_cstr(value));
 		ASSERT(str);
@@ -153,7 +140,7 @@ SNOW_FUNC(map_inspect) {
 	return snow_array_join(strings, NULL);
 }
 
-void init_map_class(SnClass* klass)
+void SnMap_init_class(SnClass* klass)
 {
 	snow_define_class_method(klass, "__call__", map_new);
 	

@@ -149,7 +149,7 @@ void snow_end_try(SnTryState* state) {
 
 SnExceptionHandler* snow_create_exception_handler()
 {
-	SnExceptionHandler* handler = (SnExceptionHandler*)snow_gc_alloc_blob(sizeof(SnExceptionHandler));
+	SnExceptionHandler* handler = (SnExceptionHandler*)snow_malloc(sizeof(SnExceptionHandler));
 	handler->previous = snow_current_exception_handler();
 	handler->exception = NULL;
 	return handler;
@@ -157,11 +157,15 @@ SnExceptionHandler* snow_create_exception_handler()
 
 SnException* snow_create_exception()
 {
-	SnException* ex = (SnException*)snow_alloc_any_object(SN_EXCEPTION_TYPE, sizeof(SnException));
-	snow_object_init((SnObject*)ex, snow_get_prototype(SN_EXCEPTION_TYPE));
+	SnException* ex = SNOW_GC_ALLOC_OBJECT(SnException);
+	ex->base.prototype = snow_get_prototype(SnExceptionType);
 	ex->description = NULL;
 	ex->thrown_by = snow_get_current_continuation();
 	return ex;
+}
+
+void SnException_finalize(SnException* exception) {
+	// nothing
 }
 
 SNOW_FUNC(exception_current) {
@@ -169,11 +173,11 @@ SNOW_FUNC(exception_current) {
 }
 
 SNOW_FUNC(exception_to_string) {
-	ASSERT_TYPE(SELF, SN_EXCEPTION_TYPE);
+	ASSERT_TYPE(SELF, SnExceptionType);
 	return ((SnException*)SELF)->description;
 }
 
-void init_exception_class(SnClass* klass)
+void SnException_init_class(SnClass* klass)
 {
 	snow_define_class_property(klass, "current", exception_current, NULL);
 	snow_define_method(klass, "to_string", exception_to_string);

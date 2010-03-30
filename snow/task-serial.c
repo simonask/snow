@@ -97,7 +97,7 @@ void snow_parallel_for_each(void* data, size_t element_size, size_t num_elements
 }
 
 SnDeferredTask* snow_deferred_call(VALUE closure) {
-	SnDeferredTask* task = (SnDeferredTask*)snow_alloc_any_object(SN_DEFERRED_TASK_TYPE, sizeof(SnDeferredTask));
+	SnDeferredTask* task = (SnDeferredTask*)snow_alloc_any_object(SnDeferredTaskType, sizeof(SnDeferredTask));
 	task->closure = closure;
 	task->result = NULL;
 	task->private = NULL;

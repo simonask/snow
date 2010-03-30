@@ -37,7 +37,7 @@ SNOW_FUNC(file_initialize) {
 	SnString* mode = NULL;
 	if (NUM_ARGS > 1)
 	{
-		ASSERT_TYPE(ARGS[1], SN_STRING_TYPE);
+		ASSERT_TYPE(ARGS[1], SnStringType);
 		mode = (SnString*)ARGS[1];
 	}
 	else
@@ -45,7 +45,7 @@ SNOW_FUNC(file_initialize) {
 		mode = snow_create_string("r");
 	}
 	
-	ASSERT_TYPE(ARGS[0], SN_STRING_TYPE);
+	ASSERT_TYPE(ARGS[0], SnStringType);
 	SnString* filename = (SnString*)ARGS[0];
 	
 	FILE* fp = fopen(snow_string_cstr(filename), snow_string_cstr(mode));
@@ -74,16 +74,16 @@ SNOW_FUNC(file_close) {
 SNOW_FUNC(file_is_eof) {
 	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
 	if (priv->fp)
-		return boolean_to_value(feof(priv->fp));
+		return snow_boolean_to_value(feof(priv->fp));
 	return SN_TRUE; // no stream == EOF
 }
 
 SNOW_FUNC(file_read) {
 	REQUIRE_ARGS(1);
-	ASSERT_TYPE(ARGS[0], SN_INTEGER_TYPE);
+	ASSERT_TYPE(ARGS[0], SnIntegerType);
 	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
 	if (priv->fp && !feof(priv->fp)) {
-		intx num_bytes = value_to_int(ARGS[0]);
+		intx num_bytes = snow_value_to_int(ARGS[0]);
 		byte buffer[num_bytes+1];
 		size_t n = fread(buffer, 1, num_bytes, priv->fp);
 		if (!n && !feof(priv->fp)) throw_errno();
@@ -95,16 +95,16 @@ SNOW_FUNC(file_read) {
 
 SNOW_FUNC(file_read_bytes) {
 	REQUIRE_ARGS(1);
-	ASSERT_TYPE(ARGS[0], SN_INTEGER_TYPE);
+	ASSERT_TYPE(ARGS[0], SnIntegerType);
 	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
 	if (priv->fp && !feof(priv->fp)) {
-		intx num_bytes = value_to_int(ARGS[0]);
+		intx num_bytes = snow_value_to_int(ARGS[0]);
 		byte buffer[num_bytes];
 		size_t n = fread(buffer, 1, num_bytes, priv->fp);
 		if (!n && !feof(priv->fp)) throw_errno();
 		SnArray* array = snow_create_array_with_size(n);
 		for (size_t i = 0; i < n; ++i) {
-			snow_array_push(array, int_to_value(buffer[i]));
+			snow_array_push(array, snow_int_to_value(buffer[i]));
 		}
 		return array;
 	}
@@ -126,11 +126,11 @@ SNOW_FUNC(file_write) {
 	// TODO: Expand with support for byte arrays
 	REQUIRE_ARGS(1);
 	SnString* str = (SnString*)snow_call_method(ARGS[0], snow_symbol("to_string"), 0);
-	ASSERT_TYPE(str, SN_STRING_TYPE);
+	ASSERT_TYPE(str, SnStringType);
 	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
 	if (priv->fp) {
 		size_t n = file_write_string(priv->fp, str);
-		return int_to_value(n);
+		return snow_int_to_value(n);
 	}
 	return SN_NIL;
 }
@@ -138,7 +138,7 @@ SNOW_FUNC(file_write) {
 SNOW_FUNC(file_stream_write) {
 	REQUIRE_ARGS(1);
 	SnString* str = (SnString*)snow_call_method(ARGS[0], snow_symbol("to_string"), 0);
-	ASSERT_TYPE(str, SN_STRING_TYPE);
+	ASSERT_TYPE(str, SnStringType);
 	FilePrivate* priv = snow_unwrap_struct(SELF, FilePrivate);
 	if (priv->fp) {
 		file_write_string(priv->fp, str);

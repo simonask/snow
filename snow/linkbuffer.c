@@ -12,8 +12,7 @@ typedef struct SnLinkBufferPage {
 
 
 SnLinkBuffer* snow_create_linkbuffer(uintx page_size) {
-	SnLinkBuffer* buf = (SnLinkBuffer*)snow_gc_alloc_atomic(sizeof(SnLinkBuffer));
-	snow_gc_set_free_func(buf, (SnGCFreeFunc)snow_linkbuffer_clear);
+	SnLinkBuffer* buf = (SnLinkBuffer*)snow_malloc(sizeof(SnLinkBuffer));
 	snow_init_linkbuffer(buf, page_size);
 	return buf;
 }
@@ -26,6 +25,7 @@ void snow_init_linkbuffer(SnLinkBuffer* buf, uintx page_size) {
 
 void snow_free_linkbuffer(SnLinkBuffer* buf) {
 	snow_linkbuffer_clear(buf);
+	snow_free(buf);
 }
 
 uintx snow_linkbuffer_size(SnLinkBuffer* buf) {

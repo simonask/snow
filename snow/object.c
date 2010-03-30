@@ -9,46 +9,62 @@
 
 #include <stdio.h>
 
-SnObjectBase* snow_alloc_any_object(SnObjectType type, uintx size)
+SnAnyObject* snow_alloc_any_object(SnValueType type)
 {
-	ASSERT(size > sizeof(SnObjectBase) && "You probably don't want to allocate an SnObjectBase.");
-	SnObjectBase* base = (SnObjectBase*)snow_gc_alloc_object(size);
-	base->type = type;
-	return base;
+	SnAnyObject* object = snow_gc_alloc_object(type);
+	object->type = type;
+	
+	#define SN_BEGIN_CLASSES() switch (type) {
+	#define SN_BEGIN_CLASS(NAME) case NAME ## Type: { snow_object_init((SnObject*)object); break; }
+	#define SN_END_CLASSES() default: break; }
+	#include "snow/objects-decl.h"
+	
+	return object;
 }
 
 SnObject* snow_create_object(SnObject* prototype)
 {
-	SnObject* obj = (SnObject*)snow_alloc_any_object(SN_OBJECT_TYPE, sizeof(SnObject));
-	snow_object_init(obj, prototype);
+	SnObject* obj = SNOW_GC_ALLOC_OBJECT(SnObject);
+	snow_object_init(obj);
+	obj->prototype = prototype;
 	return obj;
 }
 
-SnObject* snow_create_object_with_extra_data(SnObject* prototype, uintx extra_bytes, void** extra)
-{
-	SnObject* obj = (SnObject*)snow_alloc_any_object(SN_OBJECT_TYPE, sizeof(SnObject)+extra_bytes);
-	snow_object_init(obj, prototype);
-	*extra = (byte*)obj + extra_bytes;
-	return obj;
+void SnObject_finalize(SnObject* object) {
+	// nothing
 }
 
-void snow_object_init(SnObject* obj, SnObject* prototype)
+void snow_object_init(SnObject* obj)
 {
 	obj->flags = SN_FLAG_ASSIGNED; // new objects are "assigned" by default, so they will only get a name assigned if asked for by calling object.__reset_assigned_name__().
-	obj->prototype = prototype;
+	obj->prototype = NULL;
 	obj->members = NULL;
-	obj->prototype = prototype;
-	array_init(&obj->property_names);
-	array_init(&obj->property_data);
-	array_init(&obj->included_modules);
+	obj->property_names = NULL;
+	obj->property_data = NULL;
+	obj->included_modules = NULL;
+}
+
+// declare object finalizers
+#define SN_BEGIN_CLASS(NAME)            extern void NAME ## _finalize(struct NAME*);
+#define SN_BEGIN_THIN_CLASS(NAME)       extern void NAME ## _finalize(struct NAME*);
+#include "objects-decl.h"
+
+void snow_finalize_object(SnAnyObject* object) {
+	switch (object->type) {
+		#define SN_BEGIN_CLASS(NAME)      case NAME ## Type: { NAME ## _finalize(&object->as_ ## NAME); break; }
+		#define SN_BEGIN_THIN_CLASS(NAME) case NAME ## Type: { NAME ## _finalize(&object->as_ ## NAME); break; }
+		#include "objects-decl.h"
+		
+		default: ASSERT(false); // ERROR! Unknown or unexpected object type! Memory corruption detected.
+	}
 }
 
 static inline VALUE object_get_member_without_prototype_but_with_modules(SnObject* obj, VALUE self, SnSymbol member)
 {
-	intx property_idx = array_find(&obj->property_names, symbol_to_value(member));
+	intx property_idx = obj->property_names ? snow_array_find(obj->property_names, snow_symbol_to_value(member)) : -1;
 	if (property_idx >= 0)
 	{
-		VALUE getter = array_get(&obj->property_data, property_idx<<1);
+		VALUE getter = snow_array_get(obj->property_data, property_idx<<1);
 		if (snow_eval_truth(getter))
 			return snow_call(self, getter, 0);
 		else
@@ -57,7 +73,7 @@ static inline VALUE object_get_member_without_prototype_but_with_modules(SnObjec
 	
 	if (obj->members)
 	{
-		VALUE val = snow_map_get(obj->members, symbol_to_value(member));
+		VALUE val = snow_map_get(obj->members, snow_symbol_to_value(member));
 		if (val)
 			return val;
 	}
@@ -84,14 +100,14 @@ VALUE snow_object_get_member(SnObject* obj, VALUE self, SnSymbol member)
 
 static inline VALUE object_set_with_property(SnObject* obj, VALUE self, SnSymbol member, VALUE val)
 {
-	intx property_idx = array_find(&obj->property_names, symbol_to_value(member));
+	intx property_idx = obj->property_names ? snow_array_find(obj->property_names, snow_symbol_to_value(member)) : -1;
 	if (property_idx >= 0)
 	{
-		VALUE setter = array_get(&obj->property_data, property_idx<<1|1);
+		VALUE setter = snow_array_get(obj->property_data, property_idx<<1|1);
 		if (snow_eval_truth(setter))
 			return snow_call(self, setter, 1, val);
 		else
-			TRAP(); // read-only property
+			snow_throw_exception_with_description("Attempted to set a read-only property."); // TODO: Include name etc.
 	}
 	else if (obj->prototype)
 	{
@@ -107,18 +123,22 @@ VALUE snow_object_set_member(SnObject* obj, VALUE self, SnSymbol member, VALUE v
 	
 	VALUE with_property = object_set_with_property(obj, self, member, val);
 	if (with_property) return with_property;
-	snow_map_set(obj->members, symbol_to_value(member), val);
+	snow_map_set(obj->members, snow_symbol_to_value(member), val);
 	return val;
 }
 
 static inline intx create_or_get_index_of_property(SnObject* obj, SnSymbol name)
 {
-	VALUE vsym = symbol_to_value(name);
-	intx idx = array_find(&obj->property_names, vsym);
+	if (!obj->property_names) {
+		obj->property_names = snow_create_array_with_size(8);
+		obj->property_data = snow_create_array_with_size(8);
+	}
+	VALUE vsym = snow_symbol_to_value(name);
+	intx idx = snow_array_find(obj->property_names, vsym);
 	if (idx < 0)
 	{
-		idx = array_size(&obj->property_names);
-		array_push(&obj->property_names, vsym);
+		idx = snow_array_size(obj->property_names);
+		snow_array_push(obj->property_names, vsym);
 	}
 	return idx;
 }
@@ -126,23 +146,24 @@ static inline intx create_or_get_index_of_property(SnObject* obj, SnSymbol name)
 VALUE snow_object_set_property_getter(SnObject* obj, SnSymbol symbol, VALUE getter)
 {
 	intx idx = create_or_get_index_of_property(obj, symbol);
-	array_set(&obj->property_data, idx<<1, getter);
+	snow_array_set(obj->property_data, idx<<1, getter);
 	return getter;
 }
 
 VALUE snow_object_set_property_setter(SnObject* obj, SnSymbol symbol, VALUE setter)
 {
 	intx idx = create_or_get_index_of_property(obj, symbol);
-	array_set(&obj->property_data, idx<<1|1, setter);
+	snow_array_set(obj->property_data, idx<<1|1, setter);
 	return setter;
 }
 
 bool snow_object_is_included(SnObject* object, SnObject* included)
 {
 	if (object == included) return true;
+	if (!object->included_modules) return false;
 	
-	for (uintx i = 0; i < array_size(&object->included_modules); ++i) {
-		SnObject* module = (SnObject*)array_get(&object->included_modules, i);
+	for (uintx i = 0; i < snow_array_size(object->included_modules); ++i) {
+		SnObject* module = (SnObject*)snow_array_get(object->included_modules, i);
 		ASSERT(snow_is_normal_object(module));
 		if (snow_object_is_included(module, included)) return true;
 	}
@@ -151,19 +172,23 @@ bool snow_object_is_included(SnObject* object, SnObject* included)
 
 bool snow_object_include(SnObject* obj, SnObject* included)
 {
-	if (array_find(&obj->included_modules, included) >= 0) return false; // already included
+	if (!obj->included_modules) obj->included_modules = snow_create_array_with_size(8);
+	
+	if (snow_array_find(obj->included_modules, included) >= 0) return false; // already included
 	
 	if (snow_object_is_included(included, obj)) snow_throw_exception_with_description("Circular include detected.");
 	
-	array_push(&obj->included_modules, included);
+	snow_array_push(obj->included_modules, included);
 	return true;
 }
 
 bool snow_object_uninclude(SnObject* obj, SnObject* included)
 {
-	intx idx = array_find(&obj->included_modules, included);
+	if (!obj->included_modules) return false;
+	
+	intx idx = snow_array_find(obj->included_modules, included);
 	if (idx >= 0) {
-		array_erase(&obj->included_modules, idx);
+		snow_array_erase(obj->included_modules, idx);
 		return true;
 	}
 	return false;
@@ -171,10 +196,12 @@ bool snow_object_uninclude(SnObject* obj, SnObject* included)
 
 VALUE snow_object_get_included_member(SnObject* obj, VALUE self, SnSymbol member)
 {
-	for (uintx i = 0; i < array_size(&obj->included_modules); ++i) {
-		SnObject* module = (SnObject*)array_get(&obj->included_modules, i);
+	if (!obj->included_modules) return NULL;
+	
+	for (uintx i = 0; i < snow_array_size(obj->included_modules); ++i) {
+		SnObject* module = (SnObject*)snow_array_get(obj->included_modules, i);
 		ASSERT(snow_is_normal_object(module));
-		VALUE val = object_get_member_without_prototype_but_with_modules(array_get(&obj->included_modules, i), self, member);
+		VALUE val = object_get_member_without_prototype_but_with_modules(snow_array_get(obj->included_modules, i), self, member);
 		if (val) return val;
 	}
 	return NULL;
@@ -183,11 +210,11 @@ VALUE snow_object_get_included_member(SnObject* obj, VALUE self, SnSymbol member
 SNOW_FUNC(object_inspect) {
 	char cstr[64];
 	VALUE vsym_classname = snow_get_member(snow_get_member(SELF, snow_symbol("class")), snow_symbol("name"));
-	ASSERT(is_symbol(vsym_classname));
+	ASSERT(snow_is_symbol(vsym_classname));
 	uint64_t ptr = (uint64_t)SELF;
 	VALUE name = snow_get_member(SELF, snow_symbol("__name__"));
 	const char* name_to_string = name ? snow_value_to_cstr(name) : NULL;
-	snprintf(cstr, 64, "<%s%s%s@0x%llx>", name_to_string ? name_to_string : "", name_to_string ? ":" : "", snow_symbol_to_cstr(value_to_symbol(vsym_classname)), ptr);
+	snprintf(cstr, 64, "<%s%s%s@0x%llx>", name_to_string ? name_to_string : "", name_to_string ? ":" : "", snow_symbol_to_cstr(snow_value_to_symbol(vsym_classname)), ptr);
 	return snow_create_string(cstr);
 }
 
@@ -195,7 +222,7 @@ SNOW_FUNC(object_eval) {
 	SnArguments* call_arguments = snow_create_arguments_with_size(0);
 	
 	SnArray* closures = snow_get_member(_context->args, snow_symbol("unnamed"));
-	ASSERT_TYPE(closures, SN_ARRAY_TYPE);
+	ASSERT_TYPE(closures, SnArrayType);
 	
 	VALUE argument = ARG_BY_NAME("argument");
 	if (argument)
@@ -210,12 +237,12 @@ SNOW_FUNC(object_eval) {
 
 SNOW_FUNC(object_equals) {
 	REQUIRE_ARGS(1);
-	return boolean_to_value(SELF == ARGS[0]);
+	return snow_boolean_to_value(SELF == ARGS[0]);
 }
 
 SNOW_FUNC(object_not_equals) {
 	REQUIRE_ARGS(1);
-	return boolean_to_value(SELF != ARGS[0]);
+	return snow_boolean_to_value(SELF != ARGS[0]);
 }
 
 SNOW_FUNC(object_name) {
@@ -260,7 +287,7 @@ SNOW_FUNC(object_on_assign) {
 	ASSERT(snow_is_normal_object(SELF));
 	SnObject* self = (SnObject*)SELF;
 	VALUE vname = ARGS[0];
-	ASSERT(is_symbol(vname));
+	ASSERT(snow_is_symbol(vname));
 	//VALUE member_of = NUM_ARGS > 1 ? ARGS[1] : NULL; // TODO: Use this for something?
 	snow_object_set_member(self, self, snow_symbol("__name__"), vname);
 	return SELF;
@@ -269,7 +296,7 @@ SNOW_FUNC(object_on_assign) {
 SNOW_FUNC(object_is_a) {
 	REQUIRE_ARGS(1);
 	SnClass* klass = (SnClass*)ARGS[0];
-	if (snow_typeof(klass) == SN_CLASS_TYPE) {
+	if (snow_typeof(klass) == SnClassType) {
 		SnObject* proto = klass->instance_prototype;
 		if (snow_prototype_chain_contains(SELF, proto)) return SN_TRUE;
 	}
@@ -289,25 +316,25 @@ SNOW_FUNC(object_include) {
 	ASSERT(snow_is_normal_object(module)); // must include a regular object
 	ASSERT(snow_is_normal_object(SELF)); // must include it into a regular object
 	SnObject* self = (SnObject*)SELF;
-	return boolean_to_value(snow_object_include(self, module));
+	return snow_boolean_to_value(snow_object_include(self, module));
 }
 
 SNOW_FUNC(object_property) {
 	REQUIRE_ARGS(3);
 	
-	ASSERT_TYPE(ARGS[0], SN_SYMBOL_TYPE);
-	SnSymbol name = value_to_symbol(ARGS[0]);
+	ASSERT_TYPE(ARGS[0], SnSymbolType);
+	SnSymbol name = snow_value_to_symbol(ARGS[0]);
 	
 	VALUE getter = ARGS[1];
 	VALUE setter = ARGS[2];
 	
-	if (!is_nil(getter))
-		ASSERT_TYPE(getter, SN_FUNCTION_TYPE);
+	if (!snow_is_nil(getter))
+		ASSERT_TYPE(getter, SnFunctionType);
 	else
 		getter = NULL;
 	
-	if (!is_nil(setter))
-		ASSERT_TYPE(setter, SN_FUNCTION_TYPE);
+	if (!snow_is_nil(setter))
+		ASSERT_TYPE(setter, SnFunctionType);
 	else
 		setter = NULL;
 	
@@ -320,13 +347,13 @@ SNOW_FUNC(object_property) {
 SNOW_FUNC(object_getter) {
 	REQUIRE_ARGS(2);
 	
-	ASSERT_TYPE(ARGS[0], SN_SYMBOL_TYPE);
-	SnSymbol name = value_to_symbol(ARGS[0]);
+	ASSERT_TYPE(ARGS[0], SnSymbolType);
+	SnSymbol name = snow_value_to_symbol(ARGS[0]);
 	
 	VALUE function = ARGS[1];
 	
-	if (!is_nil(function))
-		ASSERT_TYPE(function, SN_FUNCTION_TYPE);
+	if (!snow_is_nil(function))
+		ASSERT_TYPE(function, SnFunctionType);
 	else
 		function = NULL;
 	
@@ -338,13 +365,13 @@ SNOW_FUNC(object_getter) {
 SNOW_FUNC(object_setter) {
 	REQUIRE_ARGS(2);
 	
-	ASSERT_TYPE(ARGS[0], SN_SYMBOL_TYPE);
-	SnSymbol name = value_to_symbol(ARGS[0]);
+	ASSERT_TYPE(ARGS[0], SnSymbolType);
+	SnSymbol name = snow_value_to_symbol(ARGS[0]);
 	
 	VALUE function = ARGS[1];
 	
-	if (!is_nil(function))
-		ASSERT_TYPE(function, SN_FUNCTION_TYPE);
+	if (!snow_is_nil(function))
+		ASSERT_TYPE(function, SnFunctionType);
 	else
 		function = NULL;
 	
@@ -353,7 +380,7 @@ SNOW_FUNC(object_setter) {
 	return SELF;
 }
 
-void init_object_class(SnClass* klass)
+void SnObject_init_class(SnClass* klass)
 {
 	snow_define_method(klass, "inspect", object_inspect);
 	snow_define_method(klass, "to_string", object_inspect);

@@ -29,7 +29,7 @@ struct SnContinuation* snow_get_current_continuation() {
 void snow_set_current_continuation(SnContinuation* cc)
 {
 	SnTask* current_task = snow_get_current_task();
-	ASSERT((uintx)current_task == cc->task_id);
+//	ASSERT((uintx)current_task == cc->task_id);
 	current_task->continuation = cc;
 }
 
@@ -52,11 +52,11 @@ SNOW_FUNC(deferred_task_new) {
 }
 
 SNOW_FUNC(deferred_task_wait) {
-	ASSERT_TYPE(SELF, SN_DEFERRED_TASK_TYPE);
+	ASSERT_TYPE(SELF, SnDeferredTaskType);
 	return snow_deferred_task_wait((SnDeferredTask*)SELF);
 }
 
-void init_deferred_task_class(SnClass* klass) {
+void SnDeferredTask_init_class(SnClass* klass) {
 	snow_define_class_method(klass, "__call__", deferred_task_new);
 	snow_define_method(klass, "wait", deferred_task_wait);
 	snow_define_property(klass, "result", deferred_task_wait, NULL);

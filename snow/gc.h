@@ -6,15 +6,8 @@
 #include "snow/arch.h"
 #include "snow/task.h"
 
-#if defined(__GNU_C__) && GCC_VERSION >= MAKE_VERSION(4, 4, 0)
-#define ATTR_ALLOC_SIZE(...) __attribute__((alloc_size((__VA_ARGS__)),malloc))
-#else
-#define ATTR_ALLOC_SIZE(...)
-#define ATTR_MALLOC
-#endif
-
 static const int SNOW_GC_ALIGNMENT = 0x10;
-static inline uintx snow_gc_round(uintx size) { return size + ((SNOW_GC_ALIGNMENT - (size % SNOW_GC_ALIGNMENT)) % SNOW_GC_ALIGNMENT); }
+static inline uintx snow_round_to_alignment(uintx size, uintx alignment) { return size + ((alignment - (size % alignment)) % alignment); }
 
 typedef void(*SnGCFreeFunc)(VALUE val);
 
@@ -24,37 +17,9 @@ typedef void(*SnGCFreeFunc)(VALUE val);
 CAPI void snow_init_gc();
 
 /*
-	snow_gc_alloc_object: allocates memory for use with anything that derives from SnObjectBase.
-	The `type'-field of SnObjectBase is used to recognize roots within the object, so it is important
-	that this function is not used for anything by Snow objects.
+	snow_gc_alloc_object: allocates and initializes a Snow object of the given type.
 */
-CAPI SnObjectBase* snow_gc_alloc_object(uintx size) ATTR_ALLOC_SIZE(1);
-
-/*
-	snow_gc_alloc_blob: allocates memory that doesn't contain a specific struct, but can contain roots.
-	During GC, the memory will be conservatively scanned for roots. This is mostly useful for various
-	types of lists of VALUEs. Remember to NULL erased elements to avoid false roots.
-*/
-CAPI VALUE* snow_gc_alloc_blob(uintx size) ATTR_ALLOC_SIZE(1);
-
-/*
-	snow_gc_alloc_atomic: allocates memory that will not contain roots. Memory allocated this way will
-	not be scanned for pointers to other objects. This is mostly useful for arrays of simple types, such
-	as char* and int*.
-*/
-CAPI void* snow_gc_alloc_atomic(uintx size) ATTR_ALLOC_SIZE(1);
-
-/*
-	snow_gc_realloc: Reallocates memory that is already GC-allocated. The semantics are the same as the
-	system-provided realloc(3).
-*/
-CAPI void* snow_gc_realloc(void* ptr, uintx size) ATTR_ALLOC_SIZE(1);
-
-/*
-	snow_gc_set_free_func: sets a finalizer function for the given pointer, which will be called when
-	the memory pointed to by that pointer is garbage collected.
-*/
-CAPI void snow_gc_set_free_func(const void* data, SnGCFreeFunc);
+CAPI SnAnyObject* snow_gc_alloc_object(SnValueType type);
 
 /*
 	snow_gc: Force GC invocation.
@@ -75,22 +40,16 @@ static inline bool snow_gc_is_collecting() { return _snow_gc_is_collecting; }
 	while performing a collection. Insert calls to this function in busy loops and functions that
 	are called extraordinarily often to allow maximum parallellism.
 */
-static inline void snow_gc_barrier() {
-	if (snow_gc_is_collecting()) {
-		SnExecutionState state;
-		if (snow_save_execution_state(&state))
-			return;
-		snow_gc_barrier_enter();
-		snow_gc_barrier_leave();
-		snow_restore_execution_state(&state);
-	}
-}
+CAPI void snow_gc_barrier();
 
-// Snow Malloc Interface
-CAPI void* snow_malloc(uintx size)                                             ATTR_ALLOC_SIZE(1);
-CAPI void* snow_calloc(uintx count, uintx size)                                ATTR_ALLOC_SIZE(2);
-CAPI void* snow_realloc(void* ptr, uintx new_size)                             ATTR_ALLOC_SIZE(2);
-CAPI void* snow_malloc_aligned(uintx size, uintx alignment)                    ATTR_ALLOC_SIZE(1);
-CAPI void snow_free(void* ptr);
+// Use these functions to let the GC know about memory that might contain pointers to Snow objects.
+CAPI void* snow_malloc_gc_root(uintx size)                           ATTR_ALLOC_SIZE(1);
+CAPI void* snow_calloc_gc_root(uintx count, uintx size)              ATTR_ALLOC_SIZE(2);
+CAPI void* snow_realloc_gc_root(void* ptr, uintx new_size)           ATTR_ALLOC_SIZE(1);
+CAPI void snow_free_gc_root(void* ptr);
+// Use these functions for memory that you don't control the allocation of, but might still
+// contain GC roots.
+CAPI void snow_gc_add_root(void* ptr, uintx size);
+CAPI void snow_gc_remove_root(void* ptr);
 
 #endif /* end of include guard: GC_H_3BT7YTTZ */

@@ -6,7 +6,7 @@
 
 SnFunctionDescription* snow_create_function_description(SnFunctionPtr func)
 {
-	SnFunctionDescription* desc = (SnFunctionDescription*)snow_alloc_any_object(SN_FUNCTION_DESCRIPTION_TYPE, sizeof(SnFunctionDescription));
+	SnFunctionDescription* desc = SNOW_GC_ALLOC_OBJECT(SnFunctionDescription);
 	desc->func = func;
 	desc->name = snow_symbol("<unnamed>");
 	desc->defined_locals = snow_create_array();
@@ -16,9 +16,13 @@ SnFunctionDescription* snow_create_function_description(SnFunctionPtr func)
 	return desc;
 }
 
+void SnFunctionDescription_finalize(SnFunctionDescription* desc) {
+	snow_free(desc->variable_reference_descriptions);
+}
+
 CAPI uintx snow_function_description_define_local(SnFunctionDescription* desc, SnSymbol name)
 {
-	VALUE vsym = symbol_to_value(name);
+	VALUE vsym = snow_symbol_to_value(name);
 	
 	intx idx = snow_array_find(desc->defined_locals, vsym);
 	if (idx < 0)
@@ -31,7 +35,7 @@ CAPI uintx snow_function_description_define_local(SnFunctionDescription* desc, S
 
 CAPI intx snow_function_description_get_local_index(SnFunctionDescription* desc, SnSymbol name)
 {
-	VALUE vsym = symbol_to_value(name);
+	VALUE vsym = snow_symbol_to_value(name);
 	return snow_array_find(desc->defined_locals, vsym);
 }
 
@@ -62,15 +66,19 @@ SnFunction* snow_create_function_with_name(SnFunctionPtr func, const char* name)
 SnFunction* snow_create_function_from_description(SnFunctionDescription* desc)
 {
 	ASSERT(desc);
-	ASSERT_TYPE(desc, SN_FUNCTION_DESCRIPTION_TYPE);
-	ASSERT(desc->func);
-	SnFunction* func = (SnFunction*)snow_alloc_any_object(SN_FUNCTION_TYPE, sizeof(SnFunction) + sizeof(struct SnVariableReference)*desc->num_variable_reference_descriptions);
-	snow_object_init((SnObject*)func, snow_get_prototype(SN_FUNCTION_TYPE));
+	ASSERT_TYPE(desc, SnFunctionDescriptionType);
+	SnFunction* func = SNOW_GC_ALLOC_OBJECT(SnFunction);
+	func->base.prototype = snow_get_prototype(SnFunctionType);
 	func->desc = desc;
 	func->declaration_context = NULL;
 	func->num_variable_references = desc->num_variable_reference_descriptions;
+	func->variable_references = (struct SnVariableReference*)snow_malloc(sizeof(struct SnVariableReference)*func->num_variable_references);
 	memset(func->variable_references, 0, sizeof(struct SnVariableReference)*func->num_variable_references);
 	return (SnFunction*)snow_reset_object_assigned(func);
+}
+
+void SnFunction_finalize(SnFunction* func) {
+	snow_free(func->variable_references);
 }
 
 static inline SnContext* context_at_level(SnContext* level1, uint32_t level)
@@ -129,7 +137,7 @@ static void function_setup_context(SnFunction* func, SnContext* context)
 		sym_it = snow_vsymbol("it");
 	
 	VALUE it = context->args ? snow_arguments_get_by_index(context->args, 0) : NULL;
-	snow_context_set_local_local(context, value_to_symbol(sym_it), it ? it : SN_NIL);
+	snow_context_set_local_local(context, snow_value_to_symbol(sym_it), it ? it : SN_NIL);
 	
 	if (context->self == NULL && func->declaration_context)
 		context->self = func->declaration_context->self;
@@ -141,8 +149,8 @@ static void function_setup_context(SnFunction* func, SnContext* context)
 		for (intx i = 0; i < snow_array_size(arg_names); ++i)
 		{
 			VALUE vsym = snow_array_get(arg_names, i);
-			ASSERT(is_symbol(vsym));
-			SnSymbol sym = value_to_symbol(vsym);
+			ASSERT(snow_is_symbol(vsym));
+			SnSymbol sym = snow_value_to_symbol(vsym);
 			intx idx = snow_arguments_add_name(context->args, sym);
 			VALUE arg = snow_arguments_get_by_index(context->args, idx);
 			snow_context_set_local_local(context, sym, arg ? arg : SN_NIL);
@@ -171,9 +179,9 @@ VALUE snow_function_callcc(SnFunction* func, SnContext* context)
 
 SNOW_FUNC(function_local_missing) {
 	REQUIRE_ARGS(2);
-	ASSERT_TYPE(ARGS[0], SN_SYMBOL_TYPE);
+	ASSERT_TYPE(ARGS[0], SnSymbolType);
 	VALUE self = ARGS[1];
-	SnSymbol sym = value_to_symbol(ARGS[0]);
+	SnSymbol sym = snow_value_to_symbol(ARGS[0]);
 	VALUE member = NULL;
 	
 	if (self)
@@ -190,7 +198,7 @@ SNOW_FUNC(function_local_missing) {
 }
 
 SNOW_FUNC(function_get_ast) {
-	ASSERT_TYPE(SELF, SN_FUNCTION_TYPE);
+	ASSERT_TYPE(SELF, SnFunctionType);
 	SnFunction* self = (SnFunction*)SELF;
 	return self->desc->ast;
 }
@@ -203,14 +211,14 @@ SNOW_FUNC(function_get_ast) {
 }*/
 
 
-void init_function_class(SnClass* klass)
+void SnFunction_init_class(SnClass* klass)
 {
 	snow_define_property(klass, "ast", function_get_ast, NULL);
 	snow_define_method(klass, "local_missing", function_local_missing);
 //	snow_define_method(klass, "call_with_self", function_call_with_self);
 }
 
-void init_function_description_class(SnClass* klass)
+void SnFunctionDescription_init_class(SnClass* klass)
 {
 	
 }

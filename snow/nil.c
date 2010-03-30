@@ -13,7 +13,7 @@ SNOW_FUNC(nil_any) {
 	return SN_FALSE;
 }
 
-void init_nil_class(SnClass* klass)
+void SnNil_init_class(SnClass* klass)
 {
 	snow_define_method(klass, "to_string", nil_to_string);
 	snow_define_method(klass, "inspect", nil_inspect);

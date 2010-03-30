@@ -31,13 +31,13 @@ TEST_CASE(throws_once) {
 	SnExceptionHandler* starting_handler = snow_current_exception_handler();
 	bool tried = false, caught = false, ensured = false;
 	
-	VALUE exception = int_to_value(60);
+	VALUE exception = snow_int_to_value(60);
 	
 	SnTryState state;
 	switch (snow_begin_try(&state)) {
 		case SnTryResumptionStateTrying:
 			tried = true;
-			snow_throw_exception(int_to_value(60));
+			snow_throw_exception(snow_int_to_value(60));
 			TEST(!"Should never be reached!");
 		case SnTryResumptionStateCatching:
 			caught = true;
@@ -67,10 +67,10 @@ TEST_CASE(throws_in_catch) {
 			switch (snow_begin_try(&state)) {
 				case SnTryResumptionStateTrying:
 					tried = true;
-					snow_throw_exception(int_to_value(60));
+					snow_throw_exception(snow_int_to_value(60));
 				case SnTryResumptionStateCatching:
 					caught = true;
-					snow_throw_exception(int_to_value(80));
+					snow_throw_exception(snow_int_to_value(80));
 				case SnTryResumptionStateEnsuring:
 					ensured = true;
 					break;
@@ -89,7 +89,7 @@ TEST_CASE(throws_in_catch) {
 	TEST(tried);
 	TEST(caught);
 	TEST(ensured);
-	TEST_EQ(exception_thrown, int_to_value(80));
+	TEST_EQ(exception_thrown, snow_int_to_value(80));
 	TEST_EQ(starting_handler, snow_current_exception_handler());
 }
 
@@ -102,7 +102,7 @@ TEST_CASE(throws_in_ensure) {
 		case SnTryResumptionStateTrying:
 			switch (snow_begin_try(&state)) {
 				case SnTryResumptionStateEnsuring:
-					snow_throw_exception(int_to_value(60));
+					snow_throw_exception(snow_int_to_value(60));
 				
 				default: break;
 			}
@@ -117,6 +117,6 @@ TEST_CASE(throws_in_ensure) {
 	}
 	snow_end_try(&wrapper);
 	
-	TEST_EQ(exception, int_to_value(60));
+	TEST_EQ(exception, snow_int_to_value(60));
 	TEST_EQ(starting_handler, snow_current_exception_handler());
 }

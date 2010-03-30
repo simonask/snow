@@ -2,23 +2,24 @@
 #define PARSER_INTERN_H_P8KQXQRI
 
 #include "snow/parser.h"
-#include "snow/gc.h"
 #include "snow/linkbuffer.h"
+
+struct SnAstNode;
 
 typedef struct SnParserState {
 	void* yyscanner;
 	const char* buf;
 	int pos;
 	int len;
-	SnAstNode* result;
+	struct SnAstNode* result;
 	const char* streamname;
 	SnParserInfo* info;
 	SnLinkBuffer* string_buffer;
 } SnParserState;
 
 typedef union SnTokenValue {
-	SnAstNode* node;
-	SnAstNode* sequence;
+	struct SnAstNode* node;
+	struct SnAstNode* sequence;
 	VALUE value;
 	SnSymbol symbol;
 } SnTokenValue;

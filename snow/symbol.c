@@ -29,13 +29,13 @@ SnSymbol snow_symbol(const char* cstr)
 	
 	SnArray* storage = symbol_storage();
 	ASSERT(storage);
-	ASSERT_TYPE(storage, SN_ARRAY_TYPE);
+	ASSERT_TYPE(storage, SnArrayType);
 	
 	SnSymbol retval;
 	
 	for (uintx i = 0; i < snow_array_size(storage); ++i) {
 		SnString* existing = (SnString*)snow_array_get(storage, i);
-		ASSERT_TYPE(existing, SN_STRING_TYPE);
+		ASSERT_TYPE(existing, SnStringType);
 		
 		if (strcmp(cstr, snow_string_cstr(existing)) == 0) {
 			retval = i;
@@ -54,13 +54,13 @@ SnSymbol snow_symbol(const char* cstr)
 
 SnSymbol snow_symbol_from_string(SnString* str)
 {
-	ASSERT_TYPE(str, SN_STRING_TYPE);
+	ASSERT_TYPE(str, SnStringType);
 	return snow_symbol(snow_string_cstr(str));
 }
 
 VALUE snow_vsymbol(const char* cstr)
 {
-	return symbol_to_value(snow_symbol(cstr));
+	return snow_symbol_to_value(snow_symbol(cstr));
 }
 
 const char* snow_symbol_to_cstr(SnSymbol sym)
@@ -81,23 +81,23 @@ SnString* snow_symbol_to_string(SnSymbol sym)
 }
 
 SNOW_FUNC(symbol___call__) {
-	ASSERT(is_symbol(SELF));
+	ASSERT(snow_is_symbol(SELF));
 	REQUIRE_ARGS(1);
 	
-	return snow_call_method(ARGS[0], value_to_symbol(SELF), 0);
+	return snow_call_method(ARGS[0], snow_value_to_symbol(SELF), 0);
 }
 
 SNOW_FUNC(symbol_to_string) {
-	ASSERT(is_symbol(SELF));
-	return snow_symbol_to_string(value_to_symbol(SELF));
+	ASSERT(snow_is_symbol(SELF));
+	return snow_symbol_to_string(snow_value_to_symbol(SELF));
 }
 
 SNOW_FUNC(symbol_inspect) {
-	ASSERT(is_symbol(SELF));
-	return snow_string_concatenate(snow_create_string("#"), snow_symbol_to_string(value_to_symbol(SELF)));
+	ASSERT(snow_is_symbol(SELF));
+	return snow_string_concatenate(snow_create_string("#"), snow_symbol_to_string(snow_value_to_symbol(SELF)));
 }
 
-void init_symbol_class(SnClass* klass)
+void SnSymbol_init_class(SnClass* klass)
 {
 	snow_define_method(klass, "__call__", symbol___call__);
 	snow_define_method(klass, "to_string", symbol_to_string);

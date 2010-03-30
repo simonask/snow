@@ -42,10 +42,9 @@
 
 %{
 
-#include "snow/intern.h"
 #include "snow/scanner.h"
-#include "snow/parser-intern.h"
 #include "snow/exception.h"
+#include "snow/parser-intern.h"
 #include <stdio.h>
 
 #ifdef DEBUG
@@ -55,13 +54,13 @@
 #undef YYMALLOC
 #undef YYREALLOC
 #undef YYFREE
-#define YYMALLOC snow_gc_alloc_blob
-#define YYREALLOC snow_gc_realloc
-#define YYFREE(x) 
+#define YYMALLOC snow_malloc
+#define YYREALLOC snow_realloc
+#define YYFREE(x) snow_free(x)
 
 #define YYMAXDEPTH 100000
 
-SnAstNode* snow_parse(const char* buf, struct SnParserInfo* out_info)
+struct SnAstNode* snow_parse(const char* buf, struct SnParserInfo* out_info)
 {
 	SnParserState state;
 	state.buf = buf;
@@ -75,12 +74,9 @@ SnAstNode* snow_parse(const char* buf, struct SnParserInfo* out_info)
 	yylex_init(&state.yyscanner);
 	yyset_extra(&state, state.yyscanner);
 	yyparse(&state, state.yyscanner);
-	SnAstNode* root = state.result;
+	struct SnAstNode* root = state.result;
 	yylex_destroy(state.yyscanner);
 	
-	if (root) {
-		ASSERT(root->base.type == SN_AST_TYPE && root->type == SN_AST_FUNCTION);
-	}
 	return root;
 }
 
@@ -126,7 +122,7 @@ try: TOK_TRY sequence try_catch try_ensure TOK_END  { $$ = snow_ast_try($2, $3, 
 
 try_catch:                                                    { $$ = NULL; }
          | TOK_CATCH catch_condition eol sequence             { $$ = snow_ast_catch(NULL, $2, $4); }
-         | TOK_CATCH identifier catch_condition eol sequence  { $$ = snow_ast_catch(symbol_to_value($2), $3, $5); }
+         | TOK_CATCH identifier catch_condition eol sequence  { $$ = snow_ast_catch(snow_symbol_to_value($2), $3, $5); }
          ;
 
 catch_condition:                        { $$ = NULL; }
@@ -192,8 +188,8 @@ index_arguments: '[' argument_list ']'  { $$ = $2; }
 scope: '{' sequence '}'  { $$ = $2; }
      ;
 
-parameter_list: identifier                     { $$ = snow_ast_sequence(1, symbol_to_value($1)); }
-              | parameter_list ',' identifier  { snow_ast_sequence_push($1, symbol_to_value($3)); $$ = $1; }
+parameter_list: identifier                     { $$ = snow_ast_sequence(1, snow_symbol_to_value($1)); }
+              | parameter_list ',' identifier  { snow_ast_sequence_push($1, snow_symbol_to_value($3)); $$ = $1; }
               ;
 
 parameters: '[' ']'                 { $$ = NULL; }
@@ -207,8 +203,8 @@ closure: naked_closure
        | parameters scope  { ++state->info->num_functions; $$ = snow_ast_function("<unnamed>", state->streamname, $1, $2); }
        ;
 
-symbol: '#' identifier  { $$ = symbol_to_value($2); }
-      | '#' TOK_STRING  { $$ = symbol_to_value(snow_symbol_from_string($2)); }
+symbol: '#' identifier  { $$ = snow_symbol_to_value($2); }
+      | '#' TOK_STRING  { $$ = snow_symbol_to_value(snow_symbol_from_string($2)); }
       ;
 
 string_literal: TOK_STRING                 { $$ = snow_ast_literal($1); }
@@ -238,12 +234,12 @@ assignment: identifier ':' expression                   { $$ = snow_ast_local_as
           ;
 
 parallel_thread: expression TOK_PARALLEL_THREAD expression       %dprec 1  { $$ = snow_ast_parallel_thread(snow_ast_sequence(2, $1, $3)); }
-               | parallel_thread TOK_PARALLEL_THREAD expression  %dprec 2  { snow_ast_sequence_push($1->children[0], $3); $$ = $1; }
+               | parallel_thread TOK_PARALLEL_THREAD expression  %dprec 2  { snow_ast_sequence_push(snow_ast_node_get_child($1, 0), $3); $$ = $1; }
                ;
 
 parallel_fork: expression TOK_PARALLEL_FORK                { $$ = snow_ast_parallel_fork(snow_ast_sequence(1, $1)); }
-             | parallel_fork expression                    { snow_ast_sequence_push($1->children[0], $2); $$ = $1; }
-             | parallel_fork expression TOK_PARALLEL_FORK  { snow_ast_sequence_push($1->children[0], $2); $$ = $1; }
+             | parallel_fork expression                    { snow_ast_sequence_push(snow_ast_node_get_child($1, 0), $2); $$ = $1; }
+             | parallel_fork expression TOK_PARALLEL_FORK  { snow_ast_sequence_push(snow_ast_node_get_child($1, 0), $2); $$ = $1; }
              ;
 
 parallel_operation: parallel_thread
