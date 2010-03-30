@@ -28,7 +28,6 @@ struct SnGCHeapList;
 
 // internal functions
 static struct SnGCHeap* gc_find_heap(const SnAnyObject* root);
-static bool gc_is_heap(const struct SnGCHeap*);
 static bool gc_heap_contains(const struct SnGCHeap* heap, const void* root);
 static void gc_mark_root(VALUE);
 static void gc_mark_any_object(SnAnyObject* object);
@@ -67,6 +66,7 @@ struct {
 	pthread_mutex_t heaps_lock;
 	SnGCHeapList full_heaps;
 	SnGCHeapList empty_heaps;
+	SnGCHeapList sweeping;
 	
 	byte* lower_bound;
 	byte* upper_bound;
@@ -175,6 +175,7 @@ void snow_init_gc() {
 	pthread_mutex_init(&GC.heaps_lock, NULL);
 	gc_heap_list_init(&GC.full_heaps, sizeof(SnAnyObject));
 	gc_heap_list_init(&GC.empty_heaps, sizeof(SnAnyObject));
+	gc_heap_list_init(&GC.sweeping, sizeof(SnAnyObject));
 	pthread_create(&GC.worker_thread, NULL, gc_worker_thread, NULL);
 	GC.info.collection_threshold = GC_DEFAULT_COLLECTION_THRESHOLD;
 }
@@ -215,6 +216,17 @@ static void* gc_worker_thread(void* _unused_) {
 		if (GC.info.total_mem_usage > GC.info.collection_threshold) {
 			gc_clear_flags();
 			
+			// Collect heaps that should be swept
+			pthread_mutex_lock(&GC.heaps_lock);
+			size_t memory_usage_before_collection = GC.info.total_mem_usage;
+			
+			for (SnGCHeapListNode* n = GC.full_heaps.head; n != NULL;) {
+				gc_heap_list_push_heap(&GC.sweeping, n->heap);
+				n->heap = NULL;
+				n = gc_heap_list_erase(&GC.full_heaps, n);
+			}
+			pthread_mutex_unlock(&GC.heaps_lock);
+			
 			gc_mark_definite_roots();
 			
 			// Signal threads that they should be marked
@@ -227,24 +239,11 @@ static void* gc_worker_thread(void* _unused_) {
 					if (!nursery->mark_done) all_marked = false;
 				}
 				pthread_mutex_unlock(&GC.gc_lock);
+				usleep(1);
 			}
-			
-			SnGCHeapList to_be_swept;
-			gc_heap_list_init(&to_be_swept, sizeof(SnAnyObject));
-			
-			// Collect heaps that should be swept
-			pthread_mutex_lock(&GC.heaps_lock);
-			size_t memory_usage_before_collection = GC.info.total_mem_usage;
-			
-			for (SnGCHeapListNode* n = GC.full_heaps.head; n != NULL;) {
-				gc_heap_list_push_heap(&to_be_swept, n->heap);
-				n->heap = NULL;
-				n = gc_heap_list_erase(&GC.full_heaps, n);
-			}
-			pthread_mutex_unlock(&GC.heaps_lock);
 			
 			// Sweep the collected heaps
-			for (SnGCHeapListNode* n = to_be_swept.head; n != NULL;) {
+			for (SnGCHeapListNode* n = GC.sweeping.head; n != NULL;) {
 				SnGCHeap* heap = n->heap;
 				gc_sweep_heap(heap);
 				
@@ -254,7 +253,7 @@ static void* gc_worker_thread(void* _unused_) {
 					n->heap = NULL;
 					gc_heap_destroy(heap);
 					GC.info.total_mem_usage -= GC_HEAP_SIZE;
-					n = gc_heap_list_erase(&to_be_swept, n);
+					n = gc_heap_list_erase(&GC.sweeping, n);
 				} else {
 					n = n->next;
 				}
@@ -262,7 +261,7 @@ static void* gc_worker_thread(void* _unused_) {
 			
 			// Done sweeping, put the swept heaps back in the game
 			pthread_mutex_lock(&GC.heaps_lock);
-			for (SnGCHeapListNode* n = to_be_swept.head; n != NULL;) {
+			for (SnGCHeapListNode* n = GC.sweeping.head; n != NULL;) {
 				SnGCHeap* heap = n->heap;
 				size_t max_num_objects = (SnAnyObject*)heap->end - (SnAnyObject*)heap->start;
 				if (heap->num_reachable < max_num_objects * 2 / 3) {
@@ -271,10 +270,15 @@ static void* gc_worker_thread(void* _unused_) {
 					gc_heap_list_push_heap(&GC.full_heaps, heap);
 				}
 				n->heap = NULL;
-				n = gc_heap_list_erase(&to_be_swept, n);
+				n = gc_heap_list_erase(&GC.sweeping, n);
 			}
 			
+			ASSERT(GC.sweeping.head == NULL); // some rubbish left in the sweep list?!
+			
 			size_t memory_usage_after_collection = GC.info.total_mem_usage;
+			if (memory_usage_after_collection > GC.info.collection_threshold) {
+				GC.info.collection_threshold = memory_usage_after_collection * 3 / 2;
+			}
 			pthread_mutex_unlock(&GC.heaps_lock);
 			
 			// Reset thread markings
@@ -284,8 +288,6 @@ static void* gc_worker_thread(void* _unused_) {
 				nursery->mark_done = false;
 			}
 			pthread_mutex_unlock(&GC.gc_lock);
-			
-			// TODO: Update threshold
 		}
 	}
 	return NULL;
@@ -367,7 +369,7 @@ static inline void gc_clear_flags() {
 
 void gc_mark_root(VALUE root) {
 	SnGCHeap* heap = gc_find_heap(root);
-	if (heap && (((uintx)root - (uintx)heap) % sizeof(SnAnyObject) == 0) && gc_is_heap(heap)) {
+	if (heap && (((uintx)root - (uintx)heap) % sizeof(SnAnyObject) == 0) && gc_heap_list_contains(&GC.sweeping, heap)) {
 		SnGCFlags flags = gc_heap_get_flags(heap, root);
 
 		SnGCFlags new_flags = flags | GC_MARK;
@@ -433,15 +435,6 @@ static void gc_mark_object(SnObject* object) {
 	gc_mark_root(object->property_names);
 	gc_mark_root(object->property_data);
 	gc_mark_root(object->included_modules);
-}
-
-static bool gc_is_heap(const SnGCHeap* heap) {
-	bool found = false;
-	pthread_mutex_lock(&GC.heaps_lock);
-	found = gc_heap_list_contains(&GC.full_heaps, heap);
-	found = found || gc_heap_list_contains(&GC.empty_heaps, heap);
-	pthread_mutex_unlock(&GC.heaps_lock);
-	return found;
 }
 
 #if DEBUG_MALLOC
